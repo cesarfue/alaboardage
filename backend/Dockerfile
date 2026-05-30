@@ -1,8 +1,6 @@
-FROM node:20-alpine
+FROM mcr.microsoft.com/playwright:v1.60.0-noble
 
 WORKDIR /app
-
-RUN apk add --no-cache openssl
 
 COPY package*.json ./
 RUN npm ci
