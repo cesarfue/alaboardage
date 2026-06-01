@@ -51,5 +51,16 @@ generate: ## Run prisma generate
 studio: ## Open prisma studio (http://localhost:5555)
 	docker compose exec backend npx prisma studio
 
-test: ## Run backend tests
+test: ## Run backend unit tests
 	docker compose exec backend npm test
+
+# args after `make test-e2e` are forwarded to jest as a filename pattern,
+# e.g. `make test-e2e linkedin` runs only test/scrapers/linkedin.e2e-spec.ts
+TEST_E2E_ARGS = $(filter-out test-e2e,$(MAKECMDGOALS))
+
+test-e2e: ## Run backend e2e tests; pass a board name to scope (e.g. `make test-e2e linkedin`)
+	docker compose exec backend npm run test:e2e -- $(TEST_E2E_ARGS)
+
+# swallow extra goals so `make test-e2e linkedin` doesn't error on the `linkedin` target
+%:
+	@:
