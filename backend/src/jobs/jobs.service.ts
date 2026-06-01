@@ -52,6 +52,11 @@ export class JobsService {
     return this.prisma.$transaction(dtos.map((dto) => this.upsertQuery(dto)));
   }
 
+  async deleteAll(): Promise<number> {
+    const { count } = await this.prisma.job.deleteMany({});
+    return count;
+  }
+
   private upsertQuery(dto: CreateJobDto) {
     const { source, externalId, ...data } = dto;
     return this.prisma.job.upsert({

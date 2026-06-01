@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { chromium } from 'playwright';
 import { JobsService } from '../jobs/jobs.service';
 import { ScrapeRequestDto } from './dto/scrape-request.dto';
+import { RefreshDto } from './dto/refresh.dto';
 import { BoardScraper } from './board.scraper';
 import { HELLOWORK } from './boards/hellowork.config';
 import { LINKEDIN } from './boards/linkedin.config';
@@ -34,6 +35,44 @@ export class ScraperService {
     } finally {
       await browser.close();
     }
+  }
+
+  async refresh(dto: RefreshDto) {
+    const start = Date.now();
+    const deleted = dto.hard ? await this.jobsService.deleteAll() : 0;
+    this.logger.log(
+      `Refresh (hard=${dto.hard}, deleted=${deleted}) q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
+    );
+
+    const sources = Object.values(JobSource);
+    const counts = await Promise.all(
+      sources.map(async (source) => {
+        try {
+          const r = await this.scrape({
+            source,
+            query: dto.query,
+            location: dto.location,
+            limit: dto.limit,
+            offset: 1,
+            singlePage: true,
+          });
+          return r;
+        } catch (e) {
+          this.logger.error(
+            `Failed to scrape ${source}: ${(e as Error).message}`,
+          );
+          return { source, count: 0 };
+        }
+      }),
+    );
+
+    const total = counts.reduce((acc, c) => acc + c.count, 0);
+    return {
+      deleted,
+      counts,
+      total,
+      durationMs: Date.now() - start,
+    };
   }
 
   private configFor(source: JobSource): BoardConfig {
