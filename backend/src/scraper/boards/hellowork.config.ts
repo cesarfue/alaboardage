@@ -8,19 +8,19 @@ export const HELLOWORK: BoardConfig = {
   jobPath: '/emplois/{id}.html',
   selectors: {
     card: {
-      selects: "div[data-id-storage-target='item']",
+      selects: "li[data-id-storage-target='item']",
       returns: { kind: 'html' },
     },
     id: {
-      selects: "div[data-id-storage-target='item']",
+      selects: "li[data-id-storage-target='item']",
       returns: { kind: 'attribute', name: 'data-id-storage-item-id' },
     },
     title: {
-      selects: 'h3.tw-inline p:first-of-type',
+      selects: 'h3.inline p:first-of-type',
       returns: { kind: 'text' },
     },
     company: {
-      selects: 'h3.tw-inline p:last-of-type',
+      selects: 'h3.inline p:last-of-type',
       returns: { kind: 'text' },
     },
     location: {
@@ -33,8 +33,7 @@ export const HELLOWORK: BoardConfig = {
       returns: { kind: 'text' },
     },
     datePosted: {
-      selects:
-        "div[class='tw-typo-s tw-text-grey-500 tw-pl-1 tw-pt-1']",
+      selects: "div[class='tw-typo-s tw-text-grey-500 tw-pl-1 tw-pt-1']",
       returns: { kind: 'text' },
       transforms: helloworkDate,
     },

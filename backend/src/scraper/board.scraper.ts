@@ -33,6 +33,7 @@ export class BoardScraper {
 
         const html = await page.content();
         const cards = this.extractCards(html);
+        console.log('Found %s cards', cards.length);
         if (cards.length === 0) break;
 
         for (const cardHtml of cards) {

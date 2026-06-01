@@ -1,10 +1,11 @@
-import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { chromium } from 'playwright';
 import { JobsService } from '../jobs/jobs.service';
 import { ScrapeRequestDto } from './dto/scrape-request.dto';
 import { BoardScraper } from './board.scraper';
 import { HELLOWORK } from './boards/hellowork.config';
 import { LINKEDIN } from './boards/linkedin.config';
+import { WTTJ } from './boards/wttj.config';
 import type { BoardConfig } from './types';
 import { JobSource } from '../../generated/prisma/enums';
 
@@ -42,9 +43,7 @@ export class ScraperService {
       case JobSource.HELLOWORK:
         return HELLOWORK;
       case JobSource.WTTJ:
-        throw new NotImplementedException(
-          `Scraper for ${source} not yet ported`,
-        );
+        return WTTJ;
     }
   }
 }
