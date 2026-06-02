@@ -16,6 +16,10 @@ export class FindJobsQueryDto {
   q?: string;
 
   @IsOptional()
+  @IsString()
+  location?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
