@@ -25,6 +25,7 @@ export interface ListJobsParams {
   source?: JobSource
   q?: string
   company?: string
+  location?: string
   limit?: number
   offset?: number
 }
