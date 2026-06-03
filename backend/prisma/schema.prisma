@@ -12,3 +12,28 @@ generator client {
 datasource db {
   provider = "sqlite"
 }
+
+enum JobSource {
+  HELLOWORK
+  LINKEDIN
+  WTTJ
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  externalId  String
+  source      JobSource
+  title       String
+  company     String
+  location    String
+  description String
+  url         String
+  datePosted  DateTime
+  scrapedAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([source, externalId])
+  @@index([datePosted])
+  @@index([company])
+  @@index([source])
+}

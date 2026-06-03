@@ -11,14 +11,12 @@ export class JobsService {
   async findAll(query: FindJobsQueryDto) {
     const where: Prisma.JobWhereInput = {};
     if (query.source) where.source = query.source;
-    if (query.company)
-      where.company = { contains: query.company, mode: 'insensitive' };
-    if (query.location)
-      where.location = { contains: query.location, mode: 'insensitive' };
+    if (query.company) where.company = { contains: query.company };
+    if (query.location) where.location = { contains: query.location };
     if (query.q) {
       where.OR = [
-        { title: { contains: query.q, mode: 'insensitive' } },
-        { description: { contains: query.q, mode: 'insensitive' } },
+        { title: { contains: query.q } },
+        { description: { contains: query.q } },
       ];
     }
 
