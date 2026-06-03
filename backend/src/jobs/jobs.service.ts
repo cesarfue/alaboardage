@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { FindJobsQueryDto } from './dto/find-jobs-query.dto';
@@ -13,10 +13,10 @@ export class JobsService {
     if (query.source) where.source = query.source;
     if (query.company) where.company = { contains: query.company };
     if (query.location) where.location = { contains: query.location };
-    if (query.q) {
+    if (query.query) {
       where.OR = [
-        { title: { contains: query.q } },
-        { description: { contains: query.q } },
+        { title: { contains: query.query } },
+        { description: { contains: query.query } },
       ];
     }
 
@@ -31,12 +31,6 @@ export class JobsService {
     ]);
 
     return { items, total, limit: query.limit, offset: query.offset };
-  }
-
-  async findOne(id: string) {
-    const job = await this.prisma.job.findUnique({ where: { id } });
-    if (!job) throw new NotFoundException(`Job ${id} not found`);
-    return job;
   }
 
   upsert(dto: CreateJobDto) {

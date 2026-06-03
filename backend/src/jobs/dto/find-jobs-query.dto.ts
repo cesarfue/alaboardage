@@ -1,5 +1,13 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { JobSource } from '../../../generated/prisma/enums';
 
 export class FindJobsQueryDto {
@@ -13,7 +21,7 @@ export class FindJobsQueryDto {
 
   @IsOptional()
   @IsString()
-  q?: string;
+  query?: string;
 
   @IsOptional()
   @IsString()

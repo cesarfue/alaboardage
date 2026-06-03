@@ -1,14 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { chromium } from 'playwright';
 import { JobsService } from '../jobs/jobs.service';
-import { ScrapeRequestDto } from './dto/scrape-request.dto';
-import { RefreshDto } from './dto/refresh.dto';
 import { BoardScraper } from './board.scraper';
 import { HELLOWORK } from './boards/hellowork.config';
 import { LINKEDIN } from './boards/linkedin.config';
 import { WTTJ } from './boards/wttj.config';
 import type { BoardConfig } from './types';
 import { JobSource } from '../../generated/prisma/enums';
+import { ScrapeRequestDto } from './dto/scrape-request.dto';
+import { FindJobsQueryDto } from '../jobs/dto/find-jobs-query.dto';
 
 @Injectable()
 export class ScraperService {
@@ -37,12 +37,8 @@ export class ScraperService {
     }
   }
 
-  async refresh(dto: RefreshDto) {
+  async scrapeAllBoards(dto: FindJobsQueryDto) {
     const start = Date.now();
-    const deleted = dto.hard ? await this.jobsService.deleteAll() : 0;
-    this.logger.log(
-      `Refresh (hard=${dto.hard}, deleted=${deleted}) q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
-    );
 
     const sources = Object.values(JobSource);
     const counts = await Promise.all(
@@ -50,8 +46,8 @@ export class ScraperService {
         try {
           const r = await this.scrape({
             source,
-            query: dto.query,
-            location: dto.location,
+            query: dto.query ?? '',
+            location: dto.location ?? '',
             limit: dto.limit,
             offset: 1,
             singlePage: true,
@@ -68,7 +64,6 @@ export class ScraperService {
 
     const total = counts.reduce((acc, c) => acc + c.count, 0);
     return {
-      deleted,
       counts,
       total,
       durationMs: Date.now() - start,

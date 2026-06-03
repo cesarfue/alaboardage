@@ -1,9 +1,8 @@
 import type {
   Job,
-  JobListResponse,
-  ListJobsParams,
-  RefreshRequest,
-  RefreshResponse,
+  ListJobsResponse,
+  SearchOrListRequest,
+  SearchResponse,
 } from "./types";
 
 const BASE = "/api";
@@ -34,7 +33,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-function buildQuery(params: ListJobsParams): string {
+function buildQuery(params: SearchOrListRequest): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params) as [string, unknown][]) {
     if (value === undefined || value === "" || value === null) continue;
@@ -45,18 +44,18 @@ function buildQuery(params: ListJobsParams): string {
 }
 
 export const api = {
-  listJobs(params: ListJobsParams = {}): Promise<JobListResponse> {
-    return request<JobListResponse>(`/jobs${buildQuery(params)}`);
+  listJobs(params: SearchOrListRequest = {}): Promise<ListJobsResponse> {
+    return request<ListJobsResponse>(`/jobs${buildQuery(params)}`);
+  },
+
+  search(params: SearchOrListRequest = {}): Promise<SearchResponse> {
+    return request<SearchResponse>(`/scraper/search${buildQuery(params)}`, {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
   },
 
   getJob(id: string): Promise<Job> {
     return request<Job>(`/jobs/${encodeURIComponent(id)}`);
-  },
-
-  refresh(body: RefreshRequest = {}): Promise<RefreshResponse> {
-    return request<RefreshResponse>("/scrape/refresh", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
   },
 };

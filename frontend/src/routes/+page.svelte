@@ -1,9 +1,10 @@
 <script lang="ts">
   import * as Table from "$lib/components/ui/table/index.js";
   import { page } from "$app/state";
-  import { goto } from "$app/navigation";
-  import { api } from "$lib/api";
+  import { api, ApiError } from "$lib/api";
   import type { Job } from "$lib/types";
+  import { toast } from "svelte-sonner";
+  import { goto } from "$app/navigation";
 
   let query = $state(page.url.searchParams.get("query") ?? "");
   let location = $state(page.url.searchParams.get("location") ?? "");
@@ -19,11 +20,21 @@
       });
   });
 
-  function search() {
-    const params = new URLSearchParams();
-    if (query) params.set("query", query);
-    if (location) params.set("location", location);
-    goto(`?${params}`);
+  async function search() {
+    try {
+      await api.search({
+        q: query || undefined,
+        location: location || undefined,
+      });
+      const params = new URLSearchParams();
+      if (query) params.set("query", query);
+      if (location) params.set("location", location);
+      goto(`${params}`);
+    } catch (e) {
+      toast.error(
+        e instanceof ApiError ? `Erreur ${e.status}` : "Erreur inattendue",
+      );
+    }
   }
 </script>
 

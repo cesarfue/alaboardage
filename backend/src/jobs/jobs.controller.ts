@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { JobsService } from './jobs.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { FindJobsQueryDto } from './dto/find-jobs-query.dto';
@@ -10,11 +10,6 @@ export class JobsController {
   @Get()
   findAll(@Query() query: FindJobsQueryDto) {
     return this.jobsService.findAll(query);
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.jobsService.findOne(id);
   }
 
   @Post()
