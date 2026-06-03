@@ -1,6 +1,8 @@
 node_modules
 dist
+generated
 .git
 .env
+*.db
 *.log
 coverage
