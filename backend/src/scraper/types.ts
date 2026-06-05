@@ -35,5 +35,6 @@ export interface BoardConfig {
   jobPath: string;
   selectors: Selectors;
   urlParams: UrlParameters;
+  locationPathTransform?: (location: string) => string;
   boardPageAction?: (page: Page) => Promise<void>;
 }

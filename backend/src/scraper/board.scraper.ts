@@ -14,7 +14,10 @@ export class BoardScraper {
   ) {}
 
   async search(): Promise<CreateJobDto[]> {
-    const context = await this.browser.newContext();
+    const context = await this.browser.newContext({
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    });
     const page = await context.newPage();
     const jobs: CreateJobDto[] = [];
     let offset = this.params.offset;
@@ -139,10 +142,16 @@ export class BoardScraper {
   }
 
   private buildBoardUrl(offset: number): string {
-    const url = new URL(this.config.boardPath, this.config.baseUrl + '/');
     const params = this.config.urlParams;
+    const boardPath = this.config.locationPathTransform
+      ? this.config.boardPath.replace(
+          '{location}',
+          this.config.locationPathTransform(this.params.location),
+        )
+      : this.config.boardPath;
+    const url = new URL(boardPath, this.config.baseUrl + '/');
     url.searchParams.set(params.query, this.params.query);
-    url.searchParams.set(params.location, this.params.location);
+    if (params.location) url.searchParams.set(params.location, this.params.location);
     url.searchParams.set(params.offset, String(offset));
     return url.toString();
   }
