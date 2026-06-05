@@ -2,9 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { chromium } from 'playwright';
 import { JobsService } from '../jobs/jobs.service';
 import { BoardScraper } from './board.scraper';
+import { WTTJScraper } from './wttj.scraper';
 import { HELLOWORK } from './boards/hellowork.config';
 import { LINKEDIN } from './boards/linkedin.config';
-import { WTTJ } from './boards/wttj.config';
 import type { BoardConfig } from './types';
 import { JobSource } from '../../generated/prisma/enums';
 import { ScrapeRequestDto } from './dto/scrape-request.dto';
@@ -18,6 +18,10 @@ export class ScraperService {
   constructor(private readonly jobsService: JobsService) {}
 
   async scrape(dto: ScrapeRequestDto) {
+    if (dto.source === JobSource.WTTJ) {
+      return this.scrapeWTTJ(dto);
+    }
+
     const config = this.configFor(dto.source);
     this.logger.log(
       `Scraping ${config.name} q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
@@ -36,6 +40,17 @@ export class ScraperService {
     } finally {
       await browser.close();
     }
+  }
+
+  private async scrapeWTTJ(dto: ScrapeRequestDto) {
+    this.logger.log(
+      `Scraping WTTJ (Algolia) q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
+    );
+    const scraper = new WTTJScraper(dto, dto.source);
+    const jobs = await scraper.search();
+    this.logger.log(`Scraped ${jobs.length} jobs from WTTJ`);
+    if (jobs.length > 0) await this.jobsService.upsertMany(jobs);
+    return { source: dto.source, count: jobs.length };
   }
 
   async scrapeAllBoards(dto: FindJobsDto) {
@@ -77,10 +92,10 @@ export class ScraperService {
         return LINKEDIN;
       case JobSource.HELLOWORK:
         return HELLOWORK;
-      case JobSource.WTTJ:
-        return WTTJ;
       case JobSource.JTMS:
         return JTMS;
+      default:
+        throw new Error(`No BoardConfig for source: ${source}`);
     }
   }
 }
