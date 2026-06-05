@@ -15,6 +15,7 @@ datasource db {
 
 enum JobSource {
   HELLOWORK
+  JTMS
   LINKEDIN
   WTTJ
 }
