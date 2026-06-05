@@ -1,4 +1,4 @@
-import { parseDate } from '../transforms';
+import { handleSpelledDate } from '../transforms';
 import type { BoardConfig } from '../types';
 
 export const JTMS: BoardConfig = {
@@ -40,7 +40,7 @@ export const JTMS: BoardConfig = {
     datePosted: {
       selects: 'span.job__date',
       returns: { kind: 'text' },
-      transforms: (raw) => parseDate(raw).toISOString().slice(0, 10),
+      transforms: handleSpelledDate,
     },
   },
   urlParams: {

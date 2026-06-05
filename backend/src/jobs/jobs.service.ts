@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateJobDto } from './dto/create-job.dto';
-import { FindJobsQueryDto } from './dto/find-jobs-query.dto';
+import { FindJobsDto } from './dto/find-jobs-query.dto';
 import type { Prisma } from '../../generated/prisma/client';
 
 @Injectable()
 export class JobsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: FindJobsQueryDto) {
+  async findAll(query: FindJobsDto) {
     const where: Prisma.JobWhereInput = {};
     if (query.source) where.source = query.source;
     if (query.company) where.company = { contains: query.company };

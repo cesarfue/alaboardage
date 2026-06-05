@@ -5,6 +5,7 @@
   import type { Job } from "$lib/types";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
+  import { READABLE_SOURCES } from "$lib/types";
 
   let query = $state(page.url.searchParams.get("query") ?? "");
   let location = $state(page.url.searchParams.get("location") ?? "");
@@ -65,7 +66,7 @@
             <Table.Cell class="font-medium">{job.title}</Table.Cell>
             <Table.Cell>{job.company}</Table.Cell>
             <Table.Cell>{job.location}</Table.Cell>
-            <Table.Cell>{job.source}</Table.Cell>
+            <Table.Cell>{READABLE_SOURCES[job.source]}</Table.Cell>
             <Table.Cell>{job.datePosted}</Table.Cell>
           </Table.Row>
         {/each}

@@ -1,4 +1,4 @@
-export function helloworkDate(text: string): string {
+export function handleSpelledDate(text: string): string {
   const normalized = text.trim().toLowerCase();
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);

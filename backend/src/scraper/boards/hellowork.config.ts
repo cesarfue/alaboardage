@@ -1,5 +1,5 @@
 import type { BoardConfig } from '../types';
-import { helloworkDate } from '../transforms';
+import { handleSpelledDate } from '../transforms';
 
 export const HELLOWORK: BoardConfig = {
   name: 'Hellowork',
@@ -35,7 +35,7 @@ export const HELLOWORK: BoardConfig = {
     datePosted: {
       selects: "div[class='tw-typo-s tw-text-grey-500 tw-pl-1 tw-pt-1']",
       returns: { kind: 'text' },
-      transforms: helloworkDate,
+      transforms: handleSpelledDate,
     },
   },
   urlParams: {

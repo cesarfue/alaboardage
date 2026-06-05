@@ -1,14 +1,14 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { JobsService } from './jobs.service';
 import { CreateJobDto } from './dto/create-job.dto';
-import { FindJobsQueryDto } from './dto/find-jobs-query.dto';
+import { FindJobsDto } from './dto/find-jobs-query.dto';
 
 @Controller('jobs')
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
   @Get()
-  findAll(@Query() query: FindJobsQueryDto) {
+  findAll(@Query() query: FindJobsDto) {
     return this.jobsService.findAll(query);
   }
 
