@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { chromium } from 'playwright';
 import { JobsService } from '../jobs/jobs.service';
 import { BoardScraper } from './board.scraper';
+import { GLASSDOOR } from './boards/glassdoor.config';
 import { HELLOWORK } from './boards/hellowork.config';
 import { LINKEDIN } from './boards/linkedin.config';
 import { WTTJ } from './boards/wttj.config';
@@ -72,6 +73,8 @@ export class ScraperService {
 
   private configFor(source: JobSource): BoardConfig {
     switch (source) {
+      case JobSource.GLASSDOOR:
+        return GLASSDOOR;
       case JobSource.LINKEDIN:
         return LINKEDIN;
       case JobSource.HELLOWORK:

@@ -23,9 +23,9 @@ export interface Selectors {
 }
 
 export interface UrlParameters {
-  query: string;
-  location: string;
-  offset: string;
+  query?: string;
+  location?: string;
+  offset?: string;
 }
 
 export interface BoardConfig {
@@ -35,5 +35,8 @@ export interface BoardConfig {
   jobPath: string;
   selectors: Selectors;
   urlParams: UrlParameters;
+  locationPathTransform?: (location: string) => string;
+  /** When true, description is extracted from the card HTML instead of fetching the job detail page. */
+  descriptionFromCard?: boolean;
   boardPageAction?: (page: Page) => Promise<void>;
 }
