@@ -43,15 +43,20 @@ export class BoardScraper {
           .filter((j) => j !== null)
           .slice(0, this.params.limit - jobs.length);
 
-        const batchSize = 10;
-        for (let i = 0; i < partialJobs.length; i += batchSize) {
-          const batch = partialJobs.slice(i, i + batchSize);
-          const descriptions = await Promise.all(
-            batch.map((j) => this.fetchDescription(context, j.url)),
-          );
-          batch.forEach((j, idx) =>
-            jobs.push({ ...j, description: descriptions[idx] }),
-          );
+        if (this.config.descriptionFromCard) {
+          // Description already extracted from card — skip detail page fetches.
+          partialJobs.forEach((j) => jobs.push(j as CreateJobDto));
+        } else {
+          const batchSize = 10;
+          for (let i = 0; i < partialJobs.length; i += batchSize) {
+            const batch = partialJobs.slice(i, i + batchSize);
+            const descriptions = await Promise.all(
+              batch.map((j) => this.fetchDescription(context, j.url)),
+            );
+            batch.forEach((j, idx) =>
+              jobs.push({ ...j, description: descriptions[idx] }),
+            );
+          }
         }
 
         if (this.params.singlePage) break;
@@ -75,7 +80,7 @@ export class BoardScraper {
 
   private parseCard(
     cardHtml: string,
-  ): Omit<CreateJobDto, 'description'> | null {
+  ): Omit<CreateJobDto, 'description'> & { description?: string } | null {
     const $card = load(cardHtml);
     const selectors = this.config.selectors;
     const externalId = this.extract($card, selectors.id);
@@ -84,7 +89,7 @@ export class BoardScraper {
     const datePostedRaw = this.extract($card, selectors.datePosted);
     const datePosted = datePostedRaw ? parseDate(datePostedRaw) : new Date();
 
-    return {
+    const base = {
       externalId,
       source: this.source,
       title: this.extract($card, selectors.title).replace(/\n/g, ' '),
@@ -93,6 +98,12 @@ export class BoardScraper {
       url,
       datePosted,
     };
+
+    if (this.config.descriptionFromCard) {
+      return { ...base, description: this.extract($card, selectors.description) };
+    }
+
+    return base;
   }
 
   private async fetchDescription(
@@ -144,15 +155,12 @@ export class BoardScraper {
   private buildBoardUrl(offset: number): string {
     const params = this.config.urlParams;
     const boardPath = this.config.locationPathTransform
-      ? this.config.boardPath.replace(
-          '{location}',
-          this.config.locationPathTransform(this.params.location),
-        )
+      ? this.config.boardPath.replace('{location}', this.config.locationPathTransform(this.params.location))
       : this.config.boardPath;
     const url = new URL(boardPath, this.config.baseUrl + '/');
-    url.searchParams.set(params.query, this.params.query);
+    if (params.query) url.searchParams.set(params.query, this.params.query);
     if (params.location) url.searchParams.set(params.location, this.params.location);
-    url.searchParams.set(params.offset, String(offset));
+    if (params.offset) url.searchParams.set(params.offset, String(offset));
     return url.toString();
   }
 

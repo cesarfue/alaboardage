@@ -16,6 +16,15 @@ export function jeunesdavenirsId(href: string): string {
   return match?.[1] ?? href;
 }
 
+export function glassdoorAge(text: string): string {
+  const normalized = text.trim().toLowerCase().replace('+', '');
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const days = parseInt(normalized, 10);
+  if (!Number.isNaN(days)) today.setUTCDate(today.getUTCDate() - days);
+  return today.toISOString().slice(0, 10);
+}
+
 export function handleSpelledDate(text: string): string {
   const normalized = text.trim().toLowerCase();
   const today = new Date();

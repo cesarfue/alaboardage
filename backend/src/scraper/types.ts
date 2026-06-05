@@ -23,9 +23,9 @@ export interface Selectors {
 }
 
 export interface UrlParameters {
-  query: string;
-  location: string;
-  offset: string;
+  query?: string;
+  location?: string;
+  offset?: string;
 }
 
 export interface BoardConfig {
@@ -36,5 +36,6 @@ export interface BoardConfig {
   selectors: Selectors;
   urlParams: UrlParameters;
   locationPathTransform?: (location: string) => string;
+  descriptionFromCard?: boolean;
   boardPageAction?: (page: Page) => Promise<void>;
 }
