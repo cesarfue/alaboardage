@@ -14,7 +14,10 @@ export class BoardScraper {
   ) {}
 
   async search(): Promise<CreateJobDto[]> {
-    const context = await this.browser.newContext();
+    const context = await this.browser.newContext({
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    });
     const page = await context.newPage();
     const jobs: CreateJobDto[] = [];
     let offset = this.params.offset;
