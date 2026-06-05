@@ -17,6 +17,7 @@ enum JobSource {
   HELLOWORK
   LINKEDIN
   WTTJ
+  JTMS
 }
 
 model Job {

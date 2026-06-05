@@ -1,5 +1,3 @@
-export type JobSource = "HELLOWORK" | "LINKEDIN" | "WTTJ";
-
 export interface Job {
   id: string;
   externalId: string;
@@ -35,3 +33,12 @@ export interface ListJobsResponse {
   limit: number;
   offset: number;
 }
+
+export type JobSource = "HELLOWORK" | "LINKEDIN" | "WTTJ" | "JTMS";
+
+export const READABLE_SOURCES: Record<JobSource, string> = {
+  HELLOWORK: "Hellowork",
+  LINKEDIN: "LinkedIn",
+  WTTJ: "WelcomeToTheJungle",
+  JTMS: "JobsThatMakeSense",
+};

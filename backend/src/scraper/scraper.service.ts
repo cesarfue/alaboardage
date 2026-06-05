@@ -8,7 +8,8 @@ import { WTTJ } from './boards/wttj.config';
 import type { BoardConfig } from './types';
 import { JobSource } from '../../generated/prisma/enums';
 import { ScrapeRequestDto } from './dto/scrape-request.dto';
-import { FindJobsQueryDto } from '../jobs/dto/find-jobs-query.dto';
+import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
+import { JTMS } from './boards/jtms.config';
 
 @Injectable()
 export class ScraperService {
@@ -37,7 +38,7 @@ export class ScraperService {
     }
   }
 
-  async scrapeAllBoards(dto: FindJobsQueryDto) {
+  async scrapeAllBoards(dto: FindJobsDto) {
     const start = Date.now();
 
     const sources = Object.values(JobSource);
@@ -78,6 +79,8 @@ export class ScraperService {
         return HELLOWORK;
       case JobSource.WTTJ:
         return WTTJ;
+      case JobSource.JTMS:
+        return JTMS;
     }
   }
 }
