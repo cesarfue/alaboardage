@@ -1,5 +1,6 @@
 import { chromium, type Browser } from 'playwright';
 import { BoardScraper } from '../../src/scraper/board.scraper';
+import { WTTJScraper } from '../../src/scraper/wttj.scraper';
 import type { BoardConfig } from '../../src/scraper/types';
 import type { ScrapeRequestDto } from '../../src/scraper/dto/scrape-request.dto';
 import type { CreateJobDto } from '../../src/jobs/dto/create-job.dto';
@@ -34,23 +35,27 @@ export async function runScraper(
   source: JobSource,
   params: Partial<ScrapeRequestDto> = {},
 ): Promise<CreateJobDto[]> {
+  const dto: ScrapeRequestDto = {
+    source,
+    query: params.query ?? 'developpeur',
+    location: params.location ?? 'Lyon, France',
+    limit: params.limit ?? 5,
+    offset: params.offset ?? 1,
+    singlePage: params.singlePage ?? true,
+  };
+
+  if (source === JobSource.WTTJ) {
+    perf();
+    perf(); // keep timing slots consistent
+    const scraper = new WTTJScraper(dto, source);
+    return scraper.search();
+  }
+
   perf();
   const browser = await launchBrowser();
   perf();
   try {
-    const scraper = new BoardScraper(
-      browser,
-      config,
-      {
-        source,
-        query: params.query ?? 'developpeur',
-        location: params.location ?? 'Lyon, France',
-        limit: params.limit ?? 5,
-        offset: params.offset ?? 1,
-        singlePage: params.singlePage ?? true,
-      },
-      source,
-    );
+    const scraper = new BoardScraper(browser, config, dto, source);
     return await scraper.search();
   } finally {
     await browser.close();
