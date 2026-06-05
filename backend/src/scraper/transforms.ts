@@ -1,3 +1,21 @@
+export function jeunesdavenirsGtm(
+  field: 'product_company' | 'product_city' | 'product_date',
+): (raw: string) => string {
+  return (raw: string) => {
+    try {
+      const data = JSON.parse(raw) as { product_data: Record<string, string>[] };
+      return data.product_data?.[0]?.[field] ?? '';
+    } catch {
+      return '';
+    }
+  };
+}
+
+export function jeunesdavenirsId(href: string): string {
+  const match = href.match(/\/offre\/(i_[a-f0-9]+)$/);
+  return match?.[1] ?? href;
+}
+
 export function handleSpelledDate(text: string): string {
   const normalized = text.trim().toLowerCase();
   const today = new Date();

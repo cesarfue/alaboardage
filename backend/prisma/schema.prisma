@@ -15,10 +15,10 @@ datasource db {
 
 enum JobSource {
   HELLOWORK
+  JEUNESDAVENIR
   JTMS
   LINKEDIN
   WTTJ
-  JTMS
 }
 
 model Job {

@@ -4,6 +4,7 @@ import { JobsService } from '../jobs/jobs.service';
 import { BoardScraper } from './board.scraper';
 import { WTTJScraper } from './wttj.scraper';
 import { HELLOWORK } from './boards/hellowork.config';
+import { JEUNESDAVENIR } from './boards/jeunesdavenir.config';
 import { JTMS } from './boards/jtms.config';
 import { LINKEDIN } from './boards/linkedin.config';
 import type { BoardConfig } from './types';
@@ -90,6 +91,8 @@ export class ScraperService {
     switch (source) {
       case JobSource.HELLOWORK:
         return HELLOWORK;
+      case JobSource.JEUNESDAVENIR:
+        return JEUNESDAVENIR;
       case JobSource.JTMS:
         return JTMS;
       case JobSource.LINKEDIN:
