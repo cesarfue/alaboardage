@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { JobsService } from '../jobs/jobs.service';
 import { BoardScraper } from './board.scraper';
 import { HELLOWORK } from './boards/hellowork.config';
+import { JEUNESDAVENIR } from './boards/jeunesdavenir.config';
 import { LINKEDIN } from './boards/linkedin.config';
 import { WTTJ } from './boards/wttj.config';
 import type { BoardConfig } from './types';
@@ -72,10 +73,12 @@ export class ScraperService {
 
   private configFor(source: JobSource): BoardConfig {
     switch (source) {
-      case JobSource.LINKEDIN:
-        return LINKEDIN;
       case JobSource.HELLOWORK:
         return HELLOWORK;
+      case JobSource.JEUNESDAVENIR:
+        return JEUNESDAVENIR;
+      case JobSource.LINKEDIN:
+        return LINKEDIN;
       case JobSource.WTTJ:
         return WTTJ;
     }
