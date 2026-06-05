@@ -27,3 +27,4 @@ coverage/
 # Logs
 *.log
 backend/dev.db
+backend/prisma/dev.db

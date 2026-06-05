@@ -34,11 +34,21 @@ export interface ListJobsResponse {
   offset: number;
 }
 
-export type JobSource = "HELLOWORK" | "LINKEDIN" | "WTTJ" | "JTMS";
+export type JobSource =
+  | "HELLOWORK"
+  | "LINKEDIN"
+  | "WTTJ"
+  | "JTMS"
+  | "JEUNESDAVENIR"
+  | "INDEED"
+  | "GLASSDOOR";
 
 export const READABLE_SOURCES: Record<JobSource, string> = {
   HELLOWORK: "Hellowork",
   LINKEDIN: "LinkedIn",
   WTTJ: "WelcomeToTheJungle",
   JTMS: "JobsThatMakeSense",
+  JEUNESDAVENIR: "Jeunes d'avenir",
+  INDEED: "Indeed",
+  GLASSDOOR: "Glassdoor",
 };
