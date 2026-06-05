@@ -1,5 +1,5 @@
 import { load, type CheerioAPI } from 'cheerio';
-import type { Browser, Page } from 'playwright';
+import type { Browser, BrowserContext } from 'playwright';
 import type { BoardConfig, Rule } from './types';
 import type { ScrapeRequestDto } from './dto/scrape-request.dto';
 import type { CreateJobDto } from '../jobs/dto/create-job.dto';
@@ -24,7 +24,6 @@ export class BoardScraper {
       while (jobs.length < this.params.limit) {
         const boardUrl = this.buildBoardUrl(offset);
         await page.goto(boardUrl, { waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(2000);
 
         if (!actionsTaken && this.config.boardPageAction) {
           await this.config.boardPageAction(page);
@@ -36,10 +35,20 @@ export class BoardScraper {
         console.log('Found %s cards', cards.length);
         if (cards.length === 0) break;
 
-        for (const cardHtml of cards) {
-          if (jobs.length >= this.params.limit) break;
-          const job = await this.buildJob(page, cardHtml);
-          if (job) jobs.push(job);
+        const partialJobs = cards
+          .map((cardHtml) => this.parseCard(cardHtml))
+          .filter((j) => j !== null)
+          .slice(0, this.params.limit - jobs.length);
+
+        const batchSize = 10;
+        for (let i = 0; i < partialJobs.length; i += batchSize) {
+          const batch = partialJobs.slice(i, i + batchSize);
+          const descriptions = await Promise.all(
+            batch.map((j) => this.fetchDescription(context, j.url)),
+          );
+          batch.forEach((j, idx) =>
+            jobs.push({ ...j, description: descriptions[idx] }),
+          );
         }
 
         if (this.params.singlePage) break;
@@ -59,27 +68,16 @@ export class BoardScraper {
       .get();
   }
 
-  private async buildJob(
-    page: Page,
+  sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  private parseCard(
     cardHtml: string,
-  ): Promise<CreateJobDto | null> {
+  ): Omit<CreateJobDto, 'description'> | null {
     const $card = load(cardHtml);
     const selectors = this.config.selectors;
-
     const externalId = this.extract($card, selectors.id);
     if (!externalId) return null;
-
     const url = this.buildJobUrl(externalId);
-    let description = '';
-    try {
-      await page.goto(url, { waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(1000);
-      const $job = load(await page.content());
-      description = this.extract($job, selectors.description);
-    } catch {
-      description = '';
-    }
-
     const datePostedRaw = this.extract($card, selectors.datePosted);
     const datePosted = datePostedRaw ? parseDate(datePostedRaw) : new Date();
 
@@ -89,10 +87,25 @@ export class BoardScraper {
       title: this.extract($card, selectors.title).replace(/\n/g, ' '),
       company: this.extract($card, selectors.company),
       location: this.extract($card, selectors.location).replace(/\n/g, ' '),
-      description,
       url,
       datePosted,
     };
+  }
+
+  private async fetchDescription(
+    context: BrowserContext,
+    url: string,
+  ): Promise<string> {
+    const page = await context.newPage();
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      const $job = load(await page.content());
+      return this.extract($job, this.config.selectors.description);
+    } catch {
+      return '';
+    } finally {
+      await page.close();
+    }
   }
 
   private extract($: CheerioAPI, rule: Rule): string {

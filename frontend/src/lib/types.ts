@@ -16,7 +16,7 @@ export interface Job {
 
 export interface SearchOrListRequest {
   source?: JobSource;
-  q?: string;
+  query?: string;
   company?: string;
   location?: string;
   limit?: number;

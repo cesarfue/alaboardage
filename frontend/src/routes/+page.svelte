@@ -13,23 +13,27 @@
   $effect(() => {
     const q = page.url.searchParams.get("query") ?? "";
     const loc = page.url.searchParams.get("location") ?? "";
+    console.log("calling effect");
     api
-      .listJobs({ q: q || undefined, location: loc || undefined })
+      .listJobs({ query: q || undefined, location: loc || undefined })
       .then((res) => {
         jobs = res.items;
       });
   });
 
   async function search() {
+    api
+      .listJobs({ query: query || undefined, location: location || undefined })
+      .then((res) => (jobs = res.items));
     try {
       await api.search({
-        q: query || undefined,
+        query: query || undefined,
         location: location || undefined,
       });
       const params = new URLSearchParams();
       if (query) params.set("query", query);
       if (location) params.set("location", location);
-      goto(`${params}`);
+      goto(`?${params}`);
     } catch (e) {
       toast.error(
         e instanceof ApiError ? `Erreur ${e.status}` : "Erreur inattendue",
@@ -51,6 +55,7 @@
           <Table.Head>Title</Table.Head>
           <Table.Head>Company</Table.Head>
           <Table.Head>Location</Table.Head>
+          <Table.Head>Source</Table.Head>
           <Table.Head>Date Posted</Table.Head>
         </Table.Row>
       </Table.Header>
@@ -60,6 +65,7 @@
             <Table.Cell class="font-medium">{job.title}</Table.Cell>
             <Table.Cell>{job.company}</Table.Cell>
             <Table.Cell>{job.location}</Table.Cell>
+            <Table.Cell>{job.source}</Table.Cell>
             <Table.Cell>{job.datePosted}</Table.Cell>
           </Table.Row>
         {/each}

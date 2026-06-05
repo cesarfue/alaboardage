@@ -12,12 +12,31 @@ export async function launchBrowser(): Promise<Browser> {
   });
 }
 
+export const perf = (() => {
+  let t = 0;
+  let stage = 1;
+  let id = 0;
+
+  return () => {
+    if (stage == 1) {
+      t = performance.now();
+      stage = 2;
+    } else {
+      console.log(`t${id}: ${(performance.now() - t).toFixed(0)}ms`);
+      stage = 1;
+      id++;
+    }
+  };
+})();
+
 export async function runScraper(
   config: BoardConfig,
   source: JobSource,
   params: Partial<ScrapeRequestDto> = {},
 ): Promise<CreateJobDto[]> {
+  perf();
   const browser = await launchBrowser();
+  perf();
   try {
     const scraper = new BoardScraper(
       browser,
