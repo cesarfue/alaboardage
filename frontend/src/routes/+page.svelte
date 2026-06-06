@@ -67,7 +67,7 @@
             <Table.Cell>{job.company}</Table.Cell>
             <Table.Cell>{job.location}</Table.Cell>
             <Table.Cell>{READABLE_SOURCES[job.source]}</Table.Cell>
-            <Table.Cell>{job.datePosted}</Table.Cell>
+            <Table.Cell>{job.datePosted.split("T")[0]}</Table.Cell>
           </Table.Row>
         {/each}
       </Table.Body>
