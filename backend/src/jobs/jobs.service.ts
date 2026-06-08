@@ -14,10 +14,8 @@ export class JobsService {
     if (query.company) where.company = { contains: query.company };
     if (query.location) where.location = { contains: query.location };
     if (query.query) {
-      where.OR = [
-        { title: { contains: query.query } },
-        { description: { contains: query.query } },
-      ];
+      const words = query.query.trim().split(/\s+/);
+      where.AND = words.map((word) => ({ title: { contains: word } }));
     }
 
     const [items, total] = await Promise.all([
@@ -26,6 +24,7 @@ export class JobsService {
         orderBy: { datePosted: 'desc' },
         take: query.limit,
         skip: query.offset,
+        include: { establishment: true },
       }),
       this.prisma.job.count({ where }),
     ]);

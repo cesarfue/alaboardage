@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { chromium, type Browser } from 'playwright';
 import { BoardScraper } from '../../src/scraper/board.scraper';
 import { WTTJScraper } from '../../src/scraper/wttj.scraper';
@@ -5,6 +6,21 @@ import type { BoardConfig } from '../../src/scraper/types';
 import type { ScrapeRequestDto } from '../../src/scraper/dto/scrape-request.dto';
 import type { CreateJobDto } from '../../src/jobs/dto/create-job.dto';
 import { JobSource } from '../../generated/prisma/enums';
+import { PrismaClient } from '../../generated/prisma/client';
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import { JobsService } from '../../src/jobs/jobs.service';
+import { EnrichmentService } from '../../src/enrichment/enrichment.service';
+
+export const TEST_QUERY = process.env.QUERY ?? 'developpeur';
+export const TEST_LOCATION = process.env.LOCATION ?? 'Lyon, France';
+
+export interface ScraperStats {
+  jobs: CreateJobDto[];
+  dbCount: number;
+  newCount: number;
+  enrichedCount: number;
+  missing: Array<{ company: string; location: string }>;
+}
 
 export async function launchBrowser(): Promise<Browser> {
   return chromium.launch({
@@ -37,8 +53,8 @@ export async function runScraper(
 ): Promise<CreateJobDto[]> {
   const dto: ScrapeRequestDto = {
     source,
-    query: params.query ?? 'developpeur',
-    location: params.location ?? 'Lyon, France',
+    query: params.query ?? TEST_QUERY,
+    location: params.location ?? TEST_LOCATION,
     limit: params.limit ?? 5,
     offset: params.offset ?? 1,
     singlePage: params.singlePage ?? true,
@@ -46,7 +62,7 @@ export async function runScraper(
 
   if (source === JobSource.WTTJ) {
     perf();
-    perf(); // keep timing slots consistent
+    perf();
     const scraper = new WTTJScraper(dto, source);
     return scraper.search();
   }
@@ -59,6 +75,74 @@ export async function runScraper(
     return await scraper.search();
   } finally {
     await browser.close();
+  }
+}
+
+export async function runScraperFull(
+  config: BoardConfig,
+  source: JobSource,
+  params: Partial<ScrapeRequestDto> = {},
+): Promise<ScraperStats> {
+  const jobs = await runScraper(config, source, params);
+
+  const url = process.env.DATABASE_URL ?? 'file:./dev.db';
+  const prisma = new PrismaClient({
+    adapter: new PrismaBetterSqlite3({ url }),
+  });
+  await prisma.$connect();
+
+  try {
+    const jobsService = new JobsService(prisma as any);
+    const enrichmentService = new EnrichmentService(prisma as any);
+
+    const countBefore = await prisma.job.count({ where: { source } });
+    const saved = await jobsService.upsertMany(jobs);
+    const countAfter = await prisma.job.count({ where: { source } });
+
+    await enrichmentService.enrichJobs(
+      saved.map((j) => ({
+        id: j.id,
+        company: j.company,
+        location: j.location,
+      })),
+    );
+
+    const savedWithEstab = await prisma.job.findMany({
+      where: { id: { in: saved.map((j) => j.id) } },
+      include: { establishment: true },
+    });
+
+    const enrichedCount = savedWithEstab.filter((j) => j.establishment).length;
+    const missing = savedWithEstab
+      .filter((j) => !j.establishment)
+      .map((j) => ({ company: j.company, location: j.location }));
+
+    return {
+      jobs,
+      dbCount: saved.length,
+      newCount: countAfter - countBefore,
+      enrichedCount,
+      missing,
+    };
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+export function printStats(
+  label: string,
+  stats: ScraperStats,
+  params: { query: string; location: string },
+) {
+  console.log(`\n=== ${label} — "${params.query}" / "${params.location}" ===`);
+  console.log(`Scraper:    ${stats.jobs.length} jobs`);
+  console.log(`DB:         ${stats.dbCount} upserted (${stats.newCount} new)`);
+  console.log(`Enrichment: ${stats.enrichedCount}/${stats.dbCount} enriched`);
+  if (stats.missing.length > 0) {
+    console.log(`Not found:`);
+    for (const m of stats.missing) {
+      console.log(`  - ${m.company} (${m.location})`);
+    }
   }
 }
 

@@ -1,3 +1,12 @@
+export interface Establishment {
+  siret: string;
+  name: string;
+  address: string;
+  city: string;
+  lat: number;
+  lng: number;
+}
+
 export interface Job {
   id: string;
   externalId: string;
@@ -10,6 +19,7 @@ export interface Job {
   datePosted: string;
   scrapedAt: string;
   updatedAt: string;
+  establishment: Establishment | null;
 }
 
 export interface SearchOrListRequest {
