@@ -23,20 +23,32 @@ enum JobSource {
 }
 
 model Job {
-  id          String    @id @default(cuid())
-  externalId  String
-  source      JobSource
-  title       String
-  company     String
-  location    String
-  description String
-  url         String
-  datePosted  DateTime
-  scrapedAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String         @id @default(cuid())
+  externalId      String
+  source          JobSource
+  title           String
+  company         String
+  location        String
+  description     String
+  url             String
+  datePosted      DateTime
+  scrapedAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  establishment   Establishment? @relation(fields: [establishmentId], references: [siret])
+  establishmentId String?
 
   @@unique([source, externalId])
   @@index([datePosted])
   @@index([company])
   @@index([source])
+}
+
+model Establishment {
+  siret   String @id
+  name    String
+  address String
+  city    String
+  lat     Float
+  lng     Float
+  jobs    Job[]
 }

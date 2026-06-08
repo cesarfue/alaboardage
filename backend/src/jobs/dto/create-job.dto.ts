@@ -1,11 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsDate,
-  IsEnum,
-  IsNotEmpty,
-  IsString,
-  IsUrl,
-} from 'class-validator';
+import { IsDate, IsEnum, IsNotEmpty, IsString, IsUrl } from 'class-validator';
 import { JobSource } from '../../../generated/prisma/enums';
 
 export class CreateJobDto {

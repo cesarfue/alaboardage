@@ -12,12 +12,16 @@ import type { BoardConfig } from './types';
 import { JobSource } from '../../generated/prisma/enums';
 import { ScrapeRequestDto } from './dto/scrape-request.dto';
 import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
+import { EnrichmentService } from '../enrichment/enrichment.service';
 
 @Injectable()
 export class ScraperService {
   private readonly logger = new Logger(ScraperService.name);
 
-  constructor(private readonly jobsService: JobsService) {}
+  constructor(
+    private readonly jobsService: JobsService,
+    private readonly enrichmentService: EnrichmentService,
+  ) {}
 
   async scrape(dto: ScrapeRequestDto) {
     if (dto.source === JobSource.WTTJ) {
@@ -37,7 +41,10 @@ export class ScraperService {
       const scraper = new BoardScraper(browser, config, dto, dto.source);
       const jobs = await scraper.search();
       this.logger.log(`Scraped ${jobs.length} jobs from ${config.name}`);
-      if (jobs.length > 0) await this.jobsService.upsertMany(jobs);
+      if (jobs.length > 0) {
+        const saved = await this.jobsService.upsertMany(jobs);
+        await this.enrichmentService.enrichJobs(saved);
+      }
       return { source: dto.source, count: jobs.length };
     } finally {
       await browser.close();
@@ -51,7 +58,10 @@ export class ScraperService {
     const scraper = new WTTJScraper(dto, dto.source);
     const jobs = await scraper.search();
     this.logger.log(`Scraped ${jobs.length} jobs from WTTJ`);
-    if (jobs.length > 0) await this.jobsService.upsertMany(jobs);
+    if (jobs.length > 0) {
+      const saved = await this.jobsService.upsertMany(jobs);
+      await this.enrichmentService.enrichJobs(saved);
+    }
     return { source: dto.source, count: jobs.length };
   }
 
