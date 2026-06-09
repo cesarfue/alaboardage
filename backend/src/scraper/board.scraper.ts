@@ -11,6 +11,7 @@ export class BoardScraper {
     private readonly config: BoardConfig,
     private readonly params: ScrapeRequestDto,
     private readonly source: CreateJobDto['source'],
+    private readonly signal?: AbortSignal,
   ) {}
 
   async search(): Promise<CreateJobDto[]> {
@@ -25,6 +26,7 @@ export class BoardScraper {
 
     try {
       while (jobs.length < this.params.limit) {
+        if (this.signal?.aborted) break;
         const boardUrl = this.buildBoardUrl(offset);
         await page.goto(boardUrl, { waitUntil: 'domcontentloaded' });
 

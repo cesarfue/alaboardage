@@ -28,6 +28,8 @@ export class ScraperService {
 
   scrapeAllBoardsStream(dto: FindJobsDto): Observable<MessageEvent> {
     return new Observable((observer) => {
+      const controller = new AbortController();
+      const { signal } = controller;
       const start = Date.now();
       const sources = Object.values(JobSource);
       let completed = 0;
@@ -41,21 +43,24 @@ export class ScraperService {
           limit: 150,
           offset: 1,
           singlePage: false,
-        })
+        }, signal)
           .then((jobs) => {
             total += jobs.length;
-            for (const job of jobs) {
-              observer.next({
-                data: { type: 'job', job: { ...job, establishment: null } },
-              });
+            if (!signal.aborted) {
+              for (const job of jobs) {
+                observer.next({
+                  data: { type: 'job', job: { ...job, establishment: null } },
+                });
+              }
             }
           })
           .catch((e: Error) => {
-            this.logger.error(`Failed to scrape ${source}: ${e.message}`);
+            if (!signal.aborted)
+              this.logger.error(`Failed to scrape ${source}: ${e.message}`);
           })
           .finally(() => {
             completed++;
-            if (completed === sources.length) {
+            if (completed === sources.length && !signal.aborted) {
               observer.next({
                 data: { type: 'done', total, durationMs: Date.now() - start },
               });
@@ -63,12 +68,17 @@ export class ScraperService {
             }
           });
       }
+
+      return () => {
+        controller.abort();
+        this.enrichmentService.cancelEnrichment();
+      };
     });
   }
 
-  private async scrape(dto: ScrapeRequestDto): Promise<Job[]> {
+  private async scrape(dto: ScrapeRequestDto, signal: AbortSignal): Promise<Job[]> {
     if (dto.source === JobSource.WTTJ) {
-      return this.scrapeWTTJ(dto);
+      return this.scrapeWTTJ(dto, signal);
     }
 
     const config = this.configFor(dto.source);
@@ -81,34 +91,32 @@ export class ScraperService {
     });
 
     try {
-      const scraper = new BoardScraper(browser, config, dto, dto.source);
+      const scraper = new BoardScraper(browser, config, dto, dto.source, signal);
       const dtoJobs = await scraper.search();
       this.logger.log(`Scraped ${dtoJobs.length} jobs from ${config.name}`);
-      if (dtoJobs.length === 0) return [];
+      if (dtoJobs.length === 0 || signal.aborted) return [];
       const saved = await this.jobsService.upsertMany(dtoJobs);
-      // this.enrichmentService.enrichJobs(saved).catch((e: Error) =>
-      //   this.logger.error(`Enrichment failed for ${dto.source}: ${e.message}`),
-      // );
+      this.enrichmentService.enrichJobs(saved).catch((e: Error) =>
+        this.logger.error(`Enrichment failed for ${dto.source}: ${e.message}`),
+      );
       return saved;
     } finally {
       await browser.close();
     }
   }
 
-  private async scrapeWTTJ(dto: ScrapeRequestDto): Promise<Job[]> {
+  private async scrapeWTTJ(dto: ScrapeRequestDto, signal: AbortSignal): Promise<Job[]> {
     this.logger.log(
       `Scraping WTTJ (Algolia) q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
     );
-    const scraper = new WTTJScraper(dto, dto.source);
+    const scraper = new WTTJScraper(dto, dto.source, signal);
     const dtoJobs = await scraper.search();
     this.logger.log(`Scraped ${dtoJobs.length} jobs from WTTJ`);
-    if (dtoJobs.length === 0) return [];
+    if (dtoJobs.length === 0 || signal.aborted) return [];
     const saved = await this.jobsService.upsertMany(dtoJobs);
-    // this.enrichmentService
-    //   .enrichJobs(saved)
-    //   .catch((e: Error) =>
-    //     this.logger.error(`Enrichment failed for WTTJ: ${e.message}`),
-    //   );
+    this.enrichmentService.enrichJobs(saved).catch((e: Error) =>
+      this.logger.error(`Enrichment failed for WTTJ: ${e.message}`),
+    );
     return saved;
   }
 

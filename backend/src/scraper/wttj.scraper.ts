@@ -50,6 +50,7 @@ export class WTTJScraper {
   constructor(
     private readonly params: ScrapeRequestDto,
     private readonly source: JobSource,
+    private readonly signal?: AbortSignal,
   ) {}
 
   async search(): Promise<CreateJobDto[]> {
@@ -58,6 +59,7 @@ export class WTTJScraper {
     const hitsPerPage = Math.min(this.params.limit, 50);
 
     while (jobs.length < this.params.limit) {
+      if (this.signal?.aborted) break;
       const response = await this.queryAlgolia(page, hitsPerPage);
       if (response.hits.length === 0) break;
 

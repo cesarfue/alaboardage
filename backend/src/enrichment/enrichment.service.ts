@@ -63,6 +63,7 @@ export class EnrichmentService {
   private readonly geoLimiter = new RateLimiter(45);
   // global queue: only one enrichJobs batch runs at a time across all boards
   private enrichQueue = Promise.resolve();
+  private generation = 0;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -88,25 +89,34 @@ export class EnrichmentService {
     return { processed: jobs.length, enriched: after - before };
   }
 
+  cancelEnrichment(): void {
+    this.generation++;
+    this.enrichQueue = Promise.resolve();
+  }
+
   enrichJobs(
     jobs: { id: string; company: string; location: string }[],
   ): Promise<void> {
+    const gen = this.generation;
     this.enrichQueue = this.enrichQueue
       .catch(() => {})
-      .then(() => this.runEnrichJobs(jobs));
+      .then(() => this.runEnrichJobs(jobs, gen));
     return this.enrichQueue;
   }
 
   private async runEnrichJobs(
     jobs: { id: string; company: string; location: string }[],
+    gen: number,
   ) {
     for (const job of jobs) {
+      if (this.generation !== gen) return;
       const result = await this.resolveEstablishment(job).catch(
         (err: Error) => {
           this.logger.error(`Failed to resolve ${job.id}: ${err.message}`);
           return null;
         },
       );
+      if (this.generation !== gen) return;
       if (result) {
         await this.saveEnrichment(result).catch((err: Error) =>
           this.logger.error(`Failed to save enrichment: ${err.message}`),
