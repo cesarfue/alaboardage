@@ -6,6 +6,7 @@
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
   import { READABLE_SOURCES } from "$lib/types";
+  import { untrack } from "svelte";
   import { List, Map, X, ExternalLink } from "@lucide/svelte";
   import { MapLibre, Marker, Popup } from "svelte-maplibre";
 
@@ -26,13 +27,17 @@
     });
   });
 
+  // Drives the stream from the URL: runs once per query/location change,
+  // covering both reload (params already set) and search() (goto updates them).
   $effect(() => {
-    const q = page.url.searchParams.get("query");
-    const loc = page.url.searchParams.get("location");
+    const q = page.url.searchParams.get("query") ?? "";
+    const loc = page.url.searchParams.get("location") ?? "";
     if (q || loc) {
-      query = q ?? "";
-      location = loc ?? "";
-      startStream();
+      untrack(() => {
+        query = q;
+        location = loc;
+        startStream();
+      });
     }
   });
 
@@ -42,15 +47,11 @@
     searching = true;
     closeStream = api.streamSearch(
       { query: query || undefined, location: location || undefined },
-      (job) => {
-        jobs = [...jobs, job];
-      },
-      () => {
-        searching = false;
-        closeStream = null;
-      },
-      () => {
-        toast.error("Erreur lors de la recherche");
+      (job) => { jobs = [...jobs, job]; },
+      () => { searching = false; closeStream = null; },
+      () => { toast.error("Erreur lors de la recherche"); },
+      (jobId, establishment) => {
+        jobs = jobs.map((j) => j.id === jobId ? { ...j, establishment } : j);
       },
     );
   }
@@ -60,7 +61,6 @@
     if (query) urlParams.set("query", query);
     if (location) urlParams.set("location", location);
     goto(`?${urlParams}`);
-    startStream();
   }
 </script>
 
@@ -127,7 +127,7 @@
         bind:center
         bind:zoom
       >
-        {#each jobs.filter((j) => j.establishment) as job (job.id)}
+        {#each jobs.filter((j) => j.establishment && j.establishment.lat != null && !isNaN(j.establishment.lat) && j.establishment.lng != null && !isNaN(j.establishment.lng)) as job (job.id)}
           <Marker
             lngLat={[job.establishment!.lng, job.establishment!.lat]}
             asButton
@@ -147,7 +147,7 @@
     {/if}
 
     <div
-      class="absolute bottom-6 left-1/2 -translate-x-1/2 flex rounded-full border bg-background shadow-lg overflow-hidden"
+      class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex rounded-full border bg-background shadow-lg overflow-hidden"
     >
       <button
         onclick={() => (view = "list")}

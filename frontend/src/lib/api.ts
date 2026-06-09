@@ -48,13 +48,21 @@ export const api = {
     onJob: (job: Job) => void,
     onDone: () => void,
     onError?: () => void,
+    onEstablishment?: (jobId: string, establishment: Job["establishment"]) => void,
   ): () => void {
     const qs = buildQuery(params);
     const eventSource = new EventSource(`${BASE}/scraper/search${qs}`);
 
     eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data) as { type: string; job?: Job };
+      const data = JSON.parse(event.data) as {
+        type: string;
+        job?: Job;
+        jobId?: string;
+        establishment?: Job["establishment"];
+      };
       if (data.type === "job" && data.job) onJob(data.job);
+      if (data.type === "establishment" && data.jobId && data.establishment)
+        onEstablishment?.(data.jobId, data.establishment);
       if (data.type === "done") {
         eventSource.close();
         onDone();
