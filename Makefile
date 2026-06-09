@@ -1,5 +1,5 @@
 .PHONY: up down build logs ps shell-back shell-front \
-        migrate prisma-generate \
+        migrate prisma-generate import-geo \
         lint-back lint-front test-back \
         clean
 
@@ -38,6 +38,10 @@ migrate:
 
 prisma-generate:
 	docker compose exec backend npx prisma generate
+
+# Télécharge le découpage administratif (non commité) — voir backend/scripts/import-communes.mjs
+import-geo:
+	node backend/scripts/import-communes.mjs
 
 # ── Qualité ───────────────────────────────────────────────────────────────────
 

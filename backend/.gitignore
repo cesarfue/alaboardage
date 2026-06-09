@@ -20,3 +20,6 @@ npm-debug.log*
 .vscode/
 
 /generated/prisma
+
+# Données géo téléchargées (make import-geo)
+/data/communes.json

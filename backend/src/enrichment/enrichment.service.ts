@@ -1,16 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Establishment } from '../../generated/prisma/client';
 
 type OnEnriched = (jobId: string, establishment: Establishment) => void;
 
-interface GeoCommune {
-  _score: number;
-  departement: { code: string };
-}
-
-interface GeoRegion {
-  code: string;
+interface GeoData {
+  communes: { n: string; d: string; r: string; p: number }[];
+  regions: { n: string; code: string }[];
 }
 
 type LocationScope =
@@ -32,43 +30,53 @@ interface SireneResult {
 }
 
 
-class RateLimiter {
-  private queue = Promise.resolve();
-  private readonly minIntervalMs: number;
-  private lastCallAt = 0;
-
-  constructor(maxPerSecond: number) {
-    this.minIntervalMs = Math.ceil(1000 / maxPerSecond);
-  }
-
-  acquire(): Promise<void> {
-    const prev = this.queue;
-    let release!: () => void;
-    this.queue = new Promise((r) => (release = r));
-    return prev.then(() => {
-      const wait = this.minIntervalMs - (Date.now() - this.lastCallAt);
-      return (
-        wait > 0
-          ? new Promise<void>((r) => setTimeout(r, wait))
-          : Promise.resolve()
-      ).then(() => {
-        this.lastCallAt = Date.now();
-        release();
-      });
-    });
-  }
+/** Normalise un nom pour le matching : minuscules, sans accents, alphanum. */
+function normalize(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 }
 
 @Injectable()
-export class EnrichmentService {
+export class EnrichmentService implements OnModuleInit {
   private readonly logger = new Logger(EnrichmentService.name);
-  // geo.api.gouv.fr limit: 50 req/s per IP — stay strictly below
-  private readonly geoLimiter = new RateLimiter(45);
+  // Index en mémoire du découpage administratif (cf. `make import-geo`).
+  private readonly communeToScope = new Map<string, { dep: string; reg: string }>();
+  private readonly communePop = new Map<string, number>();
+  private readonly regionToCode = new Map<string, string>();
   // global queue: only one enrichJobs batch runs at a time across all boards
   private enrichQueue = Promise.resolve();
   private generation = 0;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  onModuleInit() {
+    const path = join(process.cwd(), 'data', 'communes.json');
+    try {
+      const { communes, regions } = JSON.parse(
+        readFileSync(path, 'utf8'),
+      ) as GeoData;
+      // En cas d'homonymes, garder la commune la plus peuplée (mime boost=population).
+      for (const c of communes) {
+        const key = normalize(c.n);
+        if (c.p > (this.communePop.get(key) ?? -1)) {
+          this.communePop.set(key, c.p);
+          this.communeToScope.set(key, { dep: c.d, reg: c.r });
+        }
+      }
+      for (const r of regions) this.regionToCode.set(normalize(r.n), r.code);
+      this.logger.log(
+        `Loaded ${communes.length} communes, ${regions.length} regions`,
+      );
+    } catch {
+      this.logger.error(
+        `Could not load ${path} — run 'make import-geo'. Scope resolution disabled.`,
+      );
+    }
+  }
 
   async backfill(
     limit?: number,
@@ -164,7 +172,7 @@ export class EnrichmentService {
     | { success: true; jobId: string; etab: SireneEtablissement; name: string }
     | { success: false; reason: 'no-scope' | 'no-match' }
   > {
-    const scope = await this.resolveScope(job.location);
+    const scope = this.resolveScope(job.location);
     if (!scope) return { success: false, reason: 'no-scope' };
 
     const found = await this.findEstablishment(job.company, scope);
@@ -173,13 +181,13 @@ export class EnrichmentService {
     return { success: true, jobId: job.id, etab: found.etab, name: found.name };
   }
 
-  private async resolveScope(location: string): Promise<LocationScope | null> {
+  private resolveScope(location: string): LocationScope | null {
     const tokens = location
       .split(/[,\s]+/)
       .map((t) => t.trim())
       .filter((t) => t.length > 2);
     for (const token of tokens) {
-      const scope = await this.tokenToScope(token);
+      const scope = this.tokenToScope(token);
       if (scope) return scope;
     }
     return null;
@@ -218,33 +226,14 @@ export class EnrichmentService {
     return null;
   }
 
-  private async tokenToScope(token: string): Promise<LocationScope | null> {
-    const communes = await this.geoLimiter
-      .acquire()
-      .then(() =>
-        this.fetchWithRetry(
-          `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(token)}&fields=departement&boost=population&limit=1`,
-          `geo communes "${token}"`,
-        ),
-      )
-      .then((r) => (r ? (r.json() as Promise<GeoCommune[]>) : []))
-      .catch(() => [] as GeoCommune[]);
+  private tokenToScope(token: string): LocationScope | null {
+    const key = normalize(token);
+    const commune = this.communeToScope.get(key);
+    if (commune) return { type: 'departement', code: commune.dep };
 
-    if (communes[0]?.departement?.code)
-      return { type: 'departement', code: communes[0].departement.code };
+    const region = this.regionToCode.get(key);
+    if (region) return { type: 'region', code: region };
 
-    const regions = await this.geoLimiter
-      .acquire()
-      .then(() =>
-        this.fetchWithRetry(
-          `https://geo.api.gouv.fr/regions?nom=${encodeURIComponent(token)}&limit=1`,
-          `geo regions "${token}"`,
-        ),
-      )
-      .then((r) => (r ? (r.json() as Promise<GeoRegion[]>) : []))
-      .catch(() => [] as GeoRegion[]);
-
-    if (regions[0]?.code) return { type: 'region', code: regions[0].code };
     return null;
   }
 
