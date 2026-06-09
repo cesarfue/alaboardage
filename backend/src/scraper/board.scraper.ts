@@ -37,7 +37,6 @@ export class BoardScraper {
 
         const html = await page.content();
         const cards = this.extractCards(html);
-        console.log('Found %s cards', cards.length);
         if (cards.length === 0) break;
 
         const partialJobs = cards
@@ -82,7 +81,7 @@ export class BoardScraper {
 
   private parseCard(
     cardHtml: string,
-  ): Omit<CreateJobDto, 'description'> & { description?: string } | null {
+  ): (Omit<CreateJobDto, 'description'> & { description?: string }) | null {
     const $card = load(cardHtml);
     const selectors = this.config.selectors;
     const externalId = this.extract($card, selectors.id);
@@ -102,7 +101,10 @@ export class BoardScraper {
     };
 
     if (this.config.descriptionFromCard) {
-      return { ...base, description: this.extract($card, selectors.description) };
+      return {
+        ...base,
+        description: this.extract($card, selectors.description),
+      };
     }
 
     return base;
@@ -157,11 +159,15 @@ export class BoardScraper {
   private buildBoardUrl(offset: number): string {
     const params = this.config.urlParams;
     const boardPath = this.config.locationPathTransform
-      ? this.config.boardPath.replace('{location}', this.config.locationPathTransform(this.params.location))
+      ? this.config.boardPath.replace(
+          '{location}',
+          this.config.locationPathTransform(this.params.location),
+        )
       : this.config.boardPath;
     const url = new URL(boardPath, this.config.baseUrl + '/');
     if (params.query) url.searchParams.set(params.query, this.params.query);
-    if (params.location) url.searchParams.set(params.location, this.params.location);
+    if (params.location)
+      url.searchParams.set(params.location, this.params.location);
     if (params.offset) url.searchParams.set(params.offset, String(offset));
     return url.toString();
   }
