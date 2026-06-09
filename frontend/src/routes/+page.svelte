@@ -34,22 +34,21 @@
   });
 
   async function search() {
-    api
-      .listJobs({ query: query || undefined, location: location || undefined })
-      .then((res) => (jobs = res.items));
+    const params = { query: query || undefined, location: location || undefined };
+    api.listJobs(params).then((res) => (jobs = res.items));
     try {
-      await api.search({
-        query: query || undefined,
-        location: location || undefined,
-      });
-      const params = new URLSearchParams();
-      if (query) params.set("query", query);
-      if (location) params.set("location", location);
-      goto(`?${params}`);
+      await api.search(params);
     } catch (e) {
       toast.error(
         e instanceof ApiError ? `Erreur ${e.status}` : "Erreur inattendue",
       );
+    } finally {
+      const urlParams = new URLSearchParams();
+      if (query) urlParams.set("query", query);
+      if (location) urlParams.set("location", location);
+      goto(`?${urlParams}`);
+      const res = await api.listJobs(params);
+      jobs = res.items;
     }
   }
 </script>

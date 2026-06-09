@@ -28,8 +28,8 @@ interface SireneResult {
   matching_etablissements: SireneEtablissement[];
 }
 
-const CONCURRENCY = 3;
-const BATCH_DELAY_MS = 1000; // stay under 7 req/s (2 API calls per job × 3 concurrent = 6/s max)
+const CONCURRENCY = 1;
+const BATCH_DELAY_MS = 300;
 
 @Injectable()
 export class EnrichmentService {
@@ -121,17 +121,43 @@ export class EnrichmentService {
     return null;
   }
 
+  private async fetchWithRetry(
+    url: string,
+    label: string,
+    retries = 3,
+  ): Promise<Response | null> {
+    let delay = 2000;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      const res = await fetch(url).catch(() => null);
+      if (!res) return null;
+      if (res.ok) return res;
+      if (res.status === 429 && attempt < retries) {
+        this.logger.warn(
+          `429 on ${label}, retry ${attempt}/${retries} in ${delay}ms`,
+        );
+        await new Promise((r) => setTimeout(r, delay));
+        delay *= 2;
+        continue;
+      }
+      this.logger.warn(`HTTP ${res.status} on ${label}`);
+      return null;
+    }
+    return null;
+  }
+
   private async tokenToScope(token: string): Promise<LocationScope | null> {
     const [communes, regions] = await Promise.all([
-      fetch(
+      this.fetchWithRetry(
         `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(token)}&fields=departement&boost=population&limit=1`,
+        `geo communes "${token}"`,
       )
-        .then((r) => (r.ok ? (r.json() as Promise<GeoCommune[]>) : []))
+        .then((r) => (r ? (r.json() as Promise<GeoCommune[]>) : []))
         .catch(() => [] as GeoCommune[]),
-      fetch(
+      this.fetchWithRetry(
         `https://geo.api.gouv.fr/regions?nom=${encodeURIComponent(token)}&limit=1`,
+        `geo regions "${token}"`,
       )
-        .then((r) => (r.ok ? (r.json() as Promise<GeoRegion[]>) : []))
+        .then((r) => (r ? (r.json() as Promise<GeoRegion[]>) : []))
         .catch(() => [] as GeoRegion[]),
     ]);
 
@@ -191,8 +217,11 @@ export class EnrichmentService {
         ? `departement=${scope.code}`
         : `region=${scope.code}`;
     const url = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(company)}&${geoParam}&limite=20`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
+    const res = await this.fetchWithRetry(
+      url,
+      `Sirene "${company}" (${geoParam})`,
+    );
+    if (!res) return null;
     const data: { results: SireneResult[] } = await res.json();
 
     for (const result of data.results) {
