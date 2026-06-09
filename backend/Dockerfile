@@ -6,7 +6,7 @@ COPY package*.json ./
 RUN npm ci
 
 COPY prisma ./prisma/
-RUN npx prisma generate
+RUN DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy npx prisma generate
 
 EXPOSE 3000
 CMD ["sh", "-c", "npx prisma generate && npx prisma db push && npm run start:dev"]
