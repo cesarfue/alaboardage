@@ -38,9 +38,9 @@ export class ScraperService {
           source,
           query: dto.query ?? '',
           location: dto.location ?? '',
-          limit: dto.limit,
+          limit: 150,
           offset: 1,
-          singlePage: true,
+          singlePage: false,
         })
           .then((jobs) => {
             total += jobs.length;
