@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { MessageEvent } from '@nestjs/common';
 import { chromium } from 'playwright';
+import { Observable } from 'rxjs';
 import { JobsService } from '../jobs/jobs.service';
 import { BoardScraper } from './board.scraper';
 import { WTTJScraper } from './wttj.scraper';
@@ -10,6 +12,7 @@ import { JTMS } from './boards/jtms.config';
 import { LINKEDIN } from './boards/linkedin.config';
 import type { BoardConfig } from './types';
 import { JobSource } from '../../generated/prisma/enums';
+import type { Job } from '../../generated/prisma/client';
 import { ScrapeRequestDto } from './dto/scrape-request.dto';
 import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
 import { EnrichmentService } from '../enrichment/enrichment.service';
@@ -23,7 +26,45 @@ export class ScraperService {
     private readonly enrichmentService: EnrichmentService,
   ) {}
 
-  async scrape(dto: ScrapeRequestDto) {
+  scrapeAllBoardsStream(dto: FindJobsDto): Observable<MessageEvent> {
+    return new Observable((observer) => {
+      const start = Date.now();
+      const sources = Object.values(JobSource);
+      let completed = 0;
+      let total = 0;
+
+      for (const source of sources) {
+        this.scrape({
+          source,
+          query: dto.query ?? '',
+          location: dto.location ?? '',
+          limit: dto.limit,
+          offset: 1,
+          singlePage: true,
+        })
+          .then((jobs) => {
+            total += jobs.length;
+            for (const job of jobs) {
+              observer.next({ data: { type: 'job', job: { ...job, establishment: null } } });
+            }
+          })
+          .catch((e: Error) => {
+            this.logger.error(`Failed to scrape ${source}: ${e.message}`);
+          })
+          .finally(() => {
+            completed++;
+            if (completed === sources.length) {
+              observer.next({
+                data: { type: 'done', total, durationMs: Date.now() - start },
+              });
+              observer.complete();
+            }
+          });
+      }
+    });
+  }
+
+  private async scrape(dto: ScrapeRequestDto): Promise<Job[]> {
     if (dto.source === JobSource.WTTJ) {
       return this.scrapeWTTJ(dto);
     }
@@ -39,63 +80,32 @@ export class ScraperService {
 
     try {
       const scraper = new BoardScraper(browser, config, dto, dto.source);
-      const jobs = await scraper.search();
-      this.logger.log(`Scraped ${jobs.length} jobs from ${config.name}`);
-      if (jobs.length > 0) {
-        const saved = await this.jobsService.upsertMany(jobs);
-        await this.enrichmentService.enrichJobs(saved);
-      }
-      return { source: dto.source, count: jobs.length };
+      const dtoJobs = await scraper.search();
+      this.logger.log(`Scraped ${dtoJobs.length} jobs from ${config.name}`);
+      if (dtoJobs.length === 0) return [];
+      const saved = await this.jobsService.upsertMany(dtoJobs);
+      this.enrichmentService.enrichJobs(saved).catch((e: Error) =>
+        this.logger.error(`Enrichment failed for ${dto.source}: ${e.message}`),
+      );
+      return saved;
     } finally {
       await browser.close();
     }
   }
 
-  private async scrapeWTTJ(dto: ScrapeRequestDto) {
+  private async scrapeWTTJ(dto: ScrapeRequestDto): Promise<Job[]> {
     this.logger.log(
       `Scraping WTTJ (Algolia) q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
     );
     const scraper = new WTTJScraper(dto, dto.source);
-    const jobs = await scraper.search();
-    this.logger.log(`Scraped ${jobs.length} jobs from WTTJ`);
-    if (jobs.length > 0) {
-      const saved = await this.jobsService.upsertMany(jobs);
-      await this.enrichmentService.enrichJobs(saved);
-    }
-    return { source: dto.source, count: jobs.length };
-  }
-
-  async scrapeAllBoards(dto: FindJobsDto) {
-    const start = Date.now();
-
-    const sources = Object.values(JobSource);
-    const counts = await Promise.all(
-      sources.map(async (source) => {
-        try {
-          const r = await this.scrape({
-            source,
-            query: dto.query ?? '',
-            location: dto.location ?? '',
-            limit: dto.limit,
-            offset: 1,
-            singlePage: true,
-          });
-          return r;
-        } catch (e) {
-          this.logger.error(
-            `Failed to scrape ${source}: ${(e as Error).message}`,
-          );
-          return { source, count: 0 };
-        }
-      }),
+    const dtoJobs = await scraper.search();
+    this.logger.log(`Scraped ${dtoJobs.length} jobs from WTTJ`);
+    if (dtoJobs.length === 0) return [];
+    const saved = await this.jobsService.upsertMany(dtoJobs);
+    this.enrichmentService.enrichJobs(saved).catch((e: Error) =>
+      this.logger.error(`Enrichment failed for WTTJ: ${e.message}`),
     );
-
-    const total = counts.reduce((acc, c) => acc + c.count, 0);
-    return {
-      counts,
-      total,
-      durationMs: Date.now() - start,
-    };
+    return saved;
   }
 
   private configFor(source: JobSource): BoardConfig {

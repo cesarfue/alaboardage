@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Table from "$lib/components/ui/table/index.js";
   import { page } from "$app/state";
-  import { api, ApiError } from "$lib/api";
+  import { api } from "$lib/api";
   import type { Job } from "$lib/types";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
@@ -12,9 +12,11 @@
   let query = $state(page.url.searchParams.get("query") ?? "");
   let location = $state(page.url.searchParams.get("location") ?? "");
   let jobs = $state<Job[]>([]);
+  let searching = $state(false);
   let view = $state<"list" | "map">("list");
   let center = $state<[number, number]>([2.35, 48.85]);
   let zoom = $state(6);
+  let closeStream: (() => void) | null = null;
 
   $effect(() => {
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -24,32 +26,33 @@
   });
 
   $effect(() => {
-    const q = page.url.searchParams.get("query") ?? "";
-    const loc = page.url.searchParams.get("location") ?? "";
-    api
-      .listJobs({ query: q || undefined, location: loc || undefined })
-      .then((res) => {
-        jobs = res.items;
-      });
+    const q = page.url.searchParams.get("query");
+    const loc = page.url.searchParams.get("location");
+    if (q || loc) {
+      query = q ?? "";
+      location = loc ?? "";
+      startStream();
+    }
   });
 
-  async function search() {
-    const params = { query: query || undefined, location: location || undefined };
-    api.listJobs(params).then((res) => (jobs = res.items));
-    try {
-      await api.search(params);
-    } catch (e) {
-      toast.error(
-        e instanceof ApiError ? `Erreur ${e.status}` : "Erreur inattendue",
-      );
-    } finally {
-      const urlParams = new URLSearchParams();
-      if (query) urlParams.set("query", query);
-      if (location) urlParams.set("location", location);
-      goto(`?${urlParams}`);
-      const res = await api.listJobs(params);
-      jobs = res.items;
-    }
+  function startStream() {
+    closeStream?.();
+    jobs = [];
+    searching = true;
+    closeStream = api.streamSearch(
+      { query: query || undefined, location: location || undefined },
+      (job) => { jobs = [...jobs, job]; },
+      () => { searching = false; closeStream = null; },
+      () => { toast.error("Erreur lors de la recherche"); },
+    );
+  }
+
+  function search() {
+    const urlParams = new URLSearchParams();
+    if (query) urlParams.set("query", query);
+    if (location) urlParams.set("location", location);
+    goto(`?${urlParams}`);
+    startStream();
   }
 </script>
 
@@ -69,9 +72,10 @@
     />
     <button
       onclick={search}
-      class="bg-primary text-primary-foreground rounded px-3 py-1 text-sm"
+      disabled={searching}
+      class="bg-primary text-primary-foreground rounded px-3 py-1 text-sm disabled:opacity-50"
     >
-      Rechercher
+      {searching ? "Recherche…" : "Rechercher"}
     </button>
   </aside>
 

@@ -1,4 +1,5 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Controller, MessageEvent, Query, Sse } from '@nestjs/common';
+import { Observable } from 'rxjs';
 import { ScraperService } from './scraper.service';
 import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
 
@@ -6,8 +7,8 @@ import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
 export class ScraperController {
   constructor(private readonly scraperService: ScraperService) {}
 
-  @Post('/search')
-  Search(@Body() query: FindJobsDto) {
-    return this.scraperService.scrapeAllBoards(query);
+  @Sse('/search')
+  search(@Query() query: FindJobsDto): Observable<MessageEvent> {
+    return this.scraperService.scrapeAllBoardsStream(query);
   }
 }
