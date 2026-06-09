@@ -45,7 +45,9 @@ export class ScraperService {
           .then((jobs) => {
             total += jobs.length;
             for (const job of jobs) {
-              observer.next({ data: { type: 'job', job: { ...job, establishment: null } } });
+              observer.next({
+                data: { type: 'job', job: { ...job, establishment: null } },
+              });
             }
           })
           .catch((e: Error) => {
@@ -84,9 +86,9 @@ export class ScraperService {
       this.logger.log(`Scraped ${dtoJobs.length} jobs from ${config.name}`);
       if (dtoJobs.length === 0) return [];
       const saved = await this.jobsService.upsertMany(dtoJobs);
-      this.enrichmentService.enrichJobs(saved).catch((e: Error) =>
-        this.logger.error(`Enrichment failed for ${dto.source}: ${e.message}`),
-      );
+      // this.enrichmentService.enrichJobs(saved).catch((e: Error) =>
+      //   this.logger.error(`Enrichment failed for ${dto.source}: ${e.message}`),
+      // );
       return saved;
     } finally {
       await browser.close();
@@ -102,9 +104,11 @@ export class ScraperService {
     this.logger.log(`Scraped ${dtoJobs.length} jobs from WTTJ`);
     if (dtoJobs.length === 0) return [];
     const saved = await this.jobsService.upsertMany(dtoJobs);
-    this.enrichmentService.enrichJobs(saved).catch((e: Error) =>
-      this.logger.error(`Enrichment failed for WTTJ: ${e.message}`),
-    );
+    // this.enrichmentService
+    //   .enrichJobs(saved)
+    //   .catch((e: Error) =>
+    //     this.logger.error(`Enrichment failed for WTTJ: ${e.message}`),
+    //   );
     return saved;
   }
 
