@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import type { Establishment } from '../../generated/prisma/client';
+
+type OnEnriched = (jobId: string, establishment: Establishment) => void;
 
 interface GeoCommune {
   _score: number;
@@ -96,60 +99,78 @@ export class EnrichmentService {
 
   enrichJobs(
     jobs: { id: string; company: string; location: string }[],
+    onEnriched?: OnEnriched,
+    label = 'unknown',
   ): Promise<void> {
     const gen = this.generation;
     this.enrichQueue = this.enrichQueue
       .catch(() => {})
-      .then(() => this.runEnrichJobs(jobs, gen));
+      .then(() => this.runEnrichJobs(jobs, gen, onEnriched, label));
     return this.enrichQueue;
   }
 
   private async runEnrichJobs(
     jobs: { id: string; company: string; location: string }[],
     gen: number,
+    onEnriched?: OnEnriched,
+    label = 'unknown',
   ) {
+    let enriched = 0;
+    let noScope = 0;
+    let noMatch = 0;
+
     for (const job of jobs) {
-      if (this.generation !== gen) return;
-      const result = await this.resolveEstablishment(job).catch(
-        (err: Error) => {
-          this.logger.error(`Failed to resolve ${job.id}: ${err.message}`);
-          return null;
-        },
-      );
-      if (this.generation !== gen) return;
-      if (result) {
-        await this.saveEnrichment(result).catch((err: Error) =>
-          this.logger.error(`Failed to save enrichment: ${err.message}`),
+      if (this.generation !== gen) {
+        this.logger.warn(`[${label}] enrichment cancelled after ${enriched}/${jobs.length}`);
+        return;
+      }
+      const result = await this.resolveEstablishment(job).catch((err: Error) => {
+        this.logger.error(`[${label}] resolve error for job ${job.id}: ${err.message}`);
+        return { success: false as const, reason: 'error' as const };
+      });
+      if (this.generation !== gen) {
+        this.logger.warn(`[${label}] enrichment cancelled after ${enriched}/${jobs.length}`);
+        return;
+      }
+      if (!result.success) {
+        if (result.reason === 'no-scope') noScope++;
+        else if (result.reason === 'no-match') noMatch++;
+      } else {
+        await this.saveEnrichment(result, onEnriched).catch((err: Error) =>
+          this.logger.error(`[${label}] save error: ${err.message}`),
         );
+        enriched++;
       }
     }
+
+    const pct = jobs.length > 0 ? Math.round((enriched / jobs.length) * 100) : 0;
+    this.logger.log(
+      `[${label}] ${enriched}/${jobs.length} enriched (${pct}%)` +
+      (noScope > 0 ? ` — ${noScope} no geo scope` : '') +
+      (noMatch > 0 ? ` — ${noMatch} no Sirene match` : ''),
+    );
   }
 
   async enrichJob(job: { id: string; company: string; location: string }) {
     const result = await this.resolveEstablishment(job);
-    if (result) await this.saveEnrichment(result);
+    if (result.success) await this.saveEnrichment(result);
   }
 
   private async resolveEstablishment(job: {
     id: string;
     company: string;
     location: string;
-  }) {
+  }): Promise<
+    | { success: true; jobId: string; etab: SireneEtablissement; name: string }
+    | { success: false; reason: 'no-scope' | 'no-match' }
+  > {
     const scope = await this.resolveScope(job.location);
-    if (!scope) {
-      this.logger.warn(`No geo scope for location "${job.location}"`);
-      return null;
-    }
+    if (!scope) return { success: false, reason: 'no-scope' };
 
     const found = await this.findEstablishment(job.company, scope);
-    if (!found) {
-      this.logger.warn(
-        `No establishment for "${job.company}" (${scope.type}=${scope.code})`,
-      );
-      return null;
-    }
+    if (!found) return { success: false, reason: 'no-match' };
 
-    return { jobId: job.id, etab: found.etab, name: found.name };
+    return { success: true, jobId: job.id, etab: found.etab, name: found.name };
   }
 
   private async resolveScope(location: string): Promise<LocationScope | null> {
@@ -227,14 +248,13 @@ export class EnrichmentService {
     return null;
   }
 
-  private async saveEnrichment(result: {
-    jobId: string;
-    etab: SireneEtablissement;
-    name: string;
-  }) {
+  private async saveEnrichment(
+    result: { success: true; jobId: string; etab: SireneEtablissement; name: string },
+    onEnriched?: OnEnriched,
+  ) {
     const { jobId, etab, name } = result;
 
-    await this.prisma.establishment.upsert({
+    const establishment = await this.prisma.establishment.upsert({
       where: { siret: etab.siret },
       create: {
         siret: etab.siret,
@@ -252,7 +272,7 @@ export class EnrichmentService {
       data: { establishmentId: etab.siret },
     });
 
-    this.logger.log(`Enriched job ${name} → (${etab.adresse})`);
+    onEnriched?.(jobId, establishment);
   }
 
   private async findEstablishment(
@@ -290,7 +310,10 @@ export class EnrichmentService {
           e.etat_administratif === 'A' &&
           !!e.latitude &&
           e.latitude !== '[NON-DIFFUSIBLE]' &&
-          !isNaN(parseFloat(e.latitude)),
+          !isNaN(parseFloat(e.latitude)) &&
+          !!e.longitude &&
+          e.longitude !== '[NON-DIFFUSIBLE]' &&
+          !isNaN(parseFloat(e.longitude)),
       );
       if (etab) return { etab, name: result.nom_complet };
     }

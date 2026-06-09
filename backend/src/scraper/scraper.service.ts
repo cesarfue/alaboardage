@@ -12,7 +12,7 @@ import { JTMS } from './boards/jtms.config';
 import { LINKEDIN } from './boards/linkedin.config';
 import type { BoardConfig } from './types';
 import { JobSource } from '../../generated/prisma/enums';
-import type { Job } from '../../generated/prisma/client';
+import type { Job, Establishment } from '../../generated/prisma/client';
 import { ScrapeRequestDto } from './dto/scrape-request.dto';
 import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
 import { EnrichmentService } from '../enrichment/enrichment.service';
@@ -32,42 +32,52 @@ export class ScraperService {
       const { signal } = controller;
       const start = Date.now();
       const sources = Object.values(JobSource);
-      let completed = 0;
       let total = 0;
 
-      for (const source of sources) {
-        this.scrape({
-          source,
-          query: dto.query ?? '',
-          location: dto.location ?? '',
-          limit: 150,
-          offset: 1,
-          singlePage: false,
-        }, signal)
+      const onEnriched = (jobId: string, establishment: Establishment) => {
+        if (!signal.aborted)
+          observer.next({ data: { type: 'establishment', jobId, establishment } });
+      };
+
+      // Each task scrapes a board, emits its jobs, then enriches them.
+      // We wait for enrichment too so the SSE stays open until establishment
+      // events are sent — otherwise `done` closes it mid-enrichment.
+      const tasks = sources.map((source) =>
+        this.scrape(
+          {
+            source,
+            query: dto.query ?? '',
+            location: dto.location ?? '',
+            limit: 150,
+            offset: 1,
+            singlePage: false,
+          },
+          signal,
+        )
           .then((jobs) => {
+            if (signal.aborted) return;
             total += jobs.length;
-            if (!signal.aborted) {
-              for (const job of jobs) {
-                observer.next({
-                  data: { type: 'job', job: { ...job, establishment: null } },
-                });
-              }
+            for (const job of jobs) {
+              observer.next({
+                data: { type: 'job', job: { ...job, establishment: null } },
+              });
             }
+            return this.enrichmentService.enrichJobs(jobs, onEnriched, source);
           })
           .catch((e: Error) => {
             if (!signal.aborted)
               this.logger.error(`Failed to scrape ${source}: ${e.message}`);
-          })
-          .finally(() => {
-            completed++;
-            if (completed === sources.length && !signal.aborted) {
-              observer.next({
-                data: { type: 'done', total, durationMs: Date.now() - start },
-              });
-              observer.complete();
-            }
+          }),
+      );
+
+      Promise.all(tasks).then(() => {
+        if (!signal.aborted) {
+          observer.next({
+            data: { type: 'done', total, durationMs: Date.now() - start },
           });
-      }
+          observer.complete();
+        }
+      });
 
       return () => {
         controller.abort();
@@ -95,11 +105,7 @@ export class ScraperService {
       const dtoJobs = await scraper.search();
       this.logger.log(`Scraped ${dtoJobs.length} jobs from ${config.name}`);
       if (dtoJobs.length === 0 || signal.aborted) return [];
-      const saved = await this.jobsService.upsertMany(dtoJobs);
-      this.enrichmentService.enrichJobs(saved).catch((e: Error) =>
-        this.logger.error(`Enrichment failed for ${dto.source}: ${e.message}`),
-      );
-      return saved;
+      return this.jobsService.upsertMany(dtoJobs);
     } finally {
       await browser.close();
     }
@@ -113,11 +119,7 @@ export class ScraperService {
     const dtoJobs = await scraper.search();
     this.logger.log(`Scraped ${dtoJobs.length} jobs from WTTJ`);
     if (dtoJobs.length === 0 || signal.aborted) return [];
-    const saved = await this.jobsService.upsertMany(dtoJobs);
-    this.enrichmentService.enrichJobs(saved).catch((e: Error) =>
-      this.logger.error(`Enrichment failed for WTTJ: ${e.message}`),
-    );
-    return saved;
+    return this.jobsService.upsertMany(dtoJobs);
   }
 
   private configFor(source: JobSource): BoardConfig {
