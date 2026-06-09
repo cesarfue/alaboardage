@@ -28,12 +28,43 @@ interface SireneResult {
   matching_etablissements: SireneEtablissement[];
 }
 
-const CONCURRENCY = 3;
-const BATCH_DELAY_MS = 1000; // stay under 7 req/s (2 API calls per job × 3 concurrent = 6/s max)
+const CONCURRENCY = 1;
+const BATCH_DELAY_MS = 300;
+
+class RateLimiter {
+  private queue = Promise.resolve();
+  private readonly minIntervalMs: number;
+  private lastCallAt = 0;
+
+  constructor(maxPerSecond: number) {
+    this.minIntervalMs = Math.ceil(1000 / maxPerSecond);
+  }
+
+  acquire(): Promise<void> {
+    const prev = this.queue;
+    let release!: () => void;
+    this.queue = new Promise((r) => (release = r));
+    return prev.then(() => {
+      const wait = this.minIntervalMs - (Date.now() - this.lastCallAt);
+      return (
+        wait > 0
+          ? new Promise<void>((r) => setTimeout(r, wait))
+          : Promise.resolve()
+      ).then(() => {
+        this.lastCallAt = Date.now();
+        release();
+      });
+    });
+  }
+}
 
 @Injectable()
 export class EnrichmentService {
   private readonly logger = new Logger(EnrichmentService.name);
+  // geo.api.gouv.fr limit: 50 req/s per IP — stay strictly below
+  private readonly geoLimiter = new RateLimiter(45);
+  // global queue: only one enrichJobs batch runs at a time across all boards
+  private enrichQueue = Promise.resolve();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -59,22 +90,28 @@ export class EnrichmentService {
     return { processed: jobs.length, enriched: after - before };
   }
 
-  async enrichJobs(jobs: { id: string; company: string; location: string }[]) {
-    // Fetch API data in parallel, then write to DB serially (SQLite can't handle concurrent writes)
-    for (let i = 0; i < jobs.length; i += CONCURRENCY) {
-      if (i > 0) await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
-      const batch = jobs.slice(i, i + CONCURRENCY);
-      const results = await Promise.all(
-        batch.map((job) =>
-          this.resolveEstablishment(job).catch((err: Error) => {
-            this.logger.error(`Failed to resolve ${job.id}: ${err.message}`);
-            return null;
-          }),
-        ),
-      );
+  enrichJobs(
+    jobs: { id: string; company: string; location: string }[],
+  ): Promise<void> {
+    this.enrichQueue = this.enrichQueue
+      .catch(() => {})
+      .then(() => this.runEnrichJobs(jobs));
+    return this.enrichQueue;
+  }
 
-      for (const result of results) {
-        if (!result) continue;
+  private async runEnrichJobs(
+    jobs: { id: string; company: string; location: string }[],
+  ) {
+    for (const job of jobs) {
+      if (jobs.indexOf(job) > 0)
+        await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+      const result = await this.resolveEstablishment(job).catch(
+        (err: Error) => {
+          this.logger.error(`Failed to resolve ${job.id}: ${err.message}`);
+          return null;
+        },
+      );
+      if (result) {
         await this.saveEnrichment(result).catch((err: Error) =>
           this.logger.error(`Failed to save enrichment: ${err.message}`),
         );
@@ -121,22 +158,65 @@ export class EnrichmentService {
     return null;
   }
 
+  private async fetchWithRetry(
+    url: string,
+    label: string,
+    retries = 3,
+  ): Promise<Response | null> {
+    let delay = 2000;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      const res = await fetch(url).catch(() => null);
+      if (res?.ok) return res;
+      const shouldRetry = attempt < retries;
+      if (!res) {
+        if (!shouldRetry) return null;
+        this.logger.warn(
+          `Network error on ${label}, retry ${attempt}/${retries} in ${delay}ms`,
+        );
+      } else if (res.status === 429) {
+        if (!shouldRetry) {
+          this.logger.warn(`HTTP 429 on ${label}`);
+          return null;
+        }
+        this.logger.warn(
+          `429 on ${label}, retry ${attempt}/${retries} in ${delay}ms`,
+        );
+      } else {
+        this.logger.warn(`HTTP ${res.status} on ${label}`);
+        return null;
+      }
+      await new Promise((r) => setTimeout(r, delay));
+      delay *= 2;
+    }
+    return null;
+  }
+
   private async tokenToScope(token: string): Promise<LocationScope | null> {
-    const [communes, regions] = await Promise.all([
-      fetch(
-        `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(token)}&fields=departement&boost=population&limit=1`,
+    const communes = await this.geoLimiter
+      .acquire()
+      .then(() =>
+        this.fetchWithRetry(
+          `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(token)}&fields=departement&boost=population&limit=1`,
+          `geo communes "${token}"`,
+        ),
       )
-        .then((r) => (r.ok ? (r.json() as Promise<GeoCommune[]>) : []))
-        .catch(() => [] as GeoCommune[]),
-      fetch(
-        `https://geo.api.gouv.fr/regions?nom=${encodeURIComponent(token)}&limit=1`,
-      )
-        .then((r) => (r.ok ? (r.json() as Promise<GeoRegion[]>) : []))
-        .catch(() => [] as GeoRegion[]),
-    ]);
+      .then((r) => (r ? (r.json() as Promise<GeoCommune[]>) : []))
+      .catch(() => [] as GeoCommune[]);
 
     if (communes[0]?.departement?.code)
       return { type: 'departement', code: communes[0].departement.code };
+
+    const regions = await this.geoLimiter
+      .acquire()
+      .then(() =>
+        this.fetchWithRetry(
+          `https://geo.api.gouv.fr/regions?nom=${encodeURIComponent(token)}&limit=1`,
+          `geo regions "${token}"`,
+        ),
+      )
+      .then((r) => (r ? (r.json() as Promise<GeoRegion[]>) : []))
+      .catch(() => [] as GeoRegion[]);
+
     if (regions[0]?.code) return { type: 'region', code: regions[0].code };
     return null;
   }
@@ -166,7 +246,7 @@ export class EnrichmentService {
       data: { establishmentId: etab.siret },
     });
 
-    this.logger.log(`Enriched job ${jobId} → ${etab.siret} (${etab.adresse})`);
+    this.logger.log(`Enriched job ${name} → (${etab.adresse})`);
   }
 
   private async findEstablishment(
@@ -191,8 +271,11 @@ export class EnrichmentService {
         ? `departement=${scope.code}`
         : `region=${scope.code}`;
     const url = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(company)}&${geoParam}&limite=20`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
+    const res = await this.fetchWithRetry(
+      url,
+      `Sirene "${company}" (${geoParam})`,
+    );
+    if (!res) return null;
     const data: { results: SireneResult[] } = await res.json();
 
     for (const result of data.results) {

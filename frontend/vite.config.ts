@@ -5,6 +5,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [tailwindcss(), sveltekit()],
   server: {
+    allowedHosts: true,
     proxy: {
       "/api": {
         target: process.env.BACKEND_URL ?? "http://localhost:3000",

@@ -1,9 +1,4 @@
-import type {
-  Job,
-  ListJobsResponse,
-  SearchOrListRequest,
-  SearchResponse,
-} from "./types";
+import type { Job, ListJobsResponse, SearchOrListRequest } from "./types";
 
 const BASE = "/api";
 
@@ -48,11 +43,31 @@ export const api = {
     return request<ListJobsResponse>(`/jobs${buildQuery(params)}`);
   },
 
-  search(params: SearchOrListRequest = {}): Promise<SearchResponse> {
-    return request<SearchResponse>(`/scraper/search${buildQuery(params)}`, {
-      method: "POST",
-      body: JSON.stringify(params),
-    });
+  streamSearch(
+    params: SearchOrListRequest,
+    onJob: (job: Job) => void,
+    onDone: () => void,
+    onError?: () => void,
+  ): () => void {
+    const qs = buildQuery(params);
+    const eventSource = new EventSource(`${BASE}/scraper/search${qs}`);
+
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data) as { type: string; job?: Job };
+      if (data.type === "job" && data.job) onJob(data.job);
+      if (data.type === "done") {
+        eventSource.close();
+        onDone();
+      }
+    };
+
+    eventSource.onerror = () => {
+      eventSource.close();
+      onError?.();
+      onDone();
+    };
+
+    return () => eventSource.close();
   },
 
   getJob(id: string): Promise<Job> {

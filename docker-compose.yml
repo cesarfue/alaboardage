@@ -1,4 +1,18 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: alaboardage
+      POSTGRES_PASSWORD: alaboardage
+      POSTGRES_DB: alaboardage
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alaboardage"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   backend:
     build:
       context: ./backend
@@ -6,17 +20,35 @@ services:
       - ./backend:/app
       - backend_modules:/app/node_modules
       - backend_generated:/app/generated
-      - db_data:/app/data
     environment:
-      DATABASE_URL: file:/app/data/dev.db
+      DATABASE_URL: postgresql://alaboardage:alaboardage@postgres:5432/alaboardage
     ports:
       - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 5s
       timeout: 3s
       retries: 10
       start_period: 30s
+
+  prisma-studio:
+    build:
+      context: ./backend
+    volumes:
+      - ./backend:/app
+      - backend_modules:/app/node_modules
+      - backend_generated:/app/generated
+    environment:
+      DATABASE_URL: postgresql://alaboardage:alaboardage@postgres:5432/alaboardage
+    ports:
+      - "5555:5555"
+    command: ["sh", "-c", "npx prisma generate && npx prisma studio --port 5555 --browser none"]
+    depends_on:
+      backend:
+        condition: service_healthy
 
   frontend:
     build:
@@ -34,8 +66,8 @@ services:
         condition: service_healthy
 
 volumes:
+  postgres_data:
   backend_modules:
   backend_generated:
-  db_data:
   frontend_modules:
   frontend_kit:

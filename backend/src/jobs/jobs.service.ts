@@ -11,13 +11,19 @@ export class JobsService {
   async findAll(query: FindJobsDto) {
     const where: Prisma.JobWhereInput = {};
     if (query.source) where.source = query.source;
-    if (query.company) where.company = { contains: query.company };
-    if (query.location) where.location = { contains: query.location };
+    if (query.company) where.company = { contains: query.company, mode: 'insensitive' };
+    if (query.location) where.location = { contains: query.location, mode: 'insensitive' };
     if (query.query) {
-      where.OR = [
-        { title: { contains: query.query } },
-        { description: { contains: query.query } },
-      ];
+      const words = query.query.trim().split(/\s+/);
+      // SQL structure built from word count (not user input) — values are parameterized
+      const conditions = words
+        .map((_, i) => `unaccent(title) ILIKE unaccent($${i + 1})`)
+        .join(' AND ');
+      const rows = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
+        `SELECT id FROM "Job" WHERE ${conditions}`,
+        ...words.map((w) => `%${w}%`),
+      );
+      where.id = { in: rows.map((r) => r.id) };
     }
 
     const [items, total] = await Promise.all([
@@ -26,6 +32,7 @@ export class JobsService {
         orderBy: { datePosted: 'desc' },
         take: query.limit,
         skip: query.offset,
+        include: { establishment: true },
       }),
       this.prisma.job.count({ where }),
     ]);
