@@ -28,8 +28,6 @@ interface SireneResult {
   matching_etablissements: SireneEtablissement[];
 }
 
-const CONCURRENCY = 1;
-const BATCH_DELAY_MS = 300;
 
 class RateLimiter {
   private queue = Promise.resolve();
@@ -103,8 +101,6 @@ export class EnrichmentService {
     jobs: { id: string; company: string; location: string }[],
   ) {
     for (const job of jobs) {
-      if (jobs.indexOf(job) > 0)
-        await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
       const result = await this.resolveEstablishment(job).catch(
         (err: Error) => {
           this.logger.error(`Failed to resolve ${job.id}: ${err.message}`);
