@@ -191,7 +191,11 @@ export class BoardScraper {
     if (params.query) url.searchParams.set(params.query, this.params.query);
     if (params.location)
       url.searchParams.set(params.location, this.params.location);
-    if (params.offset) url.searchParams.set(params.offset, String(offset));
+    if (params.offset) {
+      const base = this.config.offsetBase ?? this.params.offset;
+      const value = base + (offset - this.params.offset);
+      url.searchParams.set(params.offset, String(value));
+    }
     return url.toString();
   }
 

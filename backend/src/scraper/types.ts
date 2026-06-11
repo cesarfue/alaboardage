@@ -38,4 +38,7 @@ export interface BoardConfig {
   locationPathTransform?: (location: string) => string;
   descriptionFromCard?: boolean;
   boardPageAction?: (page: Page) => Promise<void>;
+  // Valeur du paramètre d'offset pour la 1re page (défaut : params.offset).
+  // Mettre 0 pour les boards qui paginent à partir de 0 (ex. JTMS items_page).
+  offsetBase?: number;
 }

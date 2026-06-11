@@ -48,4 +48,6 @@ export const JTMS: BoardConfig = {
     location: '',
     offset: 'items_page',
   },
+  // makesense pagine à partir de 0 : items_page=0 = page 1.
+  offsetBase: 0,
 };
