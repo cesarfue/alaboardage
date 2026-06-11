@@ -4,7 +4,7 @@
   import type { Job } from "$lib/types";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
-  import { untrack } from "svelte";
+  import { onMount } from "svelte";
   import { MapLibre, Marker, Popup } from "svelte-maplibre";
   import JobList from "$lib/components/JobList.svelte";
   import SearchChoices from "$lib/components/SearchChoices.svelte";
@@ -24,17 +24,22 @@
     });
   });
 
-  $effect(() => {
-    const q = page.url.searchParams.get("query") ?? "";
-    const loc = page.url.searchParams.get("location") ?? "";
-    if (q || loc) {
-      untrack(() => {
-        query = q;
-        location = loc;
-        startStream();
-      });
-    }
+  onMount(() => {
+    if (query || location) startStream();
   });
+
+  let mappedJobs = $derived(
+    jobs.filter(
+      (j) =>
+        j.establishment &&
+        j.establishment.lat != null &&
+        !isNaN(j.establishment.lat) &&
+        j.establishment.lng != null &&
+        !isNaN(j.establishment.lng),
+    ),
+  );
+
+  let activeId = $state<string | null>(null);
 
   function startStream() {
     closeStream?.();
@@ -63,6 +68,7 @@
     if (query) urlParams.set("query", query);
     if (location) urlParams.set("location", location);
     goto(`?${urlParams}`);
+    startStream();
   }
 </script>
 
@@ -75,15 +81,17 @@
     bind:center
     bind:zoom
   >
-    {#each jobs.filter((j) => j.establishment && j.establishment.lat != null && !isNaN(j.establishment.lat) && j.establishment.lng != null && !isNaN(j.establishment.lng)) as job (job.id)}
+    {#each mappedJobs as job (job.id)}
       <Marker
         lngLat={[job.establishment!.lng, job.establishment!.lat]}
         asButton
       >
         <div
-          class="w-3 h-3 rounded-full bg-primary border-2 border-white shadow-md cursor-pointer"
+          class="w-3 h-3 rounded-full {activeId === job.id
+            ? 'bg-red-500'
+            : 'bg-primary'} border-2 border-white shadow-md cursor-pointer"
         ></div>
-        <Popup offset={[0, -10]}>
+        <Popup offset={[0, -10]} openOn="manual" open={activeId === job.id}>
           <div class="p-1 text-sm">
             <p class="font-semibold">{job.title}</p>
             <p class="text-muted-foreground">{job.company}</p>
@@ -92,5 +100,15 @@
       </Marker>
     {/each}
   </MapLibre>
-  <JobList {jobs} />
+  <JobList
+    jobs={mappedJobs}
+    {activeId}
+    onSelect={(id) => {
+      activeId = id;
+      const job = mappedJobs.find((j) => j.id === id);
+      if (job?.establishment)
+        center = [job.establishment.lng, job.establishment.lat];
+    }}
+    onHover={(id) => (activeId = id)}
+  />
 </main>

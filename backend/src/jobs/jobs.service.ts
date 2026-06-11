@@ -11,8 +11,10 @@ export class JobsService {
   async findAll(query: FindJobsDto) {
     const where: Prisma.JobWhereInput = {};
     if (query.source) where.source = query.source;
-    if (query.company) where.company = { contains: query.company, mode: 'insensitive' };
-    if (query.location) where.location = { contains: query.location, mode: 'insensitive' };
+    if (query.company)
+      where.company = { contains: query.company, mode: 'insensitive' };
+    if (query.location)
+      where.location = { contains: query.location, mode: 'insensitive' };
     if (query.query) {
       const words = query.query.trim().split(/\s+/);
       // SQL structure built from word count (not user input) — values are parameterized
@@ -50,20 +52,11 @@ export class JobsService {
   }
 
   upsertMany(dtos: CreateJobDto[]) {
-    return this.prisma.$transaction(dtos.map((dto) => this.upsertQuery(dto)));
+    return Promise.all(dtos.map((dto) => this.upsert(dto)));
   }
 
   async deleteAll(): Promise<number> {
     const { count } = await this.prisma.job.deleteMany({});
     return count;
-  }
-
-  private upsertQuery(dto: CreateJobDto) {
-    const { source, externalId, ...data } = dto;
-    return this.prisma.job.upsert({
-      where: { source_externalId: { source, externalId } },
-      create: { source, externalId, ...data },
-      update: data,
-    });
   }
 }

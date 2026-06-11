@@ -121,31 +121,40 @@ export class EnrichmentService implements OnModuleInit {
     onEnriched?: OnEnriched,
     label = 'unknown',
   ) {
+    const CONCURRENCY = 5;
     let enriched = 0;
     let noScope = 0;
     let noMatch = 0;
 
-    for (const job of jobs) {
+    for (let i = 0; i < jobs.length; i += CONCURRENCY) {
       if (this.generation !== gen) {
         this.logger.warn(`[${label}] enrichment cancelled after ${enriched}/${jobs.length}`);
         return;
       }
-      const result = await this.resolveEstablishment(job).catch((err: Error) => {
-        this.logger.error(`[${label}] resolve error for job ${job.id}: ${err.message}`);
-        return { success: false as const, reason: 'error' as const };
-      });
-      if (this.generation !== gen) {
-        this.logger.warn(`[${label}] enrichment cancelled after ${enriched}/${jobs.length}`);
-        return;
-      }
-      if (!result.success) {
-        if (result.reason === 'no-scope') noScope++;
-        else if (result.reason === 'no-match') noMatch++;
-      } else {
-        await this.saveEnrichment(result, onEnriched).catch((err: Error) =>
-          this.logger.error(`[${label}] save error: ${err.message}`),
-        );
-        enriched++;
+      const batch = jobs.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(
+        batch.map((job) =>
+          this.resolveEstablishment(job)
+            .then((result) => ({ job, result }))
+            .catch((err: Error) => {
+              this.logger.error(`[${label}] resolve error for job ${job.id}: ${err.message}`);
+              return { job, result: { success: false as const, reason: 'error' as const } };
+            }),
+        ),
+      );
+
+      for (const r of results) {
+        if (r.status === 'rejected') { noMatch++; continue; }
+        const { result } = r.value;
+        if (!result.success) {
+          if (result.reason === 'no-scope') noScope++;
+          else noMatch++;
+        } else {
+          await this.saveEnrichment(result, onEnriched).catch((err: Error) =>
+            this.logger.error(`[${label}] save error: ${err.message}`),
+          );
+          enriched++;
+        }
       }
     }
 
