@@ -1,5 +1,5 @@
 .PHONY: up down build logs ps shell-back shell-front \
-        migrate prisma-generate import-geo \
+        migrate prisma-generate import-geo import-sirene \
         lint-back lint-front test-back \
         clean
 
@@ -42,6 +42,11 @@ prisma-generate:
 # Télécharge le découpage administratif (non commité) — voir backend/scripts/import-communes.mjs
 import-geo:
 	node backend/scripts/import-communes.mjs
+
+# Importe la base SIRENE géolocalisée dans Postgres (non commité, ~928 Mo) —
+# voir backend/scripts/import-sirene.sh. Nécessite que `make up` tourne.
+import-sirene:
+	bash backend/scripts/import-sirene.sh
 
 # ── Qualité ───────────────────────────────────────────────────────────────────
 
