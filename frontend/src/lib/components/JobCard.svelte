@@ -16,13 +16,13 @@
 
 <article
   class:active
+  class="pointer-events-auto rounded-lg border bg-card shadow-md p-3 cursor-pointer hover:bg-muted"
   onmouseenter={() => onHover?.(job.id)}
   onmouseleave={() => onHover?.(null)}
   onclick={() => onSelect?.(job.id)}
 >
-  <!-- TODO: visuel / logo entreprise -->
-  <!-- TODO: titre (job.title) -->
-  <!-- TODO: entreprise · ville (job.company / job.establishment?.city) -->
-  <!-- TODO: meta (date, source) -->
-  <!-- TODO: CTA « voir l'offre » (job.url) -->
+  <p class="font-medium truncate">{job.title}</p>
+  <p class="text-sm text-muted-foreground truncate">
+    {job.company} · {job.establishment?.city ?? job.location}
+  </p>
 </article>

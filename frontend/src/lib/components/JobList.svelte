@@ -13,12 +13,12 @@
     onHover?: (id: string | null) => void;
     onSelect?: (id: string) => void;
   } = $props();
-
-  // TODO: scroll-into-view de la carte active quand activeId change
-  // (clic sur un pin de la map → faire remonter la JobCard correspondante)
 </script>
 
-<div class="job-list">
+<div
+  class="absolute top-0 left-0 z-10 h-full w-[380px]
+             p-3 flex flex-col gap-3 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+>
   {#each jobs as job (job.id)}
     <JobCard {job} active={job.id === activeId} {onHover} {onSelect} />
   {/each}
