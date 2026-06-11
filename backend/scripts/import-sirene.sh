@@ -95,11 +95,11 @@ $DC exec -T postgres psql -v ON_ERROR_STOP=1 -U alaboardage -d alaboardage < "$S
 
 echo "→ chargement dans Postgres..."
 $DC exec -T postgres psql -v ON_ERROR_STOP=1 -U alaboardage -d alaboardage \
-  -c "TRUNCATE sirene_etablissement;"
+  -c "TRUNCATE sirene.etablissement;"
 $DC exec -T postgres psql -v ON_ERROR_STOP=1 -U alaboardage -d alaboardage \
-  -c "\copy sirene_etablissement(siret,name,departement,region,city,address,lat,lng) FROM STDIN WITH (FORMAT csv, HEADER true)" \
+  -c "\copy sirene.etablissement(siret,name,departement,region,city,address,lat,lng) FROM STDIN WITH (FORMAT csv, HEADER true)" \
   < "$CSV"
 
 COUNT=$($DC exec -T postgres psql -tA -U alaboardage -d alaboardage \
-  -c "SELECT count(*) FROM sirene_etablissement;")
+  -c "SELECT count(*) FROM sirene.etablissement;")
 echo "✓ $COUNT établissements chargés"

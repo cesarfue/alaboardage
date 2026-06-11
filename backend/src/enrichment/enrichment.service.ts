@@ -16,7 +16,7 @@ type LocationScope =
   | { type: 'departement'; code: string }
   | { type: 'region'; code: string };
 
-// Ligne de la table locale sirene_etablissement (cf. make import-sirene).
+// Ligne de la table locale sirene.etablissement (cf. make import-sirene).
 // Déjà filtrée à l'import : établissement actif, diffusible, géolocalisé.
 interface SireneRow {
   siret: string;
@@ -258,7 +258,7 @@ export class EnrichmentService implements OnModuleInit {
 
     const fts = await this.prisma.$queryRaw<SireneRow[]>`
       SELECT siret, name, address, city, lat, lng
-      FROM sirene_etablissement
+      FROM sirene.etablissement
       WHERE ${scopeFilter}
         AND to_tsvector('french', name) @@ websearch_to_tsquery('french', ${company})
       ORDER BY ts_rank(
@@ -270,7 +270,7 @@ export class EnrichmentService implements OnModuleInit {
 
     const trgm = await this.prisma.$queryRaw<SireneRow[]>`
       SELECT siret, name, address, city, lat, lng
-      FROM sirene_etablissement
+      FROM sirene.etablissement
       WHERE ${scopeFilter}
         AND f_unaccent(name) % f_unaccent(${company})
       ORDER BY similarity(f_unaccent(name), f_unaccent(${company})) DESC
