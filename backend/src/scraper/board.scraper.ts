@@ -1,5 +1,5 @@
 import { load, type CheerioAPI } from 'cheerio';
-import type { Browser, BrowserContext } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import type { BoardConfig, Rule } from './types';
 import type { ScrapeRequestDto } from './dto/scrape-request.dto';
 import type { CreateJobDto } from '../jobs/dto/create-job.dto';
@@ -35,7 +35,17 @@ export class BoardScraper {
           actionsTaken = true;
         }
 
-        const html = await page.content();
+        // Client-side boards (LinkedIn, JTMS, Glassdoor) render their cards
+        // after domcontentloaded, so reading the DOM right away yields nothing.
+        // Wait for a card to appear (and for any in-flight navigation to settle)
+        // before reading. Timing out just means no results on this page.
+        await page
+          .waitForSelector(this.config.selectors.card.selects, {
+            timeout: 15000,
+          })
+          .catch(() => {});
+
+        const html = await this.readContent(page);
         const cards = this.extractCards(html);
         if (cards.length === 0) break;
 
@@ -78,6 +88,19 @@ export class BoardScraper {
   }
 
   sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // page.content() throws "page is navigating" if read mid-navigation
+  // (seen on LinkedIn's guest endpoint). Retry a couple of times.
+  private async readContent(page: Page): Promise<string> {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await page.content();
+      } catch {
+        await this.sleep(500);
+      }
+    }
+    return '';
+  }
 
   private parseCard(
     cardHtml: string,
