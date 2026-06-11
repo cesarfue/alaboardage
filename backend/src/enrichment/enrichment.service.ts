@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '../../generated/prisma/client';
 import type { Establishment } from '../../generated/prisma/client';
 
 type OnEnriched = (jobId: string, establishment: Establishment) => void;
@@ -15,18 +16,15 @@ type LocationScope =
   | { type: 'departement'; code: string }
   | { type: 'region'; code: string };
 
-interface SireneEtablissement {
+// Ligne de la table locale sirene_etablissement (cf. make import-sirene).
+// Déjà filtrée à l'import : établissement actif, diffusible, géolocalisé.
+interface SireneRow {
   siret: string;
-  adresse: string;
-  libelle_commune: string;
-  latitude: string | null;
-  longitude: string | null;
-  etat_administratif: string;
-}
-
-interface SireneResult {
-  nom_complet: string;
-  matching_etablissements: SireneEtablissement[];
+  name: string;
+  address: string | null;
+  city: string | null;
+  lat: number;
+  lng: number;
 }
 
 
@@ -169,7 +167,7 @@ export class EnrichmentService implements OnModuleInit {
     company: string;
     location: string;
   }): Promise<
-    | { success: true; jobId: string; etab: SireneEtablissement; name: string }
+    | { success: true; jobId: string; row: SireneRow }
     | { success: false; reason: 'no-scope' | 'no-match' }
   > {
     const scope = this.resolveScope(job.location);
@@ -178,7 +176,7 @@ export class EnrichmentService implements OnModuleInit {
     const found = await this.findEstablishment(job.company, scope);
     if (!found) return { success: false, reason: 'no-match' };
 
-    return { success: true, jobId: job.id, etab: found.etab, name: found.name };
+    return { success: true, jobId: job.id, row: found };
   }
 
   private resolveScope(location: string): LocationScope | null {
@@ -189,39 +187,6 @@ export class EnrichmentService implements OnModuleInit {
     for (const token of tokens) {
       const scope = this.tokenToScope(token);
       if (scope) return scope;
-    }
-    return null;
-  }
-
-  private async fetchWithRetry(
-    url: string,
-    label: string,
-    retries = 3,
-  ): Promise<Response | null> {
-    let delay = 2000;
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      const res = await fetch(url).catch(() => null);
-      if (res?.ok) return res;
-      const shouldRetry = attempt < retries;
-      if (!res) {
-        if (!shouldRetry) return null;
-        this.logger.warn(
-          `Network error on ${label}, retry ${attempt}/${retries} in ${delay}ms`,
-        );
-      } else if (res.status === 429) {
-        if (!shouldRetry) {
-          this.logger.warn(`HTTP 429 on ${label}`);
-          return null;
-        }
-        this.logger.warn(
-          `429 on ${label}, retry ${attempt}/${retries} in ${delay}ms`,
-        );
-      } else {
-        this.logger.warn(`HTTP ${res.status} on ${label}`);
-        return null;
-      }
-      await new Promise((r) => setTimeout(r, delay));
-      delay *= 2;
     }
     return null;
   }
@@ -238,27 +203,27 @@ export class EnrichmentService implements OnModuleInit {
   }
 
   private async saveEnrichment(
-    result: { success: true; jobId: string; etab: SireneEtablissement; name: string },
+    result: { success: true; jobId: string; row: SireneRow },
     onEnriched?: OnEnriched,
   ) {
-    const { jobId, etab, name } = result;
+    const { jobId, row } = result;
 
     const establishment = await this.prisma.establishment.upsert({
-      where: { siret: etab.siret },
+      where: { siret: row.siret },
       create: {
-        siret: etab.siret,
-        name,
-        address: etab.adresse,
-        city: etab.libelle_commune,
-        lat: parseFloat(etab.latitude!),
-        lng: parseFloat(etab.longitude!),
+        siret: row.siret,
+        name: row.name,
+        address: row.address ?? '',
+        city: row.city ?? '',
+        lat: row.lat,
+        lng: row.lng,
       },
       update: {},
     });
 
     await this.prisma.job.update({
       where: { id: jobId },
-      data: { establishmentId: etab.siret },
+      data: { establishmentId: row.siret },
     });
 
     onEnriched?.(jobId, establishment);
@@ -267,46 +232,50 @@ export class EnrichmentService implements OnModuleInit {
   private async findEstablishment(
     company: string,
     scope: LocationScope,
-  ): Promise<{ etab: SireneEtablissement; name: string } | null> {
-    const result = await this.querySirene(company, scope);
-    if (result) return result;
+  ): Promise<SireneRow | null> {
+    const row = await this.queryLocal(company, scope);
+    if (row) return row;
 
     const simplified = this.simplifyCompanyName(company);
-    if (simplified !== company) return this.querySirene(simplified, scope);
+    if (simplified !== company) return this.queryLocal(simplified, scope);
 
     return null;
   }
 
-  private async querySirene(
+  /**
+   * Recherche le meilleur établissement dans la table SIRENE locale, restreint
+   * au scope géographique. D'abord par full-text français (tokens + stemming,
+   * proche du moteur de l'API), puis fallback trigramme (fautes / variantes).
+   */
+  private async queryLocal(
     company: string,
     scope: LocationScope,
-  ): Promise<{ etab: SireneEtablissement; name: string } | null> {
-    const geoParam =
+  ): Promise<SireneRow | null> {
+    const scopeFilter =
       scope.type === 'departement'
-        ? `departement=${scope.code}`
-        : `region=${scope.code}`;
-    const url = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(company)}&${geoParam}&limite=20`;
-    const res = await this.fetchWithRetry(
-      url,
-      `Sirene "${company}" (${geoParam})`,
-    );
-    if (!res) return null;
-    const data: { results: SireneResult[] } = await res.json();
+        ? Prisma.sql`departement = ${scope.code}`
+        : Prisma.sql`region = ${scope.code}`;
 
-    for (const result of data.results) {
-      const etab = result.matching_etablissements.find(
-        (e) =>
-          e.etat_administratif === 'A' &&
-          !!e.latitude &&
-          e.latitude !== '[NON-DIFFUSIBLE]' &&
-          !isNaN(parseFloat(e.latitude)) &&
-          !!e.longitude &&
-          e.longitude !== '[NON-DIFFUSIBLE]' &&
-          !isNaN(parseFloat(e.longitude)),
-      );
-      if (etab) return { etab, name: result.nom_complet };
-    }
-    return null;
+    const fts = await this.prisma.$queryRaw<SireneRow[]>`
+      SELECT siret, name, address, city, lat, lng
+      FROM sirene_etablissement
+      WHERE ${scopeFilter}
+        AND to_tsvector('french', name) @@ websearch_to_tsquery('french', ${company})
+      ORDER BY ts_rank(
+        to_tsvector('french', name),
+        websearch_to_tsquery('french', ${company})
+      ) DESC
+      LIMIT 1`;
+    if (fts.length > 0) return fts[0];
+
+    const trgm = await this.prisma.$queryRaw<SireneRow[]>`
+      SELECT siret, name, address, city, lat, lng
+      FROM sirene_etablissement
+      WHERE ${scopeFilter}
+        AND f_unaccent(name) % f_unaccent(${company})
+      ORDER BY similarity(f_unaccent(name), f_unaccent(${company})) DESC
+      LIMIT 1`;
+    return trgm.length > 0 ? trgm[0] : null;
   }
 
   private simplifyCompanyName(name: string): string {
