@@ -6,8 +6,10 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { MapLibre, Marker, Popup } from "svelte-maplibre";
+  import type maplibregl from "maplibre-gl";
   import JobList from "$lib/components/JobList.svelte";
   import SearchChoices from "$lib/components/SearchChoices.svelte";
+  import JobDetail from "$lib/components/JobDetail.svelte";
 
   let query = $state(page.url.searchParams.get("query") ?? "");
   let location = $state(page.url.searchParams.get("location") ?? "");
@@ -39,7 +41,9 @@
     ),
   );
 
-  let activeId = $state<string | null>(null);
+  let activeJob = $state<Job | null>(null);
+  let selectedJob = $state<Job | null>(null);
+  let map = $state<maplibregl.Map | undefined>(undefined);
 
   function startStream() {
     closeStream?.();
@@ -80,6 +84,7 @@
     standardControls
     bind:center
     bind:zoom
+    bind:map
   >
     {#each mappedJobs as job (job.id)}
       <Marker
@@ -87,28 +92,28 @@
         asButton
       >
         <div
-          class="w-3 h-3 rounded-full {activeId === job.id
+          class="w-3 h-3 rounded-full {activeJob?.id === job.id
             ? 'bg-red-500'
             : 'bg-primary'} border-2 border-white shadow-md cursor-pointer"
         ></div>
-        <Popup offset={[0, -10]} openOn="manual" open={activeId === job.id}>
-          <div class="p-1 text-sm">
-            <p class="font-semibold">{job.title}</p>
-            <p class="text-muted-foreground">{job.company}</p>
-          </div>
-        </Popup>
       </Marker>
     {/each}
   </MapLibre>
   <JobList
     jobs={mappedJobs}
-    {activeId}
-    onSelect={(id) => {
-      activeId = id;
-      const job = mappedJobs.find((j) => j.id === id);
+    {activeJob}
+    onSelect={(job) => {
+      selectedJob = job;
+      activeJob = job;
       if (job?.establishment)
-        center = [job.establishment.lng, job.establishment.lat];
+        map?.easeTo({
+          center: [job.establishment.lng, job.establishment.lat],
+          padding: { left: 760, top: 0, right: 0, bottom: 0 },
+        });
     }}
-    onHover={(id) => (activeId = id)}
+    onHover={(job) => (activeJob = job)}
   />
+  {#if selectedJob !== null}
+    <JobDetail job={selectedJob} onClose={() => (selectedJob = null)} />
+  {/if}
 </main>

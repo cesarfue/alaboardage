@@ -13,8 +13,8 @@
 </script>
 
 <div
-  class="absolute top-3 right-3 z-20 pointer-events-auto
-         flex flex-col gap-2 rounded-xl border bg-background/95 backdrop-blur p-3 shadow-lg w-64"
+  class="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-auto
+         flex flex-row items-center gap-2 rounded-xl p-3"
 >
   <input
     type="text"
@@ -27,7 +27,7 @@
     placeholder="Lieu"
     bind:value={location}
     class="border rounded-lg px-3 py-1.5 text-sm bg-background outline-none focus:ring-2 focus:ring-ring"
-    onkeydown={(e) => e.key === 'Enter' && search()}
+    onkeydown={(e) => e.key === "Enter" && search()}
   />
   <button
     onclick={search}

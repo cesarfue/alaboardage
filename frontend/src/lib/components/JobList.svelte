@@ -4,14 +4,14 @@
 
   let {
     jobs,
-    activeId = null,
+    activeJob,
     onHover,
     onSelect,
   }: {
     jobs: Job[];
-    activeId?: string | null;
-    onHover?: (id: string | null) => void;
-    onSelect?: (id: string) => void;
+    activeJob?: Job | null;
+    onHover?: (job: Job | null) => void;
+    onSelect?: (job: Job) => void;
   } = $props();
 </script>
 
@@ -20,6 +20,6 @@
              p-3 flex flex-col gap-3 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 >
   {#each jobs as job (job.id)}
-    <JobCard {job} active={job.id === activeId} {onHover} {onSelect} />
+    <JobCard {job} active={job === activeJob} {onHover} {onSelect} />
   {/each}
 </div>
