@@ -12,7 +12,7 @@
 </script>
 
 <div
-  class="absolute top-1/2 -translate-y-1/2 left-[380px] w-[380px] h-1/2 z-20 flex flex-col bg-background/95 backdrop-blur border rounded-xl shadow-lg overflow-hidden"
+  class="h-full w-[380px] flex-col bg-background/95 backdrop-blur border rounded-xl shadow-lg overflow-hidden"
 >
   <div class="flex items-start justify-between gap-2 p-4 border-b">
     <div class="min-w-0">

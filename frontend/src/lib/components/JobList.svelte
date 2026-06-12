@@ -16,10 +16,11 @@
 </script>
 
 <div
-  class="absolute top-0 left-0 z-10 h-full w-[380px]
-             p-3 flex flex-col gap-3 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+  class="h-full w-[380px] flex flex-col overflow-y-auto rounded-xl
+         bg-background shadow-xl pointer-events-auto
+         [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 >
   {#each jobs as job (job.id)}
-    <JobCard {job} active={job === activeJob} {onHover} {onSelect} />
+    <JobCard {job} active={job.id === activeJob?.id} {onHover} {onSelect} />
   {/each}
 </div>

@@ -18,6 +18,7 @@
   let center = $state<[number, number]>([2.35, 48.85]);
   let zoom = $state(6);
   let closeStream: (() => void) | null = null;
+  let showingFilters = $state(false);
 
   $effect(() => {
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -26,8 +27,15 @@
     });
   });
 
-  onMount(() => {
-    if (query || location) startStream();
+  onMount(async () => {
+    if (query || location) {
+      const res = await api.listJobs({
+        query: query || undefined,
+        location: location || undefined,
+        limit: 200,
+      });
+      jobs = res.items;
+    }
   });
 
   let mappedJobs = $derived(
@@ -77,11 +85,16 @@
 </script>
 
 <main class="relative w-full h-screen overflow-hidden">
-  <SearchChoices bind:query bind:location {search} {searching} />
+  <SearchChoices
+    bind:query
+    bind:location
+    {search}
+    {searching}
+    bind:showingFilters
+  />
   <MapLibre
     style="https://tiles.openfreemap.org/styles/liberty"
     class="w-full h-full"
-    standardControls
     bind:center
     bind:zoom
     bind:map
@@ -92,28 +105,31 @@
         asButton
       >
         <div
-          class="w-3 h-3 rounded-full {activeJob?.id === job.id
+          class="w-3 h-3 rounded-full {selectedJob?.id === job.id
             ? 'bg-red-500'
             : 'bg-primary'} border-2 border-white shadow-md cursor-pointer"
         ></div>
       </Marker>
     {/each}
   </MapLibre>
-  <JobList
-    jobs={mappedJobs}
-    {activeJob}
-    onSelect={(job) => {
-      selectedJob = job;
-      activeJob = job;
-      if (job?.establishment)
-        map?.easeTo({
-          center: [job.establishment.lng, job.establishment.lat],
-          padding: { left: 760, top: 0, right: 0, bottom: 0 },
-        });
-    }}
-    onHover={(job) => (activeJob = job)}
-  />
-  {#if selectedJob !== null}
-    <JobDetail job={selectedJob} onClose={() => (selectedJob = null)} />
-  {/if}
+  <div class="absolute bottom-10 top-30 left-10 z-10 flex flex-row gap-4">
+    <JobList
+      jobs={mappedJobs}
+      {activeJob}
+      onSelect={(job) => {
+        selectedJob = job;
+        activeJob = job;
+        if (job?.establishment)
+          map?.easeTo({
+            center: [job.establishment.lng, job.establishment.lat],
+            padding: { left: 760, top: 0, right: 0, bottom: 0 },
+            zoom: 13,
+          });
+      }}
+      onHover={(job) => (activeJob = job)}
+    />
+    {#if selectedJob !== null}
+      <JobDetail job={selectedJob} onClose={() => (selectedJob = null)} />
+    {/if}
+  </div>
 </main>

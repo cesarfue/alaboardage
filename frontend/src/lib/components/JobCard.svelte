@@ -15,8 +15,7 @@
 </script>
 
 <article
-  class:active
-  class="pointer-events-auto rounded-lg border bg-card shadow-md p-3 cursor-pointer hover:bg-muted"
+  class="px-4 py-3 cursor-pointer border-b last:border-b-0 hover:bg-muted transition-colors {active ? 'bg-muted' : ''}"
   onmouseenter={() => onHover?.(job)}
   onmouseleave={() => onHover?.(null)}
   onclick={() => onSelect?.(job)}
