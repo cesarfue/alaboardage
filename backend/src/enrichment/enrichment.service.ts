@@ -45,8 +45,6 @@ export class EnrichmentService implements OnModuleInit {
   private readonly communeToScope = new Map<string, { dep: string; reg: string }>();
   private readonly communePop = new Map<string, number>();
   private readonly regionToCode = new Map<string, string>();
-  // global queue: only one enrichJobs batch runs at a time across all boards
-  private enrichQueue = Promise.resolve();
   private generation = 0;
 
   constructor(private readonly prisma: PrismaService) {}
@@ -108,11 +106,7 @@ export class EnrichmentService implements OnModuleInit {
     onEnriched?: OnEnriched,
     label = 'unknown',
   ): Promise<void> {
-    const gen = this.generation;
-    this.enrichQueue = this.enrichQueue
-      .catch(() => {})
-      .then(() => this.runEnrichJobs(jobs, gen, onEnriched, label));
-    return this.enrichQueue;
+    return this.runEnrichJobs(jobs, this.generation, onEnriched, label);
   }
 
   private async runEnrichJobs(
@@ -143,6 +137,7 @@ export class EnrichmentService implements OnModuleInit {
         ),
       );
 
+      const saves: Promise<void>[] = [];
       for (const r of results) {
         if (r.status === 'rejected') { noMatch++; continue; }
         const { result } = r.value;
@@ -150,12 +145,15 @@ export class EnrichmentService implements OnModuleInit {
           if (result.reason === 'no-scope') noScope++;
           else noMatch++;
         } else {
-          await this.saveEnrichment(result, onEnriched).catch((err: Error) =>
-            this.logger.error(`[${label}] save error: ${err.message}`),
+          saves.push(
+            this.saveEnrichment(result, onEnriched).catch((err: Error) =>
+              this.logger.error(`[${label}] save error: ${err.message}`),
+            ),
           );
           enriched++;
         }
       }
+      await Promise.all(saves);
     }
 
     const pct = jobs.length > 0 ? Math.round((enriched / jobs.length) * 100) : 0;

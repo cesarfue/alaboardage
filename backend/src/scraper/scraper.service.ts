@@ -36,12 +36,11 @@ export class ScraperService {
 
       const onEnriched = (jobId: string, establishment: Establishment) => {
         if (!signal.aborted)
-          observer.next({ data: { type: 'establishment', jobId, establishment } });
+          observer.next({
+            data: { type: 'establishment', jobId, establishment },
+          });
       };
 
-      // Each task scrapes a board, emits its jobs, then enriches them.
-      // We wait for enrichment too so the SSE stays open until establishment
-      // events are sent — otherwise `done` closes it mid-enrichment.
       const tasks = sources.map((source) =>
         this.scrape(
           {
@@ -86,7 +85,10 @@ export class ScraperService {
     });
   }
 
-  private async scrape(dto: ScrapeRequestDto, signal: AbortSignal): Promise<Job[]> {
+  private async scrape(
+    dto: ScrapeRequestDto,
+    signal: AbortSignal,
+  ): Promise<Job[]> {
     if (dto.source === JobSource.WTTJ) {
       return this.scrapeWTTJ(dto, signal);
     }
@@ -101,7 +103,13 @@ export class ScraperService {
     });
 
     try {
-      const scraper = new BoardScraper(browser, config, dto, dto.source, signal);
+      const scraper = new BoardScraper(
+        browser,
+        config,
+        dto,
+        dto.source,
+        signal,
+      );
       const dtoJobs = await scraper.search();
       this.logger.log(`Scraped ${dtoJobs.length} jobs from ${config.name}`);
       if (dtoJobs.length === 0 || signal.aborted) return [];
@@ -111,7 +119,10 @@ export class ScraperService {
     }
   }
 
-  private async scrapeWTTJ(dto: ScrapeRequestDto, signal: AbortSignal): Promise<Job[]> {
+  private async scrapeWTTJ(
+    dto: ScrapeRequestDto,
+    signal: AbortSignal,
+  ): Promise<Job[]> {
     this.logger.log(
       `Scraping WTTJ (Algolia) q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
     );
