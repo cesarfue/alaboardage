@@ -16,8 +16,6 @@ type LocationScope =
   | { type: 'departement'; code: string }
   | { type: 'region'; code: string };
 
-// Ligne de la table locale sirene.etablissement (cf. make import-sirene).
-// Déjà filtrée à l'import : établissement actif, diffusible, géolocalisé.
 interface SireneRow {
   siret: string;
   name: string;
@@ -27,8 +25,6 @@ interface SireneRow {
   lng: number;
 }
 
-
-/** Normalise un nom pour le matching : minuscules, sans accents, alphanum. */
 function normalize(s: string): string {
   return s
     .normalize('NFD')
@@ -41,11 +37,14 @@ function normalize(s: string): string {
 @Injectable()
 export class EnrichmentService implements OnModuleInit {
   private readonly logger = new Logger(EnrichmentService.name);
-  // Index en mémoire du découpage administratif (cf. `make import-geo`).
-  private readonly communeToScope = new Map<string, { dep: string; reg: string }>();
+
+  private readonly communeToScope = new Map<
+    string,
+    { dep: string; reg: string }
+  >();
   private readonly communePop = new Map<string, number>();
   private readonly regionToCode = new Map<string, string>();
-  private generation = 0;
+  private controller: AbortController | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -55,7 +54,6 @@ export class EnrichmentService implements OnModuleInit {
       const { communes, regions } = JSON.parse(
         readFileSync(path, 'utf8'),
       ) as GeoData;
-      // En cas d'homonymes, garder la commune la plus peuplée (mime boost=population).
       for (const c of communes) {
         const key = normalize(c.n);
         if (c.p > (this.communePop.get(key) ?? -1)) {
@@ -97,8 +95,7 @@ export class EnrichmentService implements OnModuleInit {
   }
 
   cancelEnrichment(): void {
-    this.generation++;
-    this.enrichQueue = Promise.resolve();
+    this.controller?.abort();
   }
 
   enrichJobs(
@@ -106,12 +103,14 @@ export class EnrichmentService implements OnModuleInit {
     onEnriched?: OnEnriched,
     label = 'unknown',
   ): Promise<void> {
-    return this.runEnrichJobs(jobs, this.generation, onEnriched, label);
+    this.controller?.abort();
+    this.controller = new AbortController();
+    return this.runEnrichJobs(jobs, this.controller.signal, onEnriched, label);
   }
 
   private async runEnrichJobs(
     jobs: { id: string; company: string; location: string }[],
-    gen: number,
+    signal: AbortSignal | null,
     onEnriched?: OnEnriched,
     label = 'unknown',
   ) {
@@ -121,8 +120,10 @@ export class EnrichmentService implements OnModuleInit {
     let noMatch = 0;
 
     for (let i = 0; i < jobs.length; i += CONCURRENCY) {
-      if (this.generation !== gen) {
-        this.logger.warn(`[${label}] enrichment cancelled after ${enriched}/${jobs.length}`);
+      if (signal?.aborted) {
+        this.logger.warn(
+          `[${label}] enrichment cancelled after ${enriched}/${jobs.length}`,
+        );
         return;
       }
       const batch = jobs.slice(i, i + CONCURRENCY);
@@ -131,15 +132,23 @@ export class EnrichmentService implements OnModuleInit {
           this.resolveEstablishment(job)
             .then((result) => ({ job, result }))
             .catch((err: Error) => {
-              this.logger.error(`[${label}] resolve error for job ${job.id}: ${err.message}`);
-              return { job, result: { success: false as const, reason: 'error' as const } };
+              this.logger.error(
+                `[${label}] resolve error for job ${job.id}: ${err.message}`,
+              );
+              return {
+                job,
+                result: { success: false as const, reason: 'error' as const },
+              };
             }),
         ),
       );
 
       const saves: Promise<void>[] = [];
       for (const r of results) {
-        if (r.status === 'rejected') { noMatch++; continue; }
+        if (r.status === 'rejected') {
+          noMatch++;
+          continue;
+        }
         const { result } = r.value;
         if (!result.success) {
           if (result.reason === 'no-scope') noScope++;
@@ -156,11 +165,12 @@ export class EnrichmentService implements OnModuleInit {
       await Promise.all(saves);
     }
 
-    const pct = jobs.length > 0 ? Math.round((enriched / jobs.length) * 100) : 0;
+    const pct =
+      jobs.length > 0 ? Math.round((enriched / jobs.length) * 100) : 0;
     this.logger.log(
       `[${label}] ${enriched}/${jobs.length} enriched (${pct}%)` +
-      (noScope > 0 ? ` — ${noScope} no geo scope` : '') +
-      (noMatch > 0 ? ` — ${noMatch} no Sirene match` : ''),
+        (noScope > 0 ? ` — ${noScope} no geo scope` : '') +
+        (noMatch > 0 ? ` — ${noMatch} no Sirene match` : ''),
     );
   }
 
