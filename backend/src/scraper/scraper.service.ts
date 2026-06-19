@@ -16,6 +16,7 @@ import type { Job, Establishment } from '../../generated/prisma/client';
 import { ScrapeRequestDto } from './dto/scrape-request.dto';
 import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
 import { EnrichmentService } from '../enrichment/enrichment.service';
+import { ScoringService } from '../scoring/scoring.service';
 
 @Injectable()
 export class ScraperService {
@@ -24,6 +25,7 @@ export class ScraperService {
   constructor(
     private readonly jobsService: JobsService,
     private readonly enrichmentService: EnrichmentService,
+    private readonly scoringService: ScoringService,
   ) {}
 
   scrapeAllBoardsStream(dto: FindJobsDto): Observable<MessageEvent> {
@@ -60,6 +62,8 @@ export class ScraperService {
               observer.next({
                 data: { type: 'job', job: { ...job, establishment: null } },
               });
+              // fire-and-forget: score is available on next GET /jobs
+              void this.scoringService.computeAndSave(job, 'default');
             }
             return this.enrichmentService.enrichJobs(jobs, onEnriched, source);
           })

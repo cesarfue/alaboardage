@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { api } from "$lib/api";
-  import type { Job } from "$lib/types";
+  import type { Job, Skill } from "$lib/types";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
@@ -11,7 +11,6 @@
   import TopBar from "$lib/components/TopBar.svelte";
   import JobDetail from "$lib/components/JobDetail.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
-  import type { Skill } from "$lib/types";
 
   let query = $state(page.url.searchParams.get("query") ?? "");
   let location = $state(page.url.searchParams.get("location") ?? "");
@@ -23,13 +22,32 @@
   let showingFilters = $state(false);
   let showingProfile = $state(false);
   let skills = $state<Skill[]>([]);
+  let skillsReady = $state(false);
+
+  $effect(() => {
+    navigator.geolocation.getCurrentPosition((pos) => {
+      center = [pos.coords.longitude, pos.coords.latitude];
+      zoom = 10;
+    });
+  });
+
+  $effect(() => {
+    if (!skillsReady) return;
+    localStorage.setItem("skills", JSON.stringify(skills));
+    api.setSkills(skills).catch(() => {});
+  });
 
   onMount(async () => {
     try {
-      skills = JSON.parse(localStorage.getItem("skills") ?? "[]");
+      const remote = await api.getSkills();
+      skills = remote.length > 0
+        ? remote
+        : JSON.parse(localStorage.getItem("skills") ?? "[]");
     } catch {
-      localStorage.removeItem("skills");
+      try { skills = JSON.parse(localStorage.getItem("skills") ?? "[]"); } catch {}
     }
+    skillsReady = true;
+
     if (query || location) {
       const res = await api.listJobs({
         query: query || undefined,
@@ -40,19 +58,12 @@
     }
   });
 
-  $effect(() => {
-    localStorage.setItem("skills", JSON.stringify(skills));
-  });
-
-  $effect(() => {
-    navigator.geolocation.getCurrentPosition((pos) => {
-      center = [pos.coords.longitude, pos.coords.latitude];
-      zoom = 10;
-    });
-  });
+  let sortedJobs = $derived(
+    [...jobs].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)),
+  );
 
   let mappedJobs = $derived(
-    jobs.filter(
+    sortedJobs.filter(
       (j) =>
         j.establishment &&
         j.establishment.lat != null &&

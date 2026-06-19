@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { JobsModule } from './jobs/jobs.module';
 import { ScraperModule } from './scraper/scraper.module';
 import { EnrichmentModule } from './enrichment/enrichment.module';
+import { SkillsModule } from './skills/skills.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { EnrichmentModule } from './enrichment/enrichment.module';
     JobsModule,
     ScraperModule,
     EnrichmentModule,
+    SkillsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

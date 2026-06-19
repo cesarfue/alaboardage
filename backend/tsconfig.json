@@ -9,6 +9,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "skipLibCheck": true,
+    "isolatedModules": true,
     "rewriteRelativeImportExtensions": true
   }
 }
