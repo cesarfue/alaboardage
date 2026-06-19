@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { Funnel, User } from "@lucide/svelte";
+  import { Funnel, User, LogOut } from "@lucide/svelte";
   import FiltersPanel from "$lib/components/FiltersPanel.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
   import type { Skill } from "$lib/types";
+  import { getUser, clearToken } from "$lib/auth";
 
   let {
     query = $bindable(),
@@ -25,6 +26,8 @@
   let showingFilters = $state(false);
   let showingProfile = $state(false);
 
+  const user = $derived(getUser());
+
   function closeAll() {
     showingFilters = false;
     showingProfile = false;
@@ -38,6 +41,11 @@
   function toggleProfile() {
     showingProfile = !showingProfile;
     if (showingProfile) showingFilters = false;
+  }
+
+  function logout() {
+    clearToken();
+    window.location.href = "/";
   }
 </script>
 
@@ -100,4 +108,22 @@
       </div>
     {/if}
   </div>
+
+  {#if user}
+    <span class="text-sm text-muted-foreground hidden sm:block">{user.name}</span>
+    <button
+      onclick={logout}
+      class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted"
+      title="Déconnexion"
+    >
+      <LogOut size={16} />
+    </button>
+  {:else}
+    <a
+      href="http://localhost:3000/auth/google"
+      class="border rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted whitespace-nowrap"
+    >
+      Se connecter
+    </a>
+  {/if}
 </div>
