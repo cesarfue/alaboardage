@@ -2,6 +2,7 @@
   import { page } from "$app/state";
   import { api } from "$lib/api";
   import type { Job, Skill } from "$lib/types";
+  import { scoreJob } from "$lib/scoring";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
@@ -71,7 +72,7 @@
   });
 
   let sortedJobs = $derived(
-    [...jobs].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)),
+    [...jobs].sort((a, b) => scoreJob(b, skills) - scoreJob(a, skills)),
   );
 
   let mappedJobs = $derived(
@@ -193,6 +194,7 @@
   <div class="absolute bottom-10 top-30 left-10 z-10 flex flex-row gap-4">
     <JobList
       jobs={filteredJobs}
+      {skills}
       {activeJob}
       onSelect={(job) => {
         selectedJob = job;
