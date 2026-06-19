@@ -23,7 +23,6 @@ export class BoardScraper {
     const jobs: CreateJobDto[] = [];
     let offset = this.params.offset;
     let actionsTaken = false;
-    let firstPage = true;
 
     try {
       while (jobs.length < this.params.limit) {
@@ -32,11 +31,12 @@ export class BoardScraper {
         // Randomised delay between pages to reduce ban risk.
         // Skipped on the first request; higher floor for boards that flag
         // rapid sequential requests (configured via pageDelayMs).
-        if (!firstPage) {
+        if (offset > this.params.offset) {
           const floor = this.config.pageDelayMs ?? 1000;
           await this.sleep(floor + Math.random() * 2000);
+          // Re-check abort after sleeping — the signal may have fired mid-sleep.
+          if (this.signal?.aborted) break;
         }
-        firstPage = false;
 
         const boardUrl = this.buildBoardUrl(offset);
         await page.goto(boardUrl, { waitUntil: 'domcontentloaded' });

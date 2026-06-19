@@ -1,7 +1,7 @@
 // integration test — requires network
 // WTTJ uses the Algolia API via WTTJScraper (not BoardScraper).
 // runScraper() dispatches to WTTJScraper automatically for JobSource.WTTJ.
-import {} from '../../src/scraper/boards/wttj.config'; // kept for reference only
+// See src/scraper/boards/wttj.config.ts for the deprecated HTML-scraping config.
 import { JobSource } from '../../generated/prisma/enums';
 import { assertValidJob, printJobs, runScraper, TEST_LOCATION, TEST_QUERY } from './helpers';
 import type { BoardConfig } from '../../src/scraper/types';

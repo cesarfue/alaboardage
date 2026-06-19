@@ -61,11 +61,7 @@ export function printJobs(label: string, jobs: CreateJobDto[]) {
         ? job.datePosted.toISOString().slice(0, 10)
         : String(job.datePosted);
     const descLen = job.description?.length ?? 0;
-    const flags = [
-      job.location ? '' : 'NO_LOC',
-      descLen > 0 ? '' : 'NO_DESC',
-      date ? '' : 'NO_DATE',
-    ]
+    const flags = [job.location ? '' : 'NO_LOC', descLen > 0 ? '' : 'NO_DESC']
       .filter(Boolean)
       .join(' ');
     console.log(

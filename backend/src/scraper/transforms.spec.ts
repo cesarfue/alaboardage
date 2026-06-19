@@ -89,9 +89,12 @@ describe('transforms', () => {
 
   describe('jeunesdavenirsId', () => {
     it('extracts "i_<hex>" from a full path', () => {
-      expect(
-        jeunesdavenirsId('/offre/i_abc123def456'),
-      ).toBe('i_abc123def456');
+      expect(jeunesdavenirsId('/offre/i_abc123def456')).toBe('i_abc123def456');
+    });
+
+    it('extracts "i_<alphanumeric>" including non-hex chars', () => {
+      // IDs may contain g-z, not just a-f. Using [a-z0-9] avoids silent failures.
+      expect(jeunesdavenirsId('/offre/i_g7k9m2x3q1r4')).toBe('i_g7k9m2x3q1r4');
     });
 
     it('returns the raw href when the path does not match', () => {
