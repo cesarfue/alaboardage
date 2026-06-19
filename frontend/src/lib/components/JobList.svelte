@@ -1,14 +1,16 @@
 <script lang="ts">
-  import type { Job } from "$lib/types";
+  import type { Job, Skill } from "$lib/types";
   import JobCard from "./JobCard.svelte";
 
   let {
     jobs,
+    skills = [],
     activeJob,
     onHover,
     onSelect,
   }: {
     jobs: Job[];
+    skills?: Skill[];
     activeJob?: Job | null;
     onHover?: (job: Job | null) => void;
     onSelect?: (job: Job) => void;
@@ -26,7 +28,7 @@
   </div>
   <div class="flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
     {#each jobs as job (job.id)}
-      <JobCard {job} active={job.id === activeJob?.id} {onHover} {onSelect} />
+      <JobCard {job} {skills} active={job.id === activeJob?.id} {onHover} {onSelect} />
     {/each}
   </div>
 </div>
