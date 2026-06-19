@@ -1,6 +1,9 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '../../generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { PrismaPg } = require('@prisma/adapter-pg') as {
+  PrismaPg: new (cfg: { connectionString: string | undefined }) => unknown;
+};
 
 @Injectable()
 export class PrismaService

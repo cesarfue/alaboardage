@@ -44,7 +44,7 @@
         ? remote
         : JSON.parse(localStorage.getItem("skills") ?? "[]");
     } catch {
-      try { skills = JSON.parse(localStorage.getItem("skills") ?? "[]"); } catch {}
+      try { skills = JSON.parse(localStorage.getItem("skills") ?? "[]"); } catch { /* ignore corrupt localStorage */ }
     }
     skillsReady = true;
 
