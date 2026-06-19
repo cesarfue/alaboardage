@@ -107,10 +107,15 @@ export const INDEED: BoardConfig = {
     query: 'q',
     location: 'l',
     // offset in BoardScraper is incremented by 1 per page; Indeed uses start=N*10.
-    // This mapping is wrong for Indeed (would need offset * 10).
-    // For now, single-page scraping only — singlePage: true should be set in the request.
+    // Correct mapping would require offset*10, but pagination is blocked by
+    // Indeed's anti-bot system (page 2+ triggers a bot-check redirect).
+    // singlePageOnly enforces single-page mode at the config level.
     offset: 'start',
   },
+  // Pagination is blocked by Indeed's anti-bot system regardless of cookies or
+  // Referer. Page 1 scraping works (16 results); page 2+ triggers bot-check.
+  // See the R&D comment at the top of this file for full details.
+  singlePageOnly: true,
   boardPageAction: async (page) => {
     // Indeed renders job cards client-side; wait 5 s after domcontentloaded
     await page.waitForTimeout(5000);
