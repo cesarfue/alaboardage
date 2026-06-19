@@ -1,3 +1,14 @@
+/**
+ * @deprecated This config is no longer used.
+ *
+ * WTTJ replaced its public search page with an auth-gated funnel in 2025.
+ * The scraper was rewritten to use the Algolia API exposed in window.env
+ * (see wttj.scraper.ts). ScraperService routes JobSource.WTTJ directly to
+ * WTTJScraper — BoardScraper + this config are never called for WTTJ.
+ *
+ * Kept for historical reference; selectors below are stale and will not work.
+ */
+
 import type { BoardConfig } from '../types';
 
 export const WTTJ: BoardConfig = {
@@ -39,25 +50,5 @@ export const WTTJ: BoardConfig = {
     query: 'query',
     location: 'aroundQuery',
     offset: 'page',
-  },
-  boardPageAction: async (page) => {
-    // Dismiss cookie banner
-    try {
-      await page.locator('button#axeptio_btn_dismiss').click({ timeout: 5000 });
-    } catch {
-      // already dismissed or absent
-    }
-
-    // Focus the location field and trigger autocomplete (mirrors Rust click_point + space)
-    try {
-      await page.mouse.click(600, 190);
-      await page.keyboard.press(' ');
-      await page
-        .locator("div[data-testid='place-item-0'] div")
-        .click({ timeout: 5000 });
-      await page.waitForTimeout(2000);
-    } catch {
-      // location autocomplete unavailable, continue with raw query string
-    }
   },
 };
