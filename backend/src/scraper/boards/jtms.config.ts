@@ -30,8 +30,16 @@ export const JTMS: BoardConfig = {
       returns: { kind: 'text' },
     },
     location: {
-      selects: 'address',
+      // Single-city jobs use <address>; multi-city jobs render in div[name^="address-"].
+      // Both selectors are needed; the first match wins (n defaults to [0,1]).
+      // Strip the leading SVG title text ("Localisation") that Cheerio includes.
+      selects: 'address, div[name^="address-"]',
       returns: { kind: 'text' },
+      transforms: (t) =>
+        t
+          .replace(/^Localisation\s*/i, '')
+          .replace(/\s+/g, ' ')
+          .trim(),
     },
     description: {
       selects: 'div.job__content',

@@ -27,6 +27,17 @@ export class BoardScraper {
     try {
       while (jobs.length < this.params.limit) {
         if (this.signal?.aborted) break;
+
+        // Randomised delay between pages to reduce ban risk.
+        // Skipped on the first request; higher floor for boards that flag
+        // rapid sequential requests (configured via pageDelayMs).
+        if (offset > this.params.offset) {
+          const floor = this.config.pageDelayMs ?? 1000;
+          await this.sleep(floor + Math.random() * 2000);
+          // Re-check abort after sleeping — the signal may have fired mid-sleep.
+          if (this.signal?.aborted) break;
+        }
+
         const boardUrl = this.buildBoardUrl(offset);
         await page.goto(boardUrl, { waitUntil: 'domcontentloaded' });
 
@@ -60,6 +71,10 @@ export class BoardScraper {
         } else {
           const batchSize = 10;
           for (let i = 0; i < partialJobs.length; i += batchSize) {
+            if (i > 0) {
+              // Light delay between description-fetch batches.
+              await this.sleep(300 + Math.random() * 500);
+            }
             const batch = partialJobs.slice(i, i + batchSize);
             const descriptions = await Promise.all(
               batch.map((j) => this.fetchDescription(context, j.url)),
@@ -70,7 +85,7 @@ export class BoardScraper {
           }
         }
 
-        if (this.params.singlePage) break;
+        if (this.params.singlePage || this.config.singlePageOnly) break;
         offset++;
       }
     } finally {

@@ -42,4 +42,6 @@ export const LINKEDIN: BoardConfig = {
     location: 'location',
     offset: 'start',
   },
+  // LinkedIn flags rapid sequential requests; use a longer inter-page delay.
+  pageDelayMs: 3000,
 };

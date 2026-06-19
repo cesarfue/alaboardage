@@ -58,4 +58,6 @@ export const GLASSDOOR: BoardConfig = {
   urlParams: {
     // No dynamic query/location params — URL is a static slug.
   },
+  // Glassdoor uses JS-driven infinite scroll; there is no URL-based next page.
+  singlePageOnly: true,
 };
