@@ -14,10 +14,7 @@ interface Skill {
   createdAt: Date;
 }
 
-function makeSkill(
-  name: string,
-  level: SkillLevel,
-): Skill {
+function makeSkill(name: string, level: SkillLevel): Skill {
   return {
     id: name,
     userId: 'default',
@@ -83,7 +80,7 @@ describe('ScoringService.scoreJob', () => {
       },
       [
         makeSkill('TypeScript', SkillLevel.PRIMARY), // title: 3, desc: 1 → 4
-        makeSkill('React', SkillLevel.SECONDARY),    // title: 1.5 → 1.5
+        makeSkill('React', SkillLevel.SECONDARY), // title: 1.5 → 1.5
       ],
     );
     expect(score).toBe(5.5);
@@ -115,10 +112,9 @@ describe('ScoringService.scoreJob', () => {
 
   it('handles skills with special regex chars safely', () => {
     expect(() =>
-      service.scoreJob(
-        { title: 'C++ developer', description: '' },
-        [makeSkill('C++', SkillLevel.PRIMARY)],
-      ),
+      service.scoreJob({ title: 'C++ developer', description: '' }, [
+        makeSkill('C++', SkillLevel.PRIMARY),
+      ]),
     ).not.toThrow();
   });
 });

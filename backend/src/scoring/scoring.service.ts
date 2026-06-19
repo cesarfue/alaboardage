@@ -4,10 +4,7 @@ import type { Job, Skill } from '../../generated/prisma/client';
 import { SkillLevel } from '../../generated/prisma/enums';
 
 function normalize(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
 function escapeRegex(s: string): string {
