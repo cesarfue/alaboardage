@@ -49,12 +49,19 @@
     skillsReady = true;
 
     if (query || location) {
-      const res = await api.listJobs({
-        query: query || undefined,
-        location: location || undefined,
-        limit: 200,
-      });
-      jobs = res.items;
+      searching = true;
+      try {
+        const res = await api.listJobs({
+          query: query || undefined,
+          location: location || undefined,
+          limit: 200,
+        });
+        jobs = res.items;
+      } catch {
+        toast.error("Impossible de charger les résultats");
+      } finally {
+        searching = false;
+      }
     }
   });
 
@@ -137,7 +144,7 @@
   </MapLibre>
   <div class="absolute bottom-10 top-30 left-10 z-10 flex flex-row gap-4">
     <JobList
-      jobs={mappedJobs}
+      jobs={sortedJobs}
       {activeJob}
       onSelect={(job) => {
         selectedJob = job;
