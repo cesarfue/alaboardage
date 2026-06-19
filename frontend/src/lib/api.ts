@@ -1,4 +1,4 @@
-import type { Job, ListJobsResponse, SearchOrListRequest } from "./types";
+import type { Job, ListJobsResponse, SearchOrListRequest, Skill } from "./types";
 
 const BASE = "/api";
 
@@ -80,5 +80,25 @@ export const api = {
 
   getJob(id: string): Promise<Job> {
     return request<Job>(`/jobs/${encodeURIComponent(id)}`);
+  },
+
+  async getSkills(): Promise<Skill[]> {
+    const raw = await request<{ name: string; level: string }[]>("/skills");
+    return raw.map((s) => ({
+      name: s.name,
+      level: s.level === "PRIMARY" ? "primary" : "secondary",
+    }));
+  },
+
+  setSkills(skills: Skill[]): Promise<void> {
+    return request<void>("/skills", {
+      method: "PUT",
+      body: JSON.stringify({
+        skills: skills.map((s) => ({
+          name: s.name,
+          level: s.level === "primary" ? "PRIMARY" : "SECONDARY",
+        })),
+      }),
+    });
   },
 };

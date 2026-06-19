@@ -20,6 +20,7 @@ export interface Job {
   scrapedAt: string;
   updatedAt: string;
   establishment: Establishment | null;
+  score?: number;
 }
 
 export interface SearchOrListRequest {

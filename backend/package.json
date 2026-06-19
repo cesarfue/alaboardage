@@ -73,6 +73,9 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "moduleNameMapper": {
+      "^@prisma/adapter-pg$": "<rootDir>/../test/__mocks__/@prisma/adapter-pg.ts"
+    },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

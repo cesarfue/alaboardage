@@ -28,16 +28,24 @@ export class JobsService {
       where.id = { in: rows.map((r) => r.id) };
     }
 
-    const [items, total] = await Promise.all([
+    const [rawItems, total] = await Promise.all([
       this.prisma.job.findMany({
         where,
         orderBy: { datePosted: 'desc' },
         take: query.limit,
         skip: query.offset,
-        include: { establishment: true },
+        include: {
+          establishment: true,
+          scores: { where: { userId: 'default' } },
+        },
       }),
       this.prisma.job.count({ where }),
     ]);
+
+    const items = rawItems.map(({ scores, ...job }) => ({
+      ...job,
+      score: scores[0]?.score ?? 0,
+    }));
 
     return { items, total, limit: query.limit, offset: query.offset };
   }
