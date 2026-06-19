@@ -35,7 +35,7 @@ export default tseslint.config(
   },
   {
     // Test mocks and infrastructure files use loose types by necessity
-    files: ['test/**', 'src/**/__mocks__/**'],
+    files: ['test/**', 'src/**/__mocks__/**', 'src/**/*.spec.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
