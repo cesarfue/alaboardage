@@ -1,22 +1,54 @@
 <script lang="ts">
   import { Funnel, User } from "@lucide/svelte";
+  import FiltersPanel from "$lib/components/FiltersPanel.svelte";
+  import ProfilePanel from "$lib/components/ProfilePanel.svelte";
+  import type { Skill } from "$lib/types";
 
   let {
     query = $bindable(),
     location = $bindable(),
     search,
     searching,
-    showingFilters = $bindable(),
-    showingProfile = $bindable(),
+    skills = $bindable(),
+    radiusKm = $bindable(),
+    daysFilter = $bindable(),
   }: {
     query: string;
     location: string;
     search: () => void;
     searching: boolean;
-    showingFilters: boolean;
-    showingProfile: boolean;
+    skills: Skill[];
+    radiusKm: number;
+    daysFilter: number | null;
   } = $props();
+
+  let showingFilters = $state(false);
+  let showingProfile = $state(false);
+
+  function closeAll() {
+    showingFilters = false;
+    showingProfile = false;
+  }
+
+  function toggleFilters() {
+    showingFilters = !showingFilters;
+    if (showingFilters) showingProfile = false;
+  }
+
+  function toggleProfile() {
+    showingProfile = !showingProfile;
+    if (showingProfile) showingFilters = false;
+  }
 </script>
+
+{#if showingFilters || showingProfile}
+  <div
+    class="fixed inset-0 z-40"
+    role="presentation"
+    onclick={closeAll}
+    onkeydown={(e) => e.key === "Escape" && closeAll()}
+  ></div>
+{/if}
 
 <div
   class="absolute w-full z-20 pointer-events-auto
@@ -35,12 +67,19 @@
     class="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
     onkeydown={(e) => e.key === "Enter" && search()}
   />
-  <button
-    onclick={() => (showingFilters = !showingFilters)}
-    class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted"
-  >
-    <Funnel size={16} />
-  </button>
+  <div class="relative">
+    <button
+      onclick={toggleFilters}
+      class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingFilters ? 'bg-muted' : ''}"
+    >
+      <Funnel size={16} />
+    </button>
+    {#if showingFilters}
+      <div class="absolute top-full mt-1 z-50 left-0">
+        <FiltersPanel bind:radiusKm bind:daysFilter onClose={() => (showingFilters = false)} />
+      </div>
+    {/if}
+  </div>
   <button
     onclick={search}
     disabled={searching}
@@ -48,10 +87,17 @@
   >
     {searching ? "Recherche…" : "Rechercher"}
   </button>
-  <button
-    onclick={() => (showingProfile = !showingProfile)}
-    class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingProfile ? 'bg-muted' : ''}"
-  >
-    <User size={16} />
-  </button>
+  <div class="relative">
+    <button
+      onclick={toggleProfile}
+      class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingProfile ? 'bg-muted' : ''}"
+    >
+      <User size={16} />
+    </button>
+    {#if showingProfile}
+      <div class="absolute top-full mt-1 z-50 right-0">
+        <ProfilePanel bind:skills onClose={() => (showingProfile = false)} />
+      </div>
+    {/if}
+  </div>
 </div>

@@ -11,8 +11,6 @@
   import JobList from "$lib/components/JobList.svelte";
   import TopBar from "$lib/components/TopBar.svelte";
   import JobDetail from "$lib/components/JobDetail.svelte";
-  import ProfilePanel from "$lib/components/ProfilePanel.svelte";
-  import FiltersPanel from "$lib/components/FiltersPanel.svelte";
 
   let query = $state(page.url.searchParams.get("query") ?? "");
   let location = $state(page.url.searchParams.get("location") ?? "");
@@ -21,8 +19,6 @@
   let center = $state<[number, number]>([2.35, 48.85]);
   let zoom = $state(6);
   let closeStream: (() => void) | null = null;
-  let showingFilters = $state(false);
-  let showingProfile = $state(false);
   let skills = $state<Skill[]>([]);
   let skillsReady = $state(false);
 
@@ -160,17 +156,7 @@
 </script>
 
 <main class="relative w-full h-screen overflow-hidden">
-  <TopBar bind:query bind:location {search} {searching} bind:showingFilters bind:showingProfile />
-  {#if showingFilters}
-    <div class="absolute top-[60px] left-4 z-10 pointer-events-auto">
-      <FiltersPanel bind:radiusKm bind:daysFilter onClose={() => (showingFilters = false)} />
-    </div>
-  {/if}
-  {#if showingProfile}
-    <div class="absolute top-[60px] right-4 z-10 pointer-events-auto">
-      <ProfilePanel bind:skills onClose={() => (showingProfile = false)} />
-    </div>
-  {/if}
+  <TopBar bind:query bind:location {search} {searching} bind:skills bind:radiusKm bind:daysFilter />
   <MapLibre
     style="https://tiles.openfreemap.org/styles/liberty"
     class="w-full h-full"
