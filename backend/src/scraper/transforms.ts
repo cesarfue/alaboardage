@@ -19,7 +19,10 @@ export function helloworkDescription(raw: string): string {
     $('p, h1, h2, h3, h4, ul, ol').each((_, el) => {
       $(el).replaceWith($(el).text() + '\n\n');
     });
-    return $.root().text().replace(/\n{3,}/g, '\n\n').trim();
+    return $.root()
+      .text()
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   } catch {
     return '';
   }

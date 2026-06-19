@@ -7,6 +7,7 @@ import { JobsModule } from './jobs/jobs.module';
 import { ScraperModule } from './scraper/scraper.module';
 import { EnrichmentModule } from './enrichment/enrichment.module';
 import { SkillsModule } from './skills/skills.module';
+import { InteractionsModule } from './interactions/interactions.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SkillsModule } from './skills/skills.module';
     ScraperModule,
     EnrichmentModule,
     SkillsModule,
+    InteractionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
