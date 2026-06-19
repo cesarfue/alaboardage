@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { api } from "$lib/api";
-  import type { Job, Skill } from "$lib/types";
+  import type { InteractionStatus, Job, Skill } from "$lib/types";
   import { scoreJob } from "$lib/scoring";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
@@ -25,6 +25,10 @@
   // Filter state
   let radiusKm = $state(60);
   let daysFilter = $state<number | null>(30);
+  let statusFilter = $state<InteractionStatus | null>(null);
+
+  // Interactions map: jobId → status (source of truth for status merging)
+  let interactionsMap = $state<Map<string, InteractionStatus>>(new Map());
 
   $effect(() => {
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -50,6 +54,14 @@
     }
     skillsReady = true;
 
+    // Load interactions and build map
+    try {
+      const interactions = await api.getInteractions();
+      const map = new Map<string, InteractionStatus>();
+      for (const { jobId, status } of interactions) map.set(jobId, status);
+      interactionsMap = map;
+    } catch { /* non-blocking */ }
+
     if (query || location) {
       searching = true;
       try {
@@ -58,7 +70,9 @@
           location: location || undefined,
           limit: 200,
         });
-        jobs = res.items;
+        jobs = res.items.map((j) =>
+          interactionsMap.has(j.id) ? { ...j, interactionStatus: interactionsMap.get(j.id) } : j
+        );
       } catch {
         toast.error("Impossible de charger les résultats");
       } finally {
@@ -116,6 +130,9 @@
         }
       }
 
+      // Status filter
+      if (statusFilter !== null && j.interactionStatus !== statusFilter) return false;
+
       return true;
     }),
   );
@@ -131,7 +148,10 @@
     closeStream = api.streamSearch(
       { query: query || undefined, location: location || undefined },
       (job) => {
-        jobs = [...jobs, job];
+        const withStatus = interactionsMap.has(job.id)
+          ? { ...job, interactionStatus: interactionsMap.get(job.id) }
+          : job;
+        jobs = [...jobs, withStatus];
       },
       () => {
         searching = false;
@@ -152,6 +172,25 @@
     if (location) urlParams.set("location", location);
     goto(`?${urlParams}`);
     startStream();
+  }
+
+  function applyInteraction(jobId: string, status: InteractionStatus | undefined) {
+    // Update interactionsMap
+    const newMap = new Map(interactionsMap);
+    if (status === undefined) {
+      newMap.delete(jobId);
+    } else {
+      newMap.set(jobId, status);
+    }
+    interactionsMap = newMap;
+
+    // Update jobs array
+    jobs = jobs.map((j) => (j.id === jobId ? { ...j, interactionStatus: status } : j));
+
+    // Update selectedJob if it's the same
+    if (selectedJob?.id === jobId) {
+      selectedJob = { ...selectedJob, interactionStatus: status };
+    }
   }
 </script>
 
@@ -182,6 +221,7 @@
       jobs={filteredJobs}
       {skills}
       {activeJob}
+      bind:statusFilter
       onSelect={(job) => {
         selectedJob = job;
         activeJob = job;
@@ -195,7 +235,7 @@
       onHover={(job) => (activeJob = job)}
     />
     {#if selectedJob !== null}
-      <JobDetail job={selectedJob} onClose={() => (selectedJob = null)} />
+      <JobDetail job={selectedJob} {applyInteraction} onClose={() => (selectedJob = null)} />
     {/if}
   </div>
 </main>

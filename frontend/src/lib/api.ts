@@ -1,4 +1,4 @@
-import type { Job, ListJobsResponse, SearchOrListRequest, Skill } from "./types";
+import type { InteractionStatus, Job, ListJobsResponse, SearchOrListRequest, Skill } from "./types";
 
 const BASE = "/api";
 
@@ -99,6 +99,23 @@ export const api = {
           level: s.level === "primary" ? "PRIMARY" : "SECONDARY",
         })),
       }),
+    });
+  },
+
+  getInteractions(): Promise<{ jobId: string; status: InteractionStatus }[]> {
+    return request<{ jobId: string; status: InteractionStatus }[]>("/interactions");
+  },
+
+  setInteraction(jobId: string, status: InteractionStatus): Promise<void> {
+    return request<void>(`/jobs/${encodeURIComponent(jobId)}/interaction`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  deleteInteraction(jobId: string): Promise<void> {
+    return request<void>(`/jobs/${encodeURIComponent(jobId)}/interaction`, {
+      method: "DELETE",
     });
   },
 };

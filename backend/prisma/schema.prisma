@@ -37,6 +37,7 @@ model Job {
   establishment   Establishment? @relation(fields: [establishmentId], references: [siret])
   establishmentId String?
   scores          JobScore[]
+  interactions    JobInteraction[]
 
   @@unique([source, externalId])
   @@index([datePosted])
@@ -77,4 +78,22 @@ model JobScore {
   job       Job      @relation(fields: [jobId], references: [id])
 
   @@unique([jobId, userId])
+}
+
+enum InteractionStatus {
+  SAVED
+  APPLIED
+  REJECTED
+}
+
+model JobInteraction {
+  id        String            @id @default(cuid())
+  userId    String
+  jobId     String
+  status    InteractionStatus
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  job       Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
 }

@@ -7,6 +7,8 @@ export interface Establishment {
   lng: number;
 }
 
+export type InteractionStatus = 'SAVED' | 'APPLIED' | 'REJECTED';
+
 export interface Job {
   id: string;
   externalId: string;
@@ -21,6 +23,7 @@ export interface Job {
   updatedAt: string;
   establishment: Establishment | null;
   score?: number;
+  interactionStatus?: InteractionStatus;
 }
 
 export interface SearchOrListRequest {

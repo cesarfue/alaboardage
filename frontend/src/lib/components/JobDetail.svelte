@@ -1,14 +1,41 @@
 <script lang="ts">
-  import type { Job } from "$lib/types";
+  import type { InteractionStatus, Job } from "$lib/types";
   import { READABLE_SOURCES } from "$lib/types";
+  import { api } from "$lib/api";
+  import { Bookmark, CheckCircle, XCircle } from "@lucide/svelte";
 
-  let { job, onClose }: { job: Job; onClose?: () => void } = $props();
+  let {
+    job,
+    onClose,
+    applyInteraction,
+  }: {
+    job: Job;
+    onClose?: () => void;
+    applyInteraction?: (jobId: string, status: InteractionStatus | undefined) => void;
+  } = $props();
 
-  const dateFormatted = new Date(job.datePosted).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const dateFormatted = $derived(
+    new Date(job.datePosted).toLocaleDateString("fr-FR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
+  );
+
+  async function toggleStatus(status: InteractionStatus) {
+    const isActive = job.interactionStatus === status;
+    try {
+      if (isActive) {
+        await api.deleteInteraction(job.id);
+        applyInteraction?.(job.id, undefined);
+      } else {
+        await api.setInteraction(job.id, status);
+        applyInteraction?.(job.id, status);
+      }
+    } catch {
+      // silently ignore
+    }
+  }
 </script>
 
 <div
@@ -54,7 +81,43 @@
     {job.description}
   </div>
 
-  <div class="p-4 border-t">
+  <div class="flex gap-2 p-4 border-t">
+    <button
+      onclick={() => toggleStatus("SAVED")}
+      class="flex items-center gap-1.5 flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors
+        {job.interactionStatus === 'SAVED'
+          ? 'bg-primary text-primary-foreground'
+          : 'border hover:bg-muted'}"
+      aria-label="Sauvegarder"
+    >
+      <Bookmark size={15} />
+      Sauvegarder
+    </button>
+    <button
+      onclick={() => toggleStatus("APPLIED")}
+      class="flex items-center gap-1.5 flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors
+        {job.interactionStatus === 'APPLIED'
+          ? 'bg-primary text-primary-foreground'
+          : 'border hover:bg-muted'}"
+      aria-label="Postulé"
+    >
+      <CheckCircle size={15} />
+      Postulé
+    </button>
+    <button
+      onclick={() => toggleStatus("REJECTED")}
+      class="flex items-center gap-1.5 flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors
+        {job.interactionStatus === 'REJECTED'
+          ? 'bg-primary text-primary-foreground'
+          : 'border hover:bg-muted'}"
+      aria-label="Refusé"
+    >
+      <XCircle size={15} />
+      Refusé
+    </button>
+  </div>
+
+  <div class="px-4 pb-4">
     <a
       href={job.url}
       target="_blank"
