@@ -16,11 +16,17 @@
 </script>
 
 <div
-  class="h-full w-[380px] flex flex-col overflow-y-auto rounded-xl
-         bg-background shadow-xl pointer-events-auto
-         [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+  class="h-full w-[380px] flex flex-col rounded-xl
+         bg-background shadow-xl pointer-events-auto"
 >
-  {#each jobs as job (job.id)}
-    <JobCard {job} active={job.id === activeJob?.id} {onHover} {onSelect} />
-  {/each}
+  <div class="px-4 py-2 border-b shrink-0">
+    <span class="text-xs font-medium text-muted-foreground">
+      {jobs.length} offre{jobs.length !== 1 ? "s" : ""}
+    </span>
+  </div>
+  <div class="flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    {#each jobs as job (job.id)}
+      <JobCard {job} active={job.id === activeJob?.id} {onHover} {onSelect} />
+    {/each}
+  </div>
 </div>

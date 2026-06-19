@@ -11,6 +11,7 @@
   import TopBar from "$lib/components/TopBar.svelte";
   import JobDetail from "$lib/components/JobDetail.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
+  import FiltersPanel from "$lib/components/FiltersPanel.svelte";
 
   let query = $state(page.url.searchParams.get("query") ?? "");
   let location = $state(page.url.searchParams.get("location") ?? "");
@@ -23,6 +24,10 @@
   let showingProfile = $state(false);
   let skills = $state<Skill[]>([]);
   let skillsReady = $state(false);
+
+  // Filter state
+  let radiusKm = $state(60);
+  let daysFilter = $state<number | null>(30);
 
   $effect(() => {
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -73,6 +78,44 @@
     ),
   );
 
+  function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  let filteredJobs = $derived(
+    mappedJobs.filter((j) => {
+      // Radius filter — center is [lng, lat], haversine wants lat first
+      if (radiusKm < 500) {
+        const dist = haversineKm(
+          center[1],
+          center[0],
+          j.establishment!.lat,
+          j.establishment!.lng,
+        );
+        if (dist > radiusKm) return false;
+      }
+
+      // Date filter — jobs without a valid datePosted are included
+      if (daysFilter !== null) {
+        const d = new Date(j.datePosted);
+        if (!isNaN(d.getTime())) {
+          const cutoff = Date.now() - daysFilter * 24 * 60 * 60 * 1000;
+          if (d.getTime() < cutoff) return false;
+        }
+      }
+
+      return true;
+    }),
+  );
+
   let activeJob = $state<Job | null>(null);
   let selectedJob = $state<Job | null>(null);
   let map = $state<maplibregl.Map | undefined>(undefined);
@@ -110,6 +153,11 @@
 
 <main class="relative w-full h-screen overflow-hidden">
   <TopBar bind:query bind:location {search} {searching} bind:showingFilters bind:showingProfile />
+  {#if showingFilters}
+    <div class="absolute top-[60px] left-4 z-10 pointer-events-auto">
+      <FiltersPanel bind:radiusKm bind:daysFilter onClose={() => (showingFilters = false)} />
+    </div>
+  {/if}
   {#if showingProfile}
     <div class="absolute top-[60px] right-4 z-10 pointer-events-auto">
       <ProfilePanel bind:skills onClose={() => (showingProfile = false)} />
@@ -122,7 +170,7 @@
     bind:zoom
     bind:map
   >
-    {#each mappedJobs as job (job.id)}
+    {#each filteredJobs as job (job.id)}
       <Marker
         lngLat={[job.establishment!.lng, job.establishment!.lat]}
         asButton
@@ -137,7 +185,7 @@
   </MapLibre>
   <div class="absolute bottom-10 top-30 left-10 z-10 flex flex-row gap-4">
     <JobList
-      jobs={mappedJobs}
+      jobs={filteredJobs}
       {activeJob}
       onSelect={(job) => {
         selectedJob = job;
