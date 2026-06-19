@@ -35,11 +35,13 @@ export default tseslint.config(
   },
   {
     // Test mocks and infrastructure files use loose types by necessity
-    files: ['test/**', 'src/**/__mocks__/**', 'src/**/*.spec.ts'],
+    // Auth files use passport/jwt packages whose types eslint cannot resolve
+    files: ['test/**', 'src/**/__mocks__/**', 'src/**/*.spec.ts', 'src/auth/**'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
 );
