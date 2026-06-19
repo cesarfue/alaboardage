@@ -11,6 +11,7 @@
   import JobList from "$lib/components/JobList.svelte";
   import TopBar from "$lib/components/TopBar.svelte";
   import JobDetail from "$lib/components/JobDetail.svelte";
+  import { setToken } from "$lib/auth";
 
   let query = $state(page.url.searchParams.get("query") ?? "");
   let location = $state(page.url.searchParams.get("location") ?? "");
@@ -44,6 +45,13 @@
   });
 
   onMount(async () => {
+    // Capture token from OAuth redirect before any API calls
+    const tokenParam = new URLSearchParams(window.location.search).get("token");
+    if (tokenParam) {
+      setToken(tokenParam);
+      history.replaceState(null, "", window.location.pathname);
+    }
+
     try {
       const remote = await api.getSkills();
       skills = remote.length > 0

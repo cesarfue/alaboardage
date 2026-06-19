@@ -1,4 +1,5 @@
 import type { InteractionStatus, Job, ListJobsResponse, SearchOrListRequest, Skill } from "./types";
+import { getToken, clearToken } from "./auth";
 
 const BASE = "/api";
 
@@ -12,10 +13,20 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
+  const authHeaders: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
+
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders },
     ...init,
   });
+
+  if (res.status === 401) {
+    clearToken();
+  }
+
   if (!res.ok) {
     let detail: unknown;
     try {

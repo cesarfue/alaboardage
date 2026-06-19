@@ -22,6 +22,11 @@ services:
       - backend_generated:/app/generated
     environment:
       DATABASE_URL: postgresql://alaboardage:alaboardage@postgres:5432/alaboardage
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3000/auth/google/callback}
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     ports:
       - "3000:3000"
     depends_on:

@@ -23,7 +23,7 @@ enum JobSource {
 }
 
 model Job {
-  id              String         @id @default(cuid())
+  id              String           @id @default(cuid())
   externalId      String
   source          JobSource
   title           String
@@ -32,9 +32,9 @@ model Job {
   description     String
   url             String
   datePosted      DateTime
-  scrapedAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  establishment   Establishment? @relation(fields: [establishmentId], references: [siret])
+  scrapedAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  establishment   Establishment?   @relation(fields: [establishmentId], references: [siret])
   establishmentId String?
   scores          JobScore[]
   interactions    JobInteraction[]
@@ -96,4 +96,13 @@ model JobInteraction {
   job       Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@unique([userId, jobId])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  googleId  String   @unique
+  email     String   @unique
+  name      String
+  picture   String?
+  createdAt DateTime @default(now())
 }
