@@ -1,5 +1,5 @@
 import type { BoardConfig } from '../types';
-import { handleSpelledDate } from '../transforms';
+import { handleSpelledDate, helloworkDescription } from '../transforms';
 
 export const HELLOWORK: BoardConfig = {
   name: 'Hellowork',
@@ -28,9 +28,9 @@ export const HELLOWORK: BoardConfig = {
       returns: { kind: 'text' },
     },
     description: {
-      selects: 'div#offer-panel p',
-      n: [0, 3],
+      selects: 'script[type="application/ld+json"]:contains("JobPosting")',
       returns: { kind: 'text' },
+      transforms: helloworkDescription,
     },
     datePosted: {
       selects: "div[class='tw-typo-s tw-text-grey-500 tw-pl-1 tw-pt-1']",

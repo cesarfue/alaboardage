@@ -1,3 +1,30 @@
+import { load } from 'cheerio';
+
+/**
+ * Transform for Hellowork description extracted from the JSON-LD JobPosting
+ * script tag. Receives raw JSON text, parses the `description` HTML field and
+ * converts it to plain text (block elements → newlines).
+ */
+export function helloworkDescription(raw: string): string {
+  try {
+    const data = JSON.parse(raw) as { '@type'?: string; description?: string };
+    if (data['@type'] !== 'JobPosting' || !data.description) return '';
+    const $ = load(data.description);
+    // Replace block-level tags with newlines before extracting text
+    $('br').replaceWith('\n');
+    $('li').each((_, el) => {
+      const text = $(el).text().trim();
+      $(el).replaceWith(`- ${text}\n`);
+    });
+    $('p, h1, h2, h3, h4, ul, ol').each((_, el) => {
+      $(el).replaceWith($(el).text() + '\n\n');
+    });
+    return $.root().text().replace(/\n{3,}/g, '\n\n').trim();
+  } catch {
+    return '';
+  }
+}
+
 export function jeunesdavenirsGtm(
   field: 'product_company' | 'product_city' | 'product_date',
 ): (raw: string) => string {

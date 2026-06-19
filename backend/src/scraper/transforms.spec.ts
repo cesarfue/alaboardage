@@ -1,6 +1,7 @@
 import {
   glassdoorAge,
   handleSpelledDate,
+  helloworkDescription,
   jeunesdavenirsGtm,
   jeunesdavenirsId,
   linkedinId,
@@ -100,6 +101,37 @@ describe('transforms', () => {
     it('returns the raw href when the path does not match', () => {
       const raw = '/some-other-path/42';
       expect(jeunesdavenirsId(raw)).toBe(raw);
+    });
+  });
+
+  describe('helloworkDescription', () => {
+    const makeJsonLd = (type: string, description?: string) =>
+      JSON.stringify({ '@type': type, description });
+
+    it('extracts and converts description from a JobPosting JSON-LD', () => {
+      const raw = makeJsonLd(
+        'JobPosting',
+        '<h2>Détail du poste</h2><p>Intro du poste.<br />Suite intro.</p><ul><li>Mission A</li><li>Mission B</li></ul><p>Profil recherché.</p>',
+      );
+      const result = helloworkDescription(raw);
+      expect(result).toContain('Intro du poste.');
+      expect(result).toContain('- Mission A');
+      expect(result).toContain('- Mission B');
+      expect(result).toContain('Profil recherché.');
+    });
+
+    it('returns empty string when @type is not JobPosting', () => {
+      const raw = makeJsonLd('WebSite', '<p>Some text</p>');
+      expect(helloworkDescription(raw)).toBe('');
+    });
+
+    it('returns empty string when description is missing', () => {
+      const raw = JSON.stringify({ '@type': 'JobPosting' });
+      expect(helloworkDescription(raw)).toBe('');
+    });
+
+    it('returns empty string for invalid JSON', () => {
+      expect(helloworkDescription('not-json')).toBe('');
     });
   });
 
