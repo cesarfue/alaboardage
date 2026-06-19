@@ -3,7 +3,9 @@ export function jeunesdavenirsGtm(
 ): (raw: string) => string {
   return (raw: string) => {
     try {
-      const data = JSON.parse(raw) as { product_data: Record<string, string>[] };
+      const data = JSON.parse(raw) as {
+        product_data: Record<string, string>[];
+      };
       return data.product_data?.[0]?.[field] ?? '';
     } catch {
       return '';

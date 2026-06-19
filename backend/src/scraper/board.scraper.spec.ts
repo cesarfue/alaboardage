@@ -82,8 +82,8 @@ function makeBrowserMock(
     newPage: jest
       .fn()
       // First call = board page, subsequent calls = detail pages
-      .mockResolvedValueOnce(boardPage as Page)
-      .mockResolvedValue(detailPage as Page),
+      .mockResolvedValueOnce(boardPage)
+      .mockResolvedValue(detailPage),
     close: jest.fn().mockResolvedValue(undefined),
   };
 
@@ -178,7 +178,8 @@ describe('BoardScraper', () => {
 
     it('respects the limit parameter', async () => {
       // 3 cards in the HTML, limit = 2
-      const multiCard = CARD_HTML.replace('job-42', 'job-1') +
+      const multiCard =
+        CARD_HTML.replace('job-42', 'job-1') +
         CARD_HTML.replace('job-42', 'job-2') +
         CARD_HTML.replace('job-42', 'job-3');
 
@@ -286,7 +287,7 @@ describe('BoardScraper', () => {
       const card = `<div class="card" data-id="x"><h3 class="title">T</h3><span class="company">C</span><span class="location">L</span><time datetime="2026-01-01"></time><div class="description">D</div></div>`;
       // Return cards on page 1, empty on page 2 to stop the loop
       const contextMock: Partial<BrowserContext> = {
-        newPage: jest.fn().mockResolvedValue(makePageMock(card) as Page),
+        newPage: jest.fn().mockResolvedValue(makePageMock(card)),
         close: jest.fn().mockResolvedValue(undefined),
       };
       const browserMock = {
@@ -302,9 +303,8 @@ describe('BoardScraper', () => {
 
       await scraper.search();
 
-      const page: Page = await (
-        contextMock.newPage as jest.Mock
-      ).mock.results[0].value;
+      const page: Page = await (contextMock.newPage as jest.Mock).mock
+        .results[0].value;
       const gotoUrl = (page.goto as jest.Mock).mock.calls[0][0] as string;
 
       // offsetBase=0, offset param starts from 0, not 1

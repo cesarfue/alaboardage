@@ -1,6 +1,12 @@
 // integration test — requires network
 import { JobSource } from '../../generated/prisma/enums';
-import { assertValidJob, printJobs, runScraper, TEST_LOCATION, TEST_QUERY } from './helpers';
+import {
+  assertValidJob,
+  printJobs,
+  runScraper,
+  TEST_LOCATION,
+  TEST_QUERY,
+} from './helpers';
 import { JTMS } from '../../src/scraper/boards/jtms.config';
 
 describe('JobsThatMakeSense scraper (live)', () => {

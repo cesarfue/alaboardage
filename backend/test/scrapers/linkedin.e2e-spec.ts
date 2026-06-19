@@ -1,7 +1,13 @@
 // integration test — requires network
 import { LINKEDIN } from '../../src/scraper/boards/linkedin.config';
 import { JobSource } from '../../generated/prisma/enums';
-import { assertValidJob, printJobs, runScraper, TEST_LOCATION, TEST_QUERY } from './helpers';
+import {
+  assertValidJob,
+  printJobs,
+  runScraper,
+  TEST_LOCATION,
+  TEST_QUERY,
+} from './helpers';
 
 describe('LinkedIn scraper (live)', () => {
   jest.setTimeout(180_000);

@@ -1,7 +1,13 @@
 // integration test — requires network
 import { JEUNESDAVENIR } from '../../src/scraper/boards/jeunesdavenir.config';
 import { JobSource } from '../../generated/prisma/enums';
-import { assertValidJob, printJobs, runScraper, TEST_LOCATION, TEST_QUERY } from './helpers';
+import {
+  assertValidJob,
+  printJobs,
+  runScraper,
+  TEST_LOCATION,
+  TEST_QUERY,
+} from './helpers';
 
 describe("Jeunes d'Avenirs scraper (live)", () => {
   jest.setTimeout(180_000);

@@ -1,7 +1,13 @@
 // integration test — requires network
 import { HELLOWORK } from '../../src/scraper/boards/hellowork.config';
 import { JobSource } from '../../generated/prisma/enums';
-import { assertValidJob, printJobs, runScraper, TEST_LOCATION, TEST_QUERY } from './helpers';
+import {
+  assertValidJob,
+  printJobs,
+  runScraper,
+  TEST_LOCATION,
+  TEST_QUERY,
+} from './helpers';
 
 // Run with: npm run test:e2e -- --testPathPatterns=hellowork
 describe('Hellowork scraper (live)', () => {
