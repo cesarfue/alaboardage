@@ -27,13 +27,15 @@ export class ScoringService {
       const pattern = `\\b${escapeRegex(normalize(skill.name))}\\b`;
       const re = new RegExp(pattern, 'gi');
 
-      const titleHits = (normTitle.match(re) ?? []).length;
-      const descHits = (normDesc.match(re) ?? []).length;
+      const inTitle = re.test(normTitle) ? 1 : 0;
+      re.lastIndex = 0; // reset car le regex a le flag 'g'
+      const inDesc = re.test(normDesc) ? 1 : 0;
+      re.lastIndex = 0;
 
       if (skill.level === SkillLevel.PRIMARY) {
-        total += titleHits * 3 + descHits * 1;
+        total += inTitle * 3 + inDesc * 1;
       } else {
-        total += titleHits * 1.5 + descHits * 0.5;
+        total += inTitle * 1.5 + inDesc * 0.5;
       }
     }
 
