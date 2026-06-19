@@ -44,6 +44,13 @@ export interface ListJobsResponse {
   offset: number;
 }
 
+export type SkillLevel = 'primary' | 'secondary';
+
+export interface Skill {
+  name: string;
+  level: SkillLevel;
+}
+
 export type JobSource =
   | "HELLOWORK"
   | "LINKEDIN"
