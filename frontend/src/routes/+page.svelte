@@ -5,11 +5,13 @@
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
-  import { MapLibre, Marker, Popup } from "svelte-maplibre";
+  import { MapLibre, Marker } from "svelte-maplibre";
   import type maplibregl from "maplibre-gl";
   import JobList from "$lib/components/JobList.svelte";
-  import SearchChoices from "$lib/components/SearchChoices.svelte";
+  import TopBar from "$lib/components/TopBar.svelte";
   import JobDetail from "$lib/components/JobDetail.svelte";
+  import ProfilePanel from "$lib/components/ProfilePanel.svelte";
+  import type { Skill } from "$lib/types";
 
   let query = $state(page.url.searchParams.get("query") ?? "");
   let location = $state(page.url.searchParams.get("location") ?? "");
@@ -19,15 +21,15 @@
   let zoom = $state(6);
   let closeStream: (() => void) | null = null;
   let showingFilters = $state(false);
-
-  $effect(() => {
-    navigator.geolocation.getCurrentPosition((pos) => {
-      center = [pos.coords.longitude, pos.coords.latitude];
-      zoom = 10;
-    });
-  });
+  let showingProfile = $state(false);
+  let skills = $state<Skill[]>([]);
 
   onMount(async () => {
+    try {
+      skills = JSON.parse(localStorage.getItem("skills") ?? "[]");
+    } catch {
+      localStorage.removeItem("skills");
+    }
     if (query || location) {
       const res = await api.listJobs({
         query: query || undefined,
@@ -36,6 +38,17 @@
       });
       jobs = res.items;
     }
+  });
+
+  $effect(() => {
+    localStorage.setItem("skills", JSON.stringify(skills));
+  });
+
+  $effect(() => {
+    navigator.geolocation.getCurrentPosition((pos) => {
+      center = [pos.coords.longitude, pos.coords.latitude];
+      zoom = 10;
+    });
   });
 
   let mappedJobs = $derived(
@@ -85,13 +98,12 @@
 </script>
 
 <main class="relative w-full h-screen overflow-hidden">
-  <SearchChoices
-    bind:query
-    bind:location
-    {search}
-    {searching}
-    bind:showingFilters
-  />
+  <TopBar bind:query bind:location {search} {searching} bind:showingFilters bind:showingProfile />
+  {#if showingProfile}
+    <div class="absolute top-[60px] right-4 z-10 pointer-events-auto">
+      <ProfilePanel bind:skills onClose={() => (showingProfile = false)} />
+    </div>
+  {/if}
   <MapLibre
     style="https://tiles.openfreemap.org/styles/liberty"
     class="w-full h-full"
