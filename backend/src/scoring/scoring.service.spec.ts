@@ -32,20 +32,28 @@ describe('ScoringService.scoreJob', () => {
     service = new ScoringService(null as never);
   });
 
-  it('gives 3 points per title occurrence for a PRIMARY skill', () => {
+  it('gives 3 points when PRIMARY skill is present in title (regardless of count)', () => {
+    const score = service.scoreJob(
+      { title: 'TypeScript developer', description: '' },
+      [makeSkill('TypeScript', SkillLevel.PRIMARY)],
+    );
+    expect(score).toBe(3); // present in title → 3
+  });
+
+  it('does not give extra points for repeated PRIMARY skill in title', () => {
     const score = service.scoreJob(
       { title: 'TypeScript TypeScript developer', description: '' },
       [makeSkill('TypeScript', SkillLevel.PRIMARY)],
     );
-    expect(score).toBe(6); // 2 occurrences × 3
+    expect(score).toBe(3); // 2 occurrences still → 3, not 6
   });
 
-  it('gives 1 point per description occurrence for a PRIMARY skill', () => {
+  it('gives 1 point when PRIMARY skill is present in description (regardless of count)', () => {
     const score = service.scoreJob(
       { title: '', description: 'Experience with TypeScript and TypeScript.' },
       [makeSkill('TypeScript', SkillLevel.PRIMARY)],
     );
-    expect(score).toBe(2); // 2 occurrences × 1
+    expect(score).toBe(1); // present in description → 1, not 2
   });
 
   it('gives 1.5 points per title occurrence for a SECONDARY skill', () => {
