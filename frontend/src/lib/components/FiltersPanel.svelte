@@ -60,7 +60,7 @@
       Date de publication
     </p>
     <div class="flex flex-wrap gap-2">
-      {#each dateOptions as opt}
+      {#each dateOptions as opt (opt.label)}
         <button
           onclick={() => (daysFilter = opt.value)}
           class="px-3 py-1 rounded-full text-xs border transition-colors
