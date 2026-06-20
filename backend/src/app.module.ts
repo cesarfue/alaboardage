@@ -10,6 +10,7 @@ import { SkillsModule } from './skills/skills.module';
 import { InteractionsModule } from './interactions/interactions.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { SearchesModule } from './searches/searches.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { UsersModule } from './users/users.module';
     InteractionsModule,
     AuthModule,
     UsersModule,
+    SearchesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

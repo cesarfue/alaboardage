@@ -48,6 +48,14 @@ export interface ListJobsResponse {
   offset: number;
 }
 
+export interface SavedSearch {
+  id: string;
+  name: string;
+  query: string;
+  location: string;
+  createdAt: string;
+}
+
 export type SkillLevel = 'primary' | 'secondary';
 
 export interface Skill {

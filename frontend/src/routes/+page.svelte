@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { api } from "$lib/api";
-  import type { InteractionStatus, Job, Skill } from "$lib/types";
+  import type { InteractionStatus, Job, SavedSearch, Skill } from "$lib/types";
   import { scoreJob } from "$lib/scoring";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
@@ -11,7 +11,8 @@
   import JobList from "$lib/components/JobList.svelte";
   import TopBar from "$lib/components/TopBar.svelte";
   import JobDetail from "$lib/components/JobDetail.svelte";
-  import { setToken } from "$lib/auth";
+  import { setToken, getToken } from "$lib/auth";
+
 
   let query = $state(page.url.searchParams.get("query") ?? "");
   let location = $state(page.url.searchParams.get("location") ?? "");
@@ -22,6 +23,7 @@
   let closeStream: (() => void) | null = null;
   let skills = $state<Skill[]>([]);
   let skillsReady = $state(false);
+  let savedSearches = $state<SavedSearch[]>([]);
 
   // Filter state
   let radiusKm = $state(60);
@@ -69,6 +71,13 @@
       for (const { jobId, status } of interactions) map.set(jobId, status);
       interactionsMap = map;
     } catch { /* non-blocking */ }
+
+    // Load saved searches (only if authenticated)
+    if (getToken()) {
+      try {
+        savedSearches = await api.getSavedSearches();
+      } catch { /* non-blocking */ }
+    }
 
     if (query || location) {
       searching = true;
@@ -203,7 +212,7 @@
 </script>
 
 <main class="relative w-full h-screen overflow-hidden">
-  <TopBar bind:query bind:location {search} {searching} bind:skills bind:radiusKm bind:daysFilter />
+  <TopBar bind:query bind:location {search} {searching} bind:skills bind:savedSearches bind:radiusKm bind:daysFilter />
   <MapLibre
     style="https://tiles.openfreemap.org/styles/liberty"
     class="w-full h-full"

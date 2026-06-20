@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { Funnel, User, LogOut } from "@lucide/svelte";
+  import { Bookmark, Funnel, User, LogOut } from "@lucide/svelte";
   import FiltersPanel from "$lib/components/FiltersPanel.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
-  import type { Skill } from "$lib/types";
+  import type { SavedSearch, Skill } from "$lib/types";
   import { getUser, clearToken } from "$lib/auth";
+  import { api } from "$lib/api";
 
   let {
     query = $bindable(),
@@ -11,6 +12,7 @@
     search,
     searching,
     skills = $bindable(),
+    savedSearches = $bindable(),
     radiusKm = $bindable(),
     daysFilter = $bindable(),
   }: {
@@ -19,14 +21,17 @@
     search: () => void;
     searching: boolean;
     skills: Skill[];
+    savedSearches: SavedSearch[];
     radiusKm: number;
     daysFilter: number | null;
   } = $props();
 
   let showingFilters = $state(false);
   let showingProfile = $state(false);
+  let bookmarkSaved = $state(false);
 
   const user = $derived(getUser());
+  const canSave = $derived(!!(query || location) && !!user);
 
   function closeAll() {
     showingFilters = false;
@@ -46,6 +51,21 @@
   function logout() {
     clearToken();
     window.location.href = "/";
+  }
+
+  async function saveSearch() {
+    if (!canSave) return;
+    const name = [query, location].filter(Boolean).join(" · ");
+    const saved = await api.saveSearch(name, query, location);
+    savedSearches = [saved, ...savedSearches];
+    bookmarkSaved = true;
+    setTimeout(() => (bookmarkSaved = false), 1000);
+  }
+
+  function handleSearchFromProfile(q: string, loc: string) {
+    query = q;
+    location = loc;
+    search();
   }
 </script>
 
@@ -95,6 +115,15 @@
   >
     {searching ? "Recherche…" : "Rechercher"}
   </button>
+  {#if canSave}
+    <button
+      onclick={saveSearch}
+      class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted"
+      title="Sauvegarder la recherche"
+    >
+      <Bookmark size={16} class={bookmarkSaved ? "fill-current" : ""} />
+    </button>
+  {/if}
   <div class="relative">
     <button
       onclick={toggleProfile}
@@ -104,7 +133,12 @@
     </button>
     {#if showingProfile}
       <div class="absolute top-full mt-1 z-50 right-0">
-        <ProfilePanel bind:skills onClose={() => (showingProfile = false)} />
+        <ProfilePanel
+          bind:skills
+          bind:savedSearches
+          onClose={() => (showingProfile = false)}
+          onSearch={handleSearchFromProfile}
+        />
       </div>
     {/if}
   </div>

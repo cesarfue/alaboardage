@@ -106,3 +106,12 @@ model User {
   picture   String?
   createdAt DateTime @default(now())
 }
+
+model SavedSearch {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  query     String
+  location  String
+  createdAt DateTime @default(now())
+}
