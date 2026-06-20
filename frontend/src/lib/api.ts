@@ -1,4 +1,4 @@
-import type { InteractionStatus, Job, ListJobsResponse, SearchOrListRequest, Skill } from "./types";
+import type { InteractionStatus, Job, ListJobsResponse, SavedSearch, SearchOrListRequest, Skill } from "./types";
 import { getToken, clearToken } from "./auth";
 
 const BASE = "/api";
@@ -126,6 +126,23 @@ export const api = {
 
   deleteInteraction(jobId: string): Promise<void> {
     return request<void>(`/jobs/${encodeURIComponent(jobId)}/interaction`, {
+      method: "DELETE",
+    });
+  },
+
+  getSavedSearches(): Promise<SavedSearch[]> {
+    return request<SavedSearch[]>("/searches");
+  },
+
+  saveSearch(name: string, query: string, location: string): Promise<SavedSearch> {
+    return request<SavedSearch>("/searches", {
+      method: "POST",
+      body: JSON.stringify({ name, query, location }),
+    });
+  },
+
+  deleteSavedSearch(id: string): Promise<void> {
+    return request<void>(`/searches/${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
   },
