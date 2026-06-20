@@ -22,6 +22,7 @@
   let center = $state<[number, number]>([2.35, 48.85]);
   let zoom = $state(6);
   let closeStream: (() => void) | null = null;
+  let streamGeneration = 0;
   let skills = $state<Skill[]>([]);
   let skillsReady = $state(false);
   let savedSearches = $state<SavedSearch[]>([]);
@@ -166,24 +167,29 @@
 
   function startStream() {
     closeStream?.();
+    const gen = ++streamGeneration;
     jobs = [];
     searching = true;
     closeStream = api.streamSearch(
       { query: query || undefined, location: location || undefined },
       (job) => {
+        if (gen !== streamGeneration) return;
         const withStatus = interactionsMap.has(job.id)
           ? { ...job, interactionStatus: interactionsMap.get(job.id) }
           : job;
         jobs = [...jobs, withStatus];
       },
       () => {
+        if (gen !== streamGeneration) return;
         searching = false;
         closeStream = null;
       },
       () => {
+        if (gen !== streamGeneration) return;
         toast.error("Erreur lors de la recherche");
       },
       (jobId, establishment) => {
+        if (gen !== streamGeneration) return;
         jobs = jobs.map((j) => (j.id === jobId ? { ...j, establishment } : j));
       },
     );

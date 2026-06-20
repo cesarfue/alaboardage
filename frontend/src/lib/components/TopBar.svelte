@@ -111,11 +111,13 @@
   </div>
   <button
     onclick={search}
-    disabled={searching}
-    class="bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors"
+    class="bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
   >
-    {searching ? "Recherche…" : "Rechercher"}
+    Rechercher
   </button>
+  {#if searching}
+    <span class="text-xs text-muted-foreground animate-pulse">Recherche…</span>
+  {/if}
   {#if canSave}
     <button
       onclick={saveSearch}
