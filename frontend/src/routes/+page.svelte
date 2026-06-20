@@ -11,7 +11,8 @@
   import JobList from "$lib/components/JobList.svelte";
   import TopBar from "$lib/components/TopBar.svelte";
   import JobDetail from "$lib/components/JobDetail.svelte";
-  import { getToken } from "$lib/auth";
+  import { getToken, setToken } from "$lib/auth";
+  import { userState } from "$lib/user.svelte";
 
 
   let query = $state(page.url.searchParams.get("query") ?? "");
@@ -47,6 +48,18 @@
   });
 
   onMount(async () => {
+    // Capture OAuth token first — before any API call
+    // (page onMount fires before layout onMount in Svelte; capturing here ensures
+    // the token is in localStorage before api.getSkills() runs)
+    const tokenParam = new URLSearchParams(window.location.search).get("token");
+    if (tokenParam) {
+      setToken(tokenParam);
+      userState.refresh();
+      // Remove token from URL — preserve SvelteKit's history.state to avoid router conflict
+      const clean = window.location.pathname + window.location.search.replace(/[?&]token=[^&]*/, "").replace(/^&/, "?");
+      window.history.replaceState(window.history.state, "", clean);
+    }
+
     try {
       const remote = await api.getSkills();
       skills = remote.length > 0
