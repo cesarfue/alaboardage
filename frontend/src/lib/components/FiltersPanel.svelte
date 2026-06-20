@@ -4,14 +4,10 @@
   let {
     radiusKm = $bindable(),
     daysFilter = $bindable(),
-    titleFilter = $bindable(),
-    hasQuery,
     onClose,
   }: {
     radiusKm: number;
     daysFilter: number | null;
-    titleFilter: boolean;
-    hasQuery: boolean;
     onClose: () => void;
   } = $props();
 
@@ -78,15 +74,4 @@
     </div>
   </section>
 
-  {#if hasQuery}
-  <section class="flex flex-col gap-2">
-    <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-      Mots-clés
-    </p>
-    <label class="flex items-center gap-2 text-sm cursor-pointer">
-      <input type="checkbox" bind:checked={titleFilter} class="accent-primary" />
-      Titre contient tous les mots de la recherche
-    </label>
-  </section>
-  {/if}
 </div>

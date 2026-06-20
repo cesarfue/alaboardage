@@ -31,7 +31,6 @@
   let radiusKm = $state(60);
   let daysFilter = $state<number | null>(30);
   let statusFilter = $state<InteractionStatus | null>(null);
-  let titleFilter = $state(false);
   let searchCenter = $state<[number, number] | null>(null); // [lat, lng]
 
   async function geocodeLocation(loc: string): Promise<[number, number] | null> {
@@ -151,9 +150,7 @@
   }
 
   const titleWords = $derived(
-    titleFilter && query.trim()
-      ? query.trim().split(/\s+/).map(normalize)
-      : [],
+    query.trim() ? query.trim().split(/\s+/).map(normalize) : [],
   );
 
   let filteredJobs = $derived(
@@ -261,7 +258,7 @@
 </script>
 
 <main class="relative w-full h-screen overflow-hidden">
-  <TopBar bind:query bind:location {search} {searching} bind:skills bind:savedSearches bind:radiusKm bind:daysFilter bind:titleFilter hasQuery={!!query.trim()} />
+  <TopBar bind:query bind:location {search} {searching} bind:skills bind:savedSearches bind:radiusKm bind:daysFilter />
   <MapLibre
     style="https://tiles.openfreemap.org/styles/liberty"
     class="w-full h-full"
