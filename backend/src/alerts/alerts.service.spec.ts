@@ -17,7 +17,12 @@ import { AlertsService } from './alerts.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { SkillsService } from '../skills/skills.service';
 import { SkillLevel } from '../../generated/prisma/enums';
-import type { Skill, Job, SavedSearch, User } from '../../generated/prisma/client';
+import type {
+  Skill,
+  Job,
+  SavedSearch,
+  User,
+} from '../../generated/prisma/client';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,7 +36,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
   return {
     id: 'job-1',
     externalId: 'ext-1',
-    source: 'LINKEDIN' as any,
+    source: 'LINKEDIN',
     title: 'TypeScript Developer',
     company: 'ACME',
     location: 'Paris',
@@ -97,7 +102,7 @@ describe('AlertsService.runAlerts', () => {
     scoringService = new ScoringService(null as never);
     skillsService = { getSkills: jest.fn() } as any;
 
-    service = new AlertsService(prismaMock, scoringService, skillsService as any);
+    service = new AlertsService(prismaMock, scoringService, skillsService);
   });
 
   it('does nothing when no saved searches', async () => {
@@ -125,7 +130,9 @@ describe('AlertsService.runAlerts', () => {
       makeSkill('Python', SkillLevel.PRIMARY),
     ]);
     // Job does not mention Python
-    prismaMock.job.findMany.mockResolvedValue([makeJob({ title: 'Ruby dev', description: 'Ruby' })]);
+    prismaMock.job.findMany.mockResolvedValue([
+      makeJob({ title: 'Ruby dev', description: 'Ruby' }),
+    ]);
 
     await service.runAlerts();
 
@@ -160,15 +167,21 @@ describe('AlertsService.runAlerts', () => {
 
     // Create 15 matching jobs
     const jobs = Array.from({ length: 15 }, (_, i) =>
-      makeJob({ id: `job-${i}`, externalId: `ext-${i}`, title: 'TypeScript dev' }),
+      makeJob({
+        id: `job-${i}`,
+        externalId: `ext-${i}`,
+        title: 'TypeScript dev',
+      }),
     );
     prismaMock.job.findMany.mockResolvedValue(jobs);
 
     // Capture what actually gets emitted (we're in dry-run mode — no SMTP_HOST)
     const loggedLines: string[] = [];
-    jest.spyOn((service as any).logger, 'log').mockImplementation((msg: string) => {
-      loggedLines.push(msg);
-    });
+    jest
+      .spyOn((service as any).logger, 'log')
+      .mockImplementation((msg: string) => {
+        loggedLines.push(msg);
+      });
 
     await service.runAlerts();
 
@@ -185,7 +198,11 @@ describe('AlertsService.runAlerts', () => {
     // search-B has a future lastAlertAt → job is NOT in its window
     const searchA = makeSearch({ id: 'A', name: 'Active search' });
     const futureDate = new Date(Date.now() + 60 * 1000); // 1 minute in the future
-    const searchB = makeSearch({ id: 'B', name: 'Future search', lastAlertAt: futureDate });
+    const searchB = makeSearch({
+      id: 'B',
+      name: 'Future search',
+      lastAlertAt: futureDate,
+    });
 
     prismaMock.savedSearch.findMany.mockResolvedValue([searchA, searchB]);
     prismaMock.user.findUnique.mockResolvedValue(makeUser());
@@ -193,7 +210,9 @@ describe('AlertsService.runAlerts', () => {
       makeSkill('TypeScript', SkillLevel.PRIMARY),
     ]);
     // Job was scraped now — before search-B's future lastAlertAt threshold
-    prismaMock.job.findMany.mockResolvedValue([makeJob({ scrapedAt: new Date() })]);
+    prismaMock.job.findMany.mockResolvedValue([
+      makeJob({ scrapedAt: new Date() }),
+    ]);
 
     await service.runAlerts();
 

@@ -60,14 +60,20 @@ export class AlertsService {
 
       // For each search: find the jobs scraped since that search's lastAlertAt
       // and score them against user skills
-      const sections: { search: SavedSearch; jobs: Array<{ job: Job; score: number }> }[] = [];
+      const sections: {
+        search: SavedSearch;
+        jobs: Array<{ job: Job; score: number }>;
+      }[] = [];
 
       for (const search of searches) {
         const since = search.lastAlertAt ?? fallbackSince;
         const candidateJobs = recentJobs.filter((j) => j.scrapedAt > since);
 
         const scored = candidateJobs
-          .map((job) => ({ job, score: this.scoring.scoreJob(job, userSkills) }))
+          .map((job) => ({
+            job,
+            score: this.scoring.scoreJob(job, userSkills),
+          }))
           .filter(({ score }) => score > 0)
           .sort((a, b) => b.score - a.score)
           .slice(0, 10);
@@ -100,7 +106,9 @@ export class AlertsService {
             `  Recherche "${section.search.name}" — ${section.jobs.length} job(s):`,
           );
           for (const { job, score } of section.jobs) {
-            this.logger.log(`    [score=${score}] ${job.title} @ ${job.company} — ${job.url}`);
+            this.logger.log(
+              `    [score=${score}] ${job.title} @ ${job.company} — ${job.url}`,
+            );
           }
         }
       }
@@ -115,7 +123,10 @@ export class AlertsService {
   }
 
   private buildEmailHtml(
-    sections: { search: SavedSearch; jobs: Array<{ job: Job; score: number }> }[],
+    sections: {
+      search: SavedSearch;
+      jobs: Array<{ job: Job; score: number }>;
+    }[],
   ): string {
     const sectionsHtml = sections
       .map(
@@ -149,7 +160,11 @@ export class AlertsService {
 </html>`;
   }
 
-  private async sendEmail(to: string, subject: string, html: string): Promise<void> {
+  private async sendEmail(
+    to: string,
+    subject: string,
+    html: string,
+  ): Promise<void> {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT ?? 587),
