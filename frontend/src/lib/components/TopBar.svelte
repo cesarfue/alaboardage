@@ -16,6 +16,8 @@
     savedSearches = $bindable(),
     radiusKm = $bindable(),
     daysFilter = $bindable(),
+    titleFilter = $bindable(),
+    hasQuery,
   }: {
     query: string;
     location: string;
@@ -25,6 +27,8 @@
     savedSearches: SavedSearch[];
     radiusKm: number;
     daysFilter: number | null;
+    titleFilter: boolean;
+    hasQuery: boolean;
   } = $props();
 
   let showingFilters = $state(false);
@@ -118,7 +122,7 @@
     </button>
     {#if showingFilters}
       <div class="absolute top-full mt-1 z-50 left-0">
-        <FiltersPanel bind:radiusKm bind:daysFilter onClose={() => (showingFilters = false)} />
+        <FiltersPanel bind:radiusKm bind:daysFilter bind:titleFilter {hasQuery} onClose={() => (showingFilters = false)} />
       </div>
     {/if}
   </div>

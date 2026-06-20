@@ -31,6 +31,24 @@
   let radiusKm = $state(60);
   let daysFilter = $state<number | null>(30);
   let statusFilter = $state<InteractionStatus | null>(null);
+  let titleFilter = $state(false);
+  let searchCenter = $state<[number, number] | null>(null); // [lat, lng]
+
+  async function geocodeLocation(loc: string): Promise<[number, number] | null> {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(loc)}&format=json&limit=1`,
+        { headers: { 'Accept-Language': 'fr' } },
+      );
+      const data: { lat: string; lon: string }[] = await res.json();
+      if (data.length > 0) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+    } catch { /* ignore */ }
+    return null;
+  }
+
+  function normalize(s: string): string {
+    return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  }
 
   // Interactions map: jobId → status (source of truth for status merging)
   let interactionsMap = $state<Map<string, InteractionStatus>>(new Map());
@@ -132,16 +150,19 @@
     return 2 * R * Math.asin(Math.sqrt(a));
   }
 
+  const titleWords = $derived(
+    titleFilter && query.trim()
+      ? query.trim().split(/\s+/).map(normalize)
+      : [],
+  );
+
   let filteredJobs = $derived(
     mappedJobs.filter((j) => {
-      // Radius filter — center is [lng, lat], haversine wants lat first
+      // Radius filter — use geocoded searchCenter when available, else map center
       if (radiusKm < 500) {
-        const dist = haversineKm(
-          center[1],
-          center[0],
-          j.establishment!.lat,
-          j.establishment!.lng,
-        );
+        const refLat = searchCenter ? searchCenter[0] : center[1];
+        const refLng = searchCenter ? searchCenter[1] : center[0];
+        const dist = haversineKm(refLat, refLng, j.establishment!.lat, j.establishment!.lng);
         if (dist > radiusKm) return false;
       }
 
@@ -157,6 +178,12 @@
       // Status filter
       if (statusFilter !== null && j.interactionStatus !== statusFilter) return false;
 
+      // Title keyword filter
+      if (titleWords.length > 0) {
+        const title = normalize(j.title ?? '');
+        if (!titleWords.every((w) => title.includes(w))) return false;
+      }
+
       return true;
     }),
   );
@@ -170,6 +197,16 @@
     const gen = ++streamGeneration;
     jobs = [];
     searching = true;
+    if (location) {
+      geocodeLocation(location).then((coords) => {
+        if (gen !== streamGeneration || !coords) return;
+        searchCenter = coords;
+        center = [coords[1], coords[0]]; // MapLibre uses [lng, lat]
+        zoom = 10;
+      });
+    } else {
+      searchCenter = null;
+    }
     closeStream = api.streamSearch(
       { query: query || undefined, location: location || undefined },
       (job) => {
@@ -224,7 +261,7 @@
 </script>
 
 <main class="relative w-full h-screen overflow-hidden">
-  <TopBar bind:query bind:location {search} {searching} bind:skills bind:savedSearches bind:radiusKm bind:daysFilter />
+  <TopBar bind:query bind:location {search} {searching} bind:skills bind:savedSearches bind:radiusKm bind:daysFilter bind:titleFilter hasQuery={!!query.trim()} />
   <MapLibre
     style="https://tiles.openfreemap.org/styles/liberty"
     class="w-full h-full"
