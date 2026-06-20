@@ -164,6 +164,25 @@
   let selectedJob = $state<Job | null>(null);
   let map = $state<maplibregl.Map | undefined>(undefined);
 
+  const markerOffset = $derived.by((): Map<string, [number, number]> => {
+    const groups = new Map<string, string[]>();
+    for (const job of filteredJobs) {
+      if (!job.establishment) continue;
+      const key = `${job.establishment.lat.toFixed(5)},${job.establishment.lng.toFixed(5)}`;
+      const arr = groups.get(key) ?? [];
+      arr.push(job.id);
+      groups.set(key, arr);
+    }
+    const offsets = new Map<string, [number, number]>();
+    for (const ids of groups.values()) {
+      ids.forEach((id, i) => {
+        const offsetX = (i - (ids.length - 1) / 2) * 18;
+        offsets.set(id, [offsetX, 0]);
+      });
+    }
+    return offsets;
+  });
+
   function startStream() {
     closeStream?.();
     jobs = [];
@@ -230,12 +249,18 @@
       <Marker
         lngLat={[job.establishment!.lng, job.establishment!.lat]}
         asButton
+        offset={markerOffset.get(job.id) ?? [0, 0]}
       >
-        <div
-          class="w-3 h-3 rounded-full {selectedJob?.id === job.id
-            ? 'bg-red-500'
-            : 'bg-primary'} border-2 border-white shadow-md cursor-pointer"
-        ></div>
+        <div class="flex flex-col items-center gap-0.5">
+          {#if selectedJob?.id === job.id}
+            <span class="text-primary text-xs leading-none">▼</span>
+          {/if}
+          <div
+            class="w-3 h-3 rounded-full {selectedJob?.id === job.id
+              ? 'bg-red-500'
+              : 'bg-primary'} border-2 border-white shadow-md cursor-pointer"
+          ></div>
+        </div>
       </Marker>
     {/each}
   </MapLibre>
@@ -244,6 +269,7 @@
       jobs={filteredJobs}
       {skills}
       {activeJob}
+      selectedJobId={selectedJob?.id ?? null}
       bind:statusFilter
       onSelect={(job) => {
         selectedJob = job;

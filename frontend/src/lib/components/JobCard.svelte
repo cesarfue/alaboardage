@@ -6,12 +6,14 @@
     job,
     skills = [],
     active = false,
+    selected = false,
     onHover,
     onSelect,
   }: {
     job: Job;
     skills?: Skill[];
     active?: boolean;
+    selected?: boolean;
     onHover?: (job: Job | null) => void;
     onSelect?: (job: Job) => void;
   } = $props();
@@ -20,7 +22,7 @@
 </script>
 
 <article
-  class="px-4 py-3 cursor-pointer border-b last:border-b-0 hover:bg-muted transition-colors {active ? 'bg-muted' : ''}"
+  class="px-4 py-3 cursor-pointer border-b last:border-b-0 hover:bg-muted transition-colors {selected ? 'border-l-2 border-primary' : 'border-l-2 border-transparent'} {active ? 'bg-muted' : ''}"
   onmouseenter={() => onHover?.(job)}
   onmouseleave={() => onHover?.(null)}
   onclick={() => onSelect?.(job)}
