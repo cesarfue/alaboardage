@@ -1,11 +1,5 @@
 import type { Skill } from '$lib/types';
-
-function normalize(s: string): string {
-	return s
-		.normalize('NFD')
-		.replace(/[̀-ͯ]/g, '')
-		.toLowerCase();
-}
+import { normalizeText as normalize } from '$lib/utils';
 
 function escapeRegex(s: string): string {
 	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -5,6 +5,11 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
 
+/** Lowercase + NFD decomposition + strip combining diacritics. Used for accent-insensitive search. */
+export function normalizeText(s: string): string {
+	return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type WithoutChild<T> = T extends { child?: any } ? Omit<T, "child"> : T;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

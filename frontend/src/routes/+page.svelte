@@ -14,6 +14,7 @@
   import JobDetail from "$lib/components/JobDetail.svelte";
   import { getToken, setToken } from "$lib/auth";
   import { userState } from "$lib/user.svelte";
+  import { normalizeText } from "$lib/utils";
 
 
   let query = $state(page.url.searchParams.get("query") ?? "");
@@ -44,10 +45,6 @@
       if (data.length > 0) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
     } catch { /* ignore */ }
     return null;
-  }
-
-  function normalize(s: string): string {
-    return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   }
 
   // Interactions map: jobId → status (source of truth for status merging)
@@ -105,6 +102,16 @@
     }
 
     if (query || location) {
+      // Geocode on initial page load so radius filter uses the searched city, not the map center
+      if (location) {
+        geocodeLocation(location).then((coords) => {
+          if (!coords) return;
+          searchCenter = coords;
+          center = [coords[1], coords[0]]; // MapLibre: [lng, lat]
+          zoom = 10;
+        });
+      }
+
       searching = true;
       try {
         const res = await api.listJobs({
@@ -150,8 +157,9 @@
     return 2 * R * Math.asin(Math.sqrt(a));
   }
 
+  // Hoist title-filter word list: computed once per query change, not per job
   const titleWords = $derived(
-    query.trim() ? query.trim().split(/\s+/).map(normalize) : [],
+    query.trim() ? query.trim().split(/\s+/).map(normalizeText) : [],
   );
 
   let filteredJobs = $derived(
@@ -176,10 +184,9 @@
       // Status filter
       if (statusFilter !== null && j.interactionStatus !== statusFilter) return false;
 
-      // Title keyword filter
+      // Title keyword filter — every word of the query must appear in the job title
       if (titleWords.length > 0) {
-        const title = normalize(j.title ?? '');
-        if (!titleWords.every((w) => title.includes(w))) return false;
+        if (!titleWords.every((w) => normalizeText(j.title ?? '').includes(w))) return false;
       }
 
       return true;
