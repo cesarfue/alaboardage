@@ -28,7 +28,7 @@ export class ScraperService {
     private readonly scoringService: ScoringService,
   ) {}
 
-  scrapeAllBoardsStream(dto: FindJobsDto): Observable<MessageEvent> {
+  scrapeAllBoardsStream(dto: FindJobsDto, userId: string): Observable<MessageEvent> {
     return new Observable((observer) => {
       const controller = new AbortController();
       const { signal } = controller;
@@ -63,7 +63,7 @@ export class ScraperService {
                 data: { type: 'job', job: { ...job, establishment: null } },
               });
               // fire-and-forget: score is available on next GET /jobs
-              void this.scoringService.computeAndSave(job, 'default');
+              void this.scoringService.computeAndSave(job, userId);
             }
             return this.enrichmentService.enrichJobs(jobs, onEnriched, source);
           })
