@@ -146,4 +146,18 @@ export const api = {
       method: "DELETE",
     });
   },
+
+  register(email: string, name: string, password: string): Promise<{ access_token: string }> {
+    return request<{ access_token: string }>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, name, password }),
+    });
+  },
+
+  loginWithPassword(email: string, password: string): Promise<{ access_token: string }> {
+    return request<{ access_token: string }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+  },
 };

@@ -99,12 +99,13 @@ model JobInteraction {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  googleId  String   @unique
-  email     String   @unique
-  name      String
-  picture   String?
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  googleId     String?  @unique
+  email        String   @unique
+  name         String
+  picture      String?
+  passwordHash String?
+  createdAt    DateTime @default(now())
 }
 
 model SavedSearch {

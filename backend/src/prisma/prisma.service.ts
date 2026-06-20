@@ -1,6 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '../../generated/prisma/client';
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { PrismaPg } = require('@prisma/adapter-pg') as {
   PrismaPg: new (cfg: { connectionString: string | undefined }) => any;
 };
@@ -12,6 +12,7 @@ export class PrismaService
 {
   constructor() {
     const connectionString = process.env.DATABASE_URL;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     super({ adapter: new PrismaPg({ connectionString }) });
   }
 
