@@ -26,7 +26,9 @@ export function getUser(): AuthUser | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    const payload = JSON.parse(atob(parts[1])) as AuthUser;
+    // atob produces a Latin-1 byte string; re-encode as UTF-8 before parsing
+    const bytes = Uint8Array.from(atob(parts[1]), (c) => c.charCodeAt(0));
+    const payload = JSON.parse(new TextDecoder().decode(bytes)) as AuthUser;
     return payload;
   } catch {
     return null;

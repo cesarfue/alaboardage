@@ -17,7 +17,7 @@ import { AlertsModule } from './alerts/alerts.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+
     ScheduleModule.forRoot(),
     PrismaModule,
     JobsModule,

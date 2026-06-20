@@ -3,7 +3,8 @@
   import FiltersPanel from "$lib/components/FiltersPanel.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
   import type { SavedSearch, Skill } from "$lib/types";
-  import { getUser, clearToken } from "$lib/auth";
+  import { clearToken } from "$lib/auth";
+  import { userState } from "$lib/user.svelte";
   import { api } from "$lib/api";
 
   let {
@@ -30,7 +31,7 @@
   let showingProfile = $state(false);
   let bookmarkSaved = $state(false);
 
-  const user = $derived(getUser());
+  const user = $derived(userState.user);
   const canSave = $derived(!!(query || location) && !!user);
 
   function closeAll() {
