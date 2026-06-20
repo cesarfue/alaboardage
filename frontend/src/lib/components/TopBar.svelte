@@ -93,7 +93,7 @@
 {/if}
 
 <div
-  class="absolute w-full z-20 pointer-events-auto
+  class="absolute w-full z-50 pointer-events-auto
          flex flex-row items-center gap-2 p-3 bg-background"
 >
   <input
