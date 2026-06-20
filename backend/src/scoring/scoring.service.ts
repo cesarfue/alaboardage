@@ -25,12 +25,10 @@ export class ScoringService {
     let total = 0;
     for (const skill of skills) {
       const pattern = `\\b${escapeRegex(normalize(skill.name))}\\b`;
-      const re = new RegExp(pattern, 'gi');
+      const re = new RegExp(pattern, 'i');
 
       const inTitle = re.test(normTitle) ? 1 : 0;
-      re.lastIndex = 0; // reset car le regex a le flag 'g'
       const inDesc = re.test(normDesc) ? 1 : 0;
-      re.lastIndex = 0;
 
       if (skill.level === SkillLevel.PRIMARY) {
         total += inTitle * 3 + inDesc * 1;
@@ -45,7 +43,9 @@ export class ScoringService {
   async recomputeAll(userId: string): Promise<void> {
     const [skills, jobs] = await Promise.all([
       this.prisma.skill.findMany({ where: { userId } }),
-      this.prisma.job.findMany({ select: { id: true, title: true, description: true } }),
+      this.prisma.job.findMany({
+        select: { id: true, title: true, description: true },
+      }),
     ]);
     await this.prisma.jobScore.deleteMany({ where: { userId } });
     if (skills.length === 0) return;

@@ -28,7 +28,10 @@ export class ScraperService {
     private readonly scoringService: ScoringService,
   ) {}
 
-  scrapeAllBoardsStream(dto: FindJobsDto, userId: string): Observable<MessageEvent> {
+  scrapeAllBoardsStream(
+    dto: FindJobsDto,
+    userId: string,
+  ): Observable<MessageEvent> {
     return new Observable((observer) => {
       const controller = new AbortController();
       const { signal } = controller;

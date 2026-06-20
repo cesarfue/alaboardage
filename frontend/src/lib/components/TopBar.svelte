@@ -154,7 +154,7 @@
     </button>
   {:else}
     <a
-      href="http://localhost:3000/auth/google"
+      href="/api/auth/google"
       class="border rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted whitespace-nowrap"
     >
       Se connecter

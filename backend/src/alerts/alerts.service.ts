@@ -20,7 +20,6 @@ export class AlertsService {
   async runAlerts(): Promise<void> {
     this.logger.log('Running daily alerts cron');
 
-    // Load all saved searches and group by userId
     const allSearches = await this.prisma.savedSearch.findMany();
     if (allSearches.length === 0) return;
 
@@ -35,18 +34,15 @@ export class AlertsService {
     const fallbackSince = new Date(now.getTime() - 25 * 60 * 60 * 1000); // 25h ago
 
     for (const [userId, searches] of searchesByUser) {
-      // Load user
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!user) continue;
 
-      // Load skills for this user
       const userSkills: Skill[] = await this.skills.getSkills(userId);
       if (userSkills.length === 0) {
         this.logger.debug(`Skipping userId=${userId}: no skills`);
         continue;
       }
 
-      // Query jobs once per user using the earliest `since` across their searches
       const earliestSince = searches.reduce<Date>((min, s) => {
         const since = s.lastAlertAt ?? fallbackSince;
         return since < min ? since : min;
@@ -58,8 +54,6 @@ export class AlertsService {
 
       if (recentJobs.length === 0) continue;
 
-      // For each search: find the jobs scraped since that search's lastAlertAt
-      // and score them against user skills
       const sections: {
         search: SavedSearch;
         jobs: Array<{ job: Job; score: number }>;
@@ -88,7 +82,6 @@ export class AlertsService {
         continue;
       }
 
-      // Build email content
       const totalCount = sections.reduce((sum, s) => sum + s.jobs.length, 0);
       const subject =
         sections.length === 1
@@ -113,7 +106,6 @@ export class AlertsService {
         }
       }
 
-      // Update lastAlertAt for all searches that had results
       const updatedSearchIds = sections.map((s) => s.search.id);
       await this.prisma.savedSearch.updateMany({
         where: { id: { in: updatedSearchIds } },

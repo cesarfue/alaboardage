@@ -8,7 +8,7 @@ import type { Prisma } from '../../generated/prisma/client';
 export class JobsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: FindJobsDto, userId: string = 'default') {
+  async findAll(query: FindJobsDto, userId: string) {
     const where: Prisma.JobWhereInput = {};
     if (query.source) where.source = query.source;
     if (query.company)
@@ -16,16 +16,18 @@ export class JobsService {
     if (query.location)
       where.location = { contains: query.location, mode: 'insensitive' };
     if (query.query) {
-      const words = query.query.trim().split(/\s+/);
-      // SQL structure built from word count (not user input) — values are parameterized
-      const conditions = words
-        .map((_, i) => `unaccent(title) ILIKE unaccent($${i + 1})`)
-        .join(' AND ');
-      const rows = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
-        `SELECT id FROM "Job" WHERE ${conditions}`,
-        ...words.map((w) => `%${w}%`),
-      );
-      where.id = { in: rows.map((r) => r.id) };
+      const words = query.query.trim().split(/\s+/).filter(Boolean);
+      if (words.length > 0) {
+        // SQL structure built from word count (not user input) — values are parameterized
+        const conditions = words
+          .map((_, i) => `unaccent(title) ILIKE unaccent($${i + 1})`)
+          .join(' AND ');
+        const rows = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
+          `SELECT id FROM "Job" WHERE ${conditions}`,
+          ...words.map((w) => `%${w}%`),
+        );
+        where.id = { in: rows.map((r) => r.id) };
+      }
     }
 
     const [rawItems, total] = await Promise.all([

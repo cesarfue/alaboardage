@@ -43,7 +43,7 @@
   $effect(() => {
     if (!skillsReady) return;
     localStorage.setItem("skills", JSON.stringify(skills));
-    api.setSkills(skills).catch(() => {});
+    api.setSkills(skills).catch((e: unknown) => console.error("setSkills failed", e));
   });
 
   onMount(async () => {

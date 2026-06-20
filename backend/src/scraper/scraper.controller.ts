@@ -1,4 +1,10 @@
-import { Controller, MessageEvent, Query, Sse, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  MessageEvent,
+  Query,
+  Sse,
+  UseGuards,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { ScraperService } from './scraper.service';
 import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
