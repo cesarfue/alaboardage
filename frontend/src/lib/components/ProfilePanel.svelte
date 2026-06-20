@@ -1,18 +1,13 @@
 <script lang="ts">
-  import { Search, X } from "@lucide/svelte";
-  import type { SavedSearch, Skill, SkillLevel } from "$lib/types";
-  import { api } from "$lib/api";
+  import { X } from "@lucide/svelte";
+  import type { Skill, SkillLevel } from "$lib/types";
 
   let {
     skills = $bindable(),
-    savedSearches = $bindable(),
     onClose,
-    onSearch,
   }: {
     skills: Skill[];
-    savedSearches: SavedSearch[];
     onClose: () => void;
-    onSearch?: (query: string, location: string) => void;
   } = $props();
 
   let primaryInput = $state("");
@@ -32,11 +27,6 @@
 
   function remove(name: string) {
     skills = skills.filter((s) => s.name !== name);
-  }
-
-  async function deleteSearch(id: string) {
-    await api.deleteSavedSearch(id);
-    savedSearches = savedSearches.filter((s) => s.id !== id);
   }
 
   const primary = $derived(skills.filter((s) => s.level === "primary"));
@@ -82,7 +72,7 @@
   class="pointer-events-auto w-[320px] flex flex-col gap-4 rounded-xl bg-background shadow-xl p-4"
 >
   <div class="flex items-center justify-between">
-    <h2 class="font-semibold text-sm">Profil de compétences</h2>
+    <h2 class="font-semibold text-sm">Compétences</h2>
     <button onclick={onClose} class="text-muted-foreground hover:text-foreground">
       <X size={16} />
     </button>
@@ -105,37 +95,4 @@
     secondaryInput,
     (v) => (secondaryInput = v),
   )}
-
-  <section class="flex flex-col gap-2">
-    <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-      Recherches sauvegardées
-    </p>
-    {#if savedSearches.length === 0}
-      <p class="text-xs text-muted-foreground">Aucune recherche sauvegardée</p>
-    {:else}
-      <ul class="flex flex-col gap-1">
-        {#each savedSearches as s (s.id)}
-          <li class="flex items-center justify-between gap-2 text-sm">
-            <span class="truncate flex-1">{s.name}</span>
-            <div class="flex items-center gap-1 shrink-0">
-              <button
-                onclick={() => onSearch?.(s.query, s.location)}
-                class="text-muted-foreground hover:text-foreground"
-                title="Rechercher"
-              >
-                <Search size={14} />
-              </button>
-              <button
-                onclick={() => deleteSearch(s.id)}
-                class="text-muted-foreground hover:text-foreground"
-                title="Supprimer"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </section>
 </div>
