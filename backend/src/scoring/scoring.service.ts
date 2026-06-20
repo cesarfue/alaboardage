@@ -42,6 +42,22 @@ export class ScoringService {
     return total;
   }
 
+  async recomputeAll(userId: string): Promise<void> {
+    const [skills, jobs] = await Promise.all([
+      this.prisma.skill.findMany({ where: { userId } }),
+      this.prisma.job.findMany({ select: { id: true, title: true, description: true } }),
+    ]);
+    await this.prisma.jobScore.deleteMany({ where: { userId } });
+    if (skills.length === 0) return;
+    await this.prisma.jobScore.createMany({
+      data: jobs.map((job) => ({
+        jobId: job.id,
+        userId,
+        score: this.scoreJob(job, skills),
+      })),
+    });
+  }
+
   async computeAndSave(job: Job, userId: string): Promise<void> {
     const skills = await this.prisma.skill.findMany({ where: { userId } });
     if (skills.length === 0) return;

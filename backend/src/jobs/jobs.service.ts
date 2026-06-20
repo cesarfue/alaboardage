@@ -8,7 +8,7 @@ import type { Prisma } from '../../generated/prisma/client';
 export class JobsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: FindJobsDto) {
+  async findAll(query: FindJobsDto, userId: string = 'default') {
     const where: Prisma.JobWhereInput = {};
     if (query.source) where.source = query.source;
     if (query.company)
@@ -36,7 +36,7 @@ export class JobsService {
         skip: query.offset,
         include: {
           establishment: true,
-          scores: { where: { userId: 'default' } },
+          scores: { where: { userId } },
         },
       }),
       this.prisma.job.count({ where }),
