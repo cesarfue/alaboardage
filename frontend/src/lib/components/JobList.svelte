@@ -6,6 +6,7 @@
     jobs,
     skills = [],
     activeJob,
+    selectedJobId = null,
     statusFilter = $bindable(null),
     onHover,
     onSelect,
@@ -13,6 +14,7 @@
     jobs: Job[];
     skills?: Skill[];
     activeJob?: Job | null;
+    selectedJobId?: string | null;
     statusFilter?: InteractionStatus | null;
     onHover?: (job: Job | null) => void;
     onSelect?: (job: Job) => void;
@@ -50,7 +52,7 @@
   </div>
   <div class="flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
     {#each jobs as job (job.id)}
-      <JobCard {job} {skills} active={job.id === activeJob?.id} {onHover} {onSelect} />
+      <JobCard {job} {skills} active={job.id === activeJob?.id} selected={job.id === selectedJobId} {onHover} {onSelect} />
     {/each}
   </div>
 </div>
