@@ -6,9 +6,11 @@
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
-  import { MapLibre, Marker } from "svelte-maplibre";
-  import { Users, Building2, Building } from "@lucide/svelte";
+  import { MapLibre, GeoJSON, CircleLayer, SymbolLayer } from "svelte-maplibre";
+  import type { LayerClickInfo } from "svelte-maplibre";
+  import type { GeoJSONSource } from "maplibre-gl";
   import type maplibregl from "maplibre-gl";
+  import type { FeatureCollection, Feature, Point } from "geojson";
   import JobList from "$lib/components/JobList.svelte";
   import TopBar from "$lib/components/TopBar.svelte";
   import JobDetail from "$lib/components/JobDetail.svelte";
@@ -197,24 +199,47 @@
   let selectedJob = $state<Job | null>(null);
   let map = $state<maplibregl.Map | undefined>(undefined);
 
-  const markerOffset = $derived.by((): Map<string, [number, number]> => {
-    const groups = new Map<string, string[]>();
-    for (const job of filteredJobs) {
-      if (!job.establishment) continue;
-      const key = `${job.establishment.lat.toFixed(5)},${job.establishment.lng.toFixed(5)}`;
-      const arr = groups.get(key) ?? [];
-      arr.push(job.id);
-      groups.set(key, arr);
-    }
-    const offsets = new Map<string, [number, number]>();
-    for (const ids of groups.values()) {
-      ids.forEach((id, i) => {
-        const offsetX = (i - (ids.length - 1) / 2) * 18;
-        offsets.set(id, [offsetX, 0]);
+  const jobsGeoJSON = $derived<FeatureCollection>({
+    type: "FeatureCollection",
+    features: filteredJobs.map((job): Feature<Point> => ({
+      type: "Feature",
+      id: job.id,
+      geometry: { type: "Point", coordinates: [job.establishment!.lng, job.establishment!.lat] },
+      properties: {
+        id: job.id,
+        title: job.title,
+        company: job.company,
+        isSelected: selectedJob?.id === job.id,
+      },
+    })),
+  });
+
+  function onClusterClick(e: LayerClickInfo) {
+    if (!e.features?.length || !e.map) return;
+    const clusterId = e.features[0].properties?.cluster_id as number;
+    const coords = (e.features[0].geometry as Point).coordinates as [number, number];
+    const source = e.map.getSource('jobs-source') as GeoJSONSource;
+    if (!source) return;
+    source.getClusterExpansionZoom(clusterId).then((zoomLevel: number) => {
+      e.map.easeTo({ center: coords, zoom: zoomLevel });
+    }).catch(() => {});
+  }
+
+  function onPointClick(e: LayerClickInfo) {
+    if (!e.features?.length) return;
+    const jobId = e.features[0].properties?.id as string;
+    const job = filteredJobs.find((j) => j.id === jobId);
+    if (!job) return;
+    selectedJob = job;
+    activeJob = job;
+    if (job.establishment) {
+      map?.easeTo({
+        center: [job.establishment.lng, job.establishment.lat],
+        padding: { left: 760, top: 0, right: 0, bottom: 0 },
+        zoom: 13,
       });
     }
-    return offsets;
-  });
+  }
 
   function startStream() {
     closeStream?.();
@@ -264,14 +289,6 @@
     startStream();
   }
 
-  function companySizeCategory(code: string | null | undefined): 'small' | 'medium' | 'large' | null {
-    if (!code || code === 'NN' || code === '00') return null;
-    const n = parseInt(code, 10);
-    if (isNaN(n) || n <= 11) return 'small';  // < 20 salariés
-    if (n <= 31) return 'medium';              // 20–249 salariés
-    return 'large';                            // 250+
-  }
-
   function applyInteraction(jobId: string, status: InteractionStatus | undefined) {
     // Update interactionsMap
     const newMap = new Map(interactionsMap);
@@ -301,35 +318,38 @@
     bind:zoom
     bind:map
   >
-    {#each filteredJobs as job (job.id)}
-      {@const sizeCategory = companySizeCategory(job.establishment?.companySize)}
-      {@const isSelected = selectedJob?.id === job.id}
-      <Marker
-        lngLat={[job.establishment!.lng, job.establishment!.lat]}
-        asButton
-        offset={markerOffset.get(job.id) ?? [0, 0]}
-      >
-        <div class="flex flex-col items-center gap-0.5">
-          {#if isSelected}
-            <span class="text-primary text-xs leading-none">▼</span>
-          {/if}
-          <div
-            class="rounded-full {isSelected ? 'bg-red-500' : sizeCategory === 'large' ? 'bg-violet-600' : sizeCategory === 'medium' ? 'bg-orange-500' : 'bg-primary'} border-2 border-white shadow-md cursor-pointer flex items-center justify-center
-              {sizeCategory === 'large' ? 'w-5 h-5' : sizeCategory === 'medium' ? 'w-3.5 h-3.5' : 'w-2.5 h-2.5'}"
-          >
-            {#if !isSelected}
-              {#if sizeCategory === 'large'}
-                <Building size={10} color="white" strokeWidth={2.5} />
-              {:else if sizeCategory === 'medium'}
-                <Building2 size={8} color="white" strokeWidth={2.5} />
-              {:else if sizeCategory === 'small'}
-                <Users size={7} color="white" strokeWidth={2.5} />
-              {/if}
-            {/if}
-          </div>
-        </div>
-      </Marker>
-    {/each}
+    <GeoJSON id="jobs-source" data={jobsGeoJSON} cluster={{ maxZoom: 14, radius: 50 }}>
+      <CircleLayer
+        id="clusters"
+        filter={['has', 'point_count']}
+        paint={{
+          'circle-color': ['step', ['get', 'point_count'], '#64748b', 5, '#3b82f6', 20, '#8b5cf6'],
+          'circle-radius': ['step', ['get', 'point_count'], 18, 5, 22, 20, 28],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#fff',
+        }}
+        hoverCursor="pointer"
+        onclick={onClusterClick}
+      />
+      <SymbolLayer
+        id="cluster-count"
+        filter={['has', 'point_count']}
+        layout={{ 'text-field': '{point_count_abbreviated}', 'text-size': 13 }}
+        paint={{ 'text-color': '#fff' }}
+      />
+      <CircleLayer
+        id="unclustered-point"
+        filter={['!', ['has', 'point_count']]}
+        paint={{
+          'circle-color': ['case', ['boolean', ['get', 'isSelected'], false], '#ef4444', '#3b82f6'],
+          'circle-radius': 6,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#fff',
+        }}
+        hoverCursor="pointer"
+        onclick={onPointClick}
+      />
+    </GeoJSON>
   </MapLibre>
   <div class="absolute bottom-10 top-30 left-10 z-10 flex flex-row gap-4">
     <JobList
