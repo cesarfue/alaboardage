@@ -8,15 +8,21 @@ import type { Prisma } from '../../generated/prisma/client';
 export class JobsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: FindJobsDto, userId: string) {
+  /**
+   * Build a Prisma `where` matching the same jobs the live search surfaces:
+   * title contains every word of `query` (accent-insensitive) AND
+   * location contains `location`.
+   * Both filters are optional and skipped when empty.
+   */
+  async buildQueryLocationWhere(
+    query: string | undefined,
+    location: string | undefined,
+  ): Promise<Prisma.JobWhereInput> {
     const where: Prisma.JobWhereInput = {};
-    if (query.source) where.source = query.source;
-    if (query.company)
-      where.company = { contains: query.company, mode: 'insensitive' };
-    if (query.location)
-      where.location = { contains: query.location, mode: 'insensitive' };
-    if (query.query) {
-      const words = query.query.trim().split(/\s+/).filter(Boolean);
+    if (location)
+      where.location = { contains: location, mode: 'insensitive' };
+    if (query) {
+      const words = query.trim().split(/\s+/).filter(Boolean);
       if (words.length > 0) {
         // SQL structure built from word count (not user input) — values are parameterized
         const conditions = words
@@ -29,6 +35,28 @@ export class JobsService {
         where.id = { in: rows.map((r) => r.id) };
       }
     }
+    return where;
+  }
+
+  /**
+   * Count jobs matching (query, location) scraped strictly after `since`.
+   * Used by SavedSearch to compute `newResultsCount`.
+   */
+  async countMatchingSince(
+    query: string | undefined,
+    location: string | undefined,
+    since: Date | null,
+  ): Promise<number> {
+    const where = await this.buildQueryLocationWhere(query, location);
+    if (since) where.scrapedAt = { gt: since };
+    return this.prisma.job.count({ where });
+  }
+
+  async findAll(query: FindJobsDto, userId: string) {
+    const where = await this.buildQueryLocationWhere(query.query, query.location);
+    if (query.source) where.source = query.source;
+    if (query.company)
+      where.company = { contains: query.company, mode: 'insensitive' };
 
     const [rawItems, total] = await Promise.all([
       this.prisma.job.findMany({

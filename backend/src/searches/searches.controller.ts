@@ -6,11 +6,13 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
 import { SearchesService } from './searches.service';
 import { CreateSearchDto } from './dto/create-search.dto';
+import { UpdateSearchDto } from './dto/update-search.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -31,6 +33,20 @@ export class SearchesController {
     @Body() dto: CreateSearchDto,
   ) {
     return this.searchesService.createSavedSearch(user.sub, dto);
+  }
+
+  @Patch('searches/:id')
+  updateSavedSearch(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateSearchDto,
+  ) {
+    return this.searchesService.updateSavedSearch(user.sub, id, dto);
+  }
+
+  @Post('searches/:id/seen')
+  markSeen(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.searchesService.markSeen(user.sub, id);
   }
 
   @Delete('searches/:id')
