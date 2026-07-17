@@ -132,59 +132,57 @@
     <span class="text-xs text-muted-foreground animate-pulse">Recherche…</span>
   {/if}
 
-  {#if user}
-    <div class="relative">
-      <button
-        onclick={toggleSaved}
-        class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingSaved ? 'bg-muted' : ''}"
-        title="Recherches sauvegardées"
-      >
-        <Bookmark size={16} class={isCurrentSearchSaved ? "fill-current" : ""} />
-      </button>
-      {#if showingSaved}
-        <div class="absolute top-full mt-1 z-50 left-0 w-[280px] flex flex-col rounded-xl bg-background shadow-xl p-3 gap-2">
-          {#if canSave}
-            {#if isCurrentSearchSaved}
-              <p class="text-xs text-muted-foreground px-1">Déjà sauvegardée</p>
-            {:else}
-              <button
-                onclick={saveSearch}
-                class="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg hover:bg-muted text-left w-full"
-              >
-                <Bookmark size={14} />
-                Sauvegarder cette recherche
-              </button>
-            {/if}
+  <div class="relative">
+    <button
+      onclick={toggleSaved}
+      class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingSaved ? 'bg-muted' : ''}"
+      title="Recherches sauvegardées"
+    >
+      <Bookmark size={16} class={isCurrentSearchSaved ? "fill-current" : ""} />
+    </button>
+    {#if showingSaved}
+      <div class="absolute top-full mt-1 z-50 left-0 w-[280px] flex flex-col rounded-xl bg-background shadow-xl p-3 gap-2">
+        {#if canSave}
+          {#if isCurrentSearchSaved}
+            <p class="text-xs text-muted-foreground px-1">Déjà sauvegardée</p>
+          {:else}
+            <button
+              onclick={saveSearch}
+              class="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg hover:bg-muted text-left w-full"
+            >
+              <Bookmark size={14} />
+              Sauvegarder cette recherche
+            </button>
           {/if}
-          {#if savedSearches.length > 0}
-            {#if canSave}<hr class="border-border" />{/if}
-            <ul class="flex flex-col gap-0.5">
-              {#each savedSearches as s (s.id)}
-                <li class="flex items-center gap-1 group">
-                  <button
-                    onclick={() => loadSearch(s.query, s.location)}
-                    class="flex items-center gap-2 flex-1 text-sm px-2 py-1.5 rounded-lg hover:bg-muted text-left truncate"
-                  >
-                    <Search size={12} class="shrink-0 text-muted-foreground" />
-                    <span class="truncate">{s.name}</span>
-                  </button>
-                  <button
-                    onclick={() => deleteSearch(s.id)}
-                    class="shrink-0 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground hover:text-foreground transition-opacity"
-                    title="Supprimer"
-                  >
-                    <X size={12} />
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          {:else if !canSave}
-            <p class="text-xs text-muted-foreground px-1">Aucune recherche sauvegardée</p>
-          {/if}
-        </div>
-      {/if}
-    </div>
-  {/if}
+        {/if}
+        {#if savedSearches.length > 0}
+          {#if canSave}<hr class="border-border" />{/if}
+          <ul class="flex flex-col gap-0.5">
+            {#each savedSearches as s (s.id)}
+              <li class="flex items-center gap-1 group">
+                <button
+                  onclick={() => loadSearch(s.query, s.location)}
+                  class="flex items-center gap-2 flex-1 text-sm px-2 py-1.5 rounded-lg hover:bg-muted text-left truncate"
+                >
+                  <Search size={12} class="shrink-0 text-muted-foreground" />
+                  <span class="truncate">{s.name}</span>
+                </button>
+                <button
+                  onclick={() => deleteSearch(s.id)}
+                  class="shrink-0 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground hover:text-foreground transition-opacity"
+                  title="Supprimer"
+                >
+                  <X size={12} />
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          <p class="text-xs text-muted-foreground px-1">Aucune recherche sauvegardée</p>
+        {/if}
+      </div>
+    {/if}
+  </div>
 
   <div class="relative">
     <button
