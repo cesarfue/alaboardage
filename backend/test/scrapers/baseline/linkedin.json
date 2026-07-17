@@ -4,12 +4,12 @@
   "query": "developpeur",
   "location": "Lyon, France",
   "metrics": {
-    "scraperDurationMs": 1229,
+    "scraperDurationMs": 1749,
     "jobsScraped": 10,
     "jobsInserted": 10,
-    "newJobs": 1,
-    "enrichmentDurationMs": 393,
-    "enrichmentDurationPerJobMs": 39,
+    "newJobs": 0,
+    "enrichmentDurationMs": 447,
+    "enrichmentDurationPerJobMs": 45,
     "enrichedCount": 10,
     "enrichmentRatio": 1
   },
@@ -20,7 +20,7 @@
     "missingDescriptions": 1,
     "missingCompanies": 0,
     "missingLocations": 0,
-    "avgDescriptionLength": 3242
+    "avgDescriptionLength": 3220
   },
   "sampleJob": {
     "title": "Développeur JAVA H/F",

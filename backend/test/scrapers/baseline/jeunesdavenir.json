@@ -4,12 +4,12 @@
   "query": "developpeur",
   "location": "Lyon, France",
   "metrics": {
-    "scraperDurationMs": 3006,
+    "scraperDurationMs": 3684,
     "jobsScraped": 15,
     "jobsInserted": 15,
     "newJobs": 0,
-    "enrichmentDurationMs": 1646,
-    "enrichmentDurationPerJobMs": 110,
+    "enrichmentDurationMs": 7702,
+    "enrichmentDurationPerJobMs": 513,
     "enrichedCount": 15,
     "enrichmentRatio": 1
   },

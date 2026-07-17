@@ -4,14 +4,14 @@
   "query": "developpeur",
   "location": "Lyon, France",
   "metrics": {
-    "scraperDurationMs": 164,
+    "scraperDurationMs": 179,
     "jobsScraped": 30,
     "jobsInserted": 30,
     "newJobs": 0,
-    "enrichmentDurationMs": 765,
-    "enrichmentDurationPerJobMs": 26,
-    "enrichedCount": 28,
-    "enrichmentRatio": 0.933
+    "enrichmentDurationMs": 1056,
+    "enrichmentDurationPerJobMs": 35,
+    "enrichedCount": 29,
+    "enrichmentRatio": 0.967
   },
   "shape": {
     "duplicateExternalIds": 0,
@@ -35,10 +35,6 @@
     {
       "company": "Galadrim",
       "location": "Milan, Italy"
-    },
-    {
-      "company": "N2jsoft",
-      "location": "Lyon, France"
     }
   ]
 }
