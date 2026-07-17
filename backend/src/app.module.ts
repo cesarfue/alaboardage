@@ -13,6 +13,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { SearchesModule } from './searches/searches.module';
 import { AlertsModule } from './alerts/alerts.module';
+import { SearchRefreshModule } from './search-refresh/search-refresh.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AlertsModule } from './alerts/alerts.module';
     UsersModule,
     SearchesModule,
     AlertsModule,
+    SearchRefreshModule,
   ],
   controllers: [AppController],
   providers: [AppService],

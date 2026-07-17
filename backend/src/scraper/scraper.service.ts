@@ -31,6 +31,61 @@ export class ScraperService {
     private readonly prisma: PrismaService,
   ) {}
 
+  /**
+   * Run every board scraper end-to-end without SSE. Used by the periodic
+   * refresh cron: no user, no scoring, no observer — just upsert jobs and
+   * enrich them. Returns the number of jobs actually persisted+enriched.
+   * Respects `signal` for hard timeouts.
+   */
+  async scrapeAllBoards(
+    query: string,
+    location: string,
+    signal: AbortSignal,
+  ): Promise<{ total: number }> {
+    let total = 0;
+    // Mirror the SSE stream's abort behaviour: also drop any in-flight
+    // enrichment when the caller times out — otherwise a stuck geocoding
+    // lookup keeps the cron busy after the deadline.
+    const onAbort = () => this.enrichmentService.cancelEnrichment();
+    signal.addEventListener('abort', onAbort, { once: true });
+
+    try {
+      const sources = Object.values(JobSource);
+      await Promise.all(
+        sources.map((source) =>
+          this.scrapeStreaming(
+            {
+              source,
+              query,
+              location,
+              limit: 150,
+              offset: 1,
+              singlePage: false,
+            },
+            signal,
+            async (dtoJob) => {
+              if (signal.aborted) return;
+              const job = await this.jobsService.upsert(dtoJob);
+              const establishment = await this.enrichmentService.enrichJob({
+                id: job.id,
+                company: job.company,
+                location: job.location,
+              });
+              if (!establishment || signal.aborted) return;
+              total++;
+            },
+          ).catch((e: Error) => {
+            if (!signal.aborted)
+              this.logger.error(`Failed to scrape ${source}: ${e.message}`);
+          }),
+        ),
+      );
+      return { total };
+    } finally {
+      signal.removeEventListener('abort', onAbort);
+    }
+  }
+
   scrapeAllBoardsStream(
     dto: FindJobsDto,
     userId: string,

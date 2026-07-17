@@ -58,7 +58,10 @@ function makeSearch(overrides: Partial<SavedSearch> = {}): SavedSearch {
     query: 'TypeScript',
     location: 'Paris',
     createdAt: new Date(),
+    emailAlerts: true,
     lastAlertAt: null,
+    lastCheckedAt: null,
+    lastSeenAt: null,
     ...overrides,
   };
 }
@@ -70,6 +73,7 @@ function makeUser(overrides: Partial<User> = {}): User {
     email: 'test@example.com',
     name: 'Test User',
     picture: null,
+    passwordHash: null,
     createdAt: new Date(),
     ...overrides,
   };
@@ -179,8 +183,8 @@ describe('AlertsService.runAlerts', () => {
     const loggedLines: string[] = [];
     jest
       .spyOn((service as any).logger, 'log')
-      .mockImplementation((msg: string) => {
-        loggedLines.push(msg);
+      .mockImplementation((...args: unknown[]) => {
+        loggedLines.push(String(args[0]));
       });
 
     await service.runAlerts();
