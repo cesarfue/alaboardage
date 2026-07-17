@@ -105,11 +105,16 @@ describe('transforms', () => {
   });
 
   describe('helloworkDescription', () => {
-    const makeJsonLd = (type: string, description?: string) =>
-      JSON.stringify({ '@type': type, description });
+    // Inputs mirror the outerHTML delivered by the board scraper — either a
+    // <script type="application/ld+json"> tag or an HTML fallback container.
+    const wrapJsonLd = (type: string, description?: string) =>
+      `<script type="application/ld+json">${JSON.stringify({
+        '@type': type,
+        description,
+      })}</script>`;
 
     it('extracts and converts description from a JobPosting JSON-LD', () => {
-      const raw = makeJsonLd(
+      const raw = wrapJsonLd(
         'JobPosting',
         '<h2>Détail du poste</h2><p>Intro du poste.<br />Suite intro.</p><ul><li>Mission A</li><li>Mission B</li></ul><p>Profil recherché.</p>',
       );
@@ -121,17 +126,33 @@ describe('transforms', () => {
     });
 
     it('returns empty string when @type is not JobPosting', () => {
-      const raw = makeJsonLd('WebSite', '<p>Some text</p>');
+      const raw = wrapJsonLd('WebSite', '<p>Some text</p>');
       expect(helloworkDescription(raw)).toBe('');
     });
 
     it('returns empty string when description is missing', () => {
-      const raw = JSON.stringify({ '@type': 'JobPosting' });
+      const raw = `<script type="application/ld+json">${JSON.stringify({
+        '@type': 'JobPosting',
+      })}</script>`;
       expect(helloworkDescription(raw)).toBe('');
     });
 
-    it('returns empty string for invalid JSON', () => {
-      expect(helloworkDescription('not-json')).toBe('');
+    it('returns empty string for a script tag with invalid JSON', () => {
+      expect(
+        helloworkDescription(
+          '<script type="application/ld+json">not-json</script>',
+        ),
+      ).toBe('');
+    });
+
+    it('falls back to the HTML container when no JSON-LD is present', () => {
+      const raw =
+        '<div data-truncate-text-target="content"><p>Intro du poste.</p><ul><li>Mission A</li><li>Mission B</li></ul><p>Profil recherché.</p></div>';
+      const result = helloworkDescription(raw);
+      expect(result).toContain('Intro du poste.');
+      expect(result).toContain('- Mission A');
+      expect(result).toContain('- Mission B');
+      expect(result).toContain('Profil recherché.');
     });
   });
 
