@@ -14,7 +14,8 @@ interface GeoData {
 
 type LocationScope =
   | { type: 'departement'; code: string }
-  | { type: 'region'; code: string };
+  | { type: 'region'; code: string }
+  | { type: 'national' };
 
 interface SireneRow {
   siret: string;
@@ -27,12 +28,39 @@ interface SireneRow {
 }
 
 function normalize(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+  return stripAccents(s)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
+}
+
+/**
+ * Strip diacritics but keep casing and punctuation. Used to work around a
+ * Postgres FTS quirk: `to_tsvector('french', 'ECOLE')` yields `'ecol'`, but
+ * `websearch_to_tsquery('french', '\u00c9cole')` yields `'\u00e9col'` \u2014 the two never
+ * match. Stripping accents from the query side keeps the existing FTS index
+ * usable and covers the vast majority of SIRENE names (~13.5M rows, only
+ * ~300 contain accented characters themselves).
+ */
+function stripAccents(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Guard for the national fallback: only trigger when the company name is
+ * specific enough that a nationwide FTS is unlikely to return a false
+ * positive. A specific name has either a long-ish word (≥ 6 chars, unlikely
+ * to be a random acronym) or several medium words. Bare acronyms like
+ * `ENTPE` / `ESCP` don't qualify — they'd match dozens of unrelated SIRENE
+ * entries that happen to include the acronym as an appended tag.
+ */
+function isSpecificCompanyName(name: string): boolean {
+  const simplified = name.trim();
+  if (simplified.length < 6) return false;
+  const words = simplified.split(/\s+/);
+  const hasLongWord = words.some((w) => w.length >= 6);
+  const mediumWordCount = words.filter((w) => w.length >= 4).length;
+  return hasLongWord || mediumWordCount >= 2;
 }
 
 @Injectable()
@@ -197,15 +225,33 @@ export class EnrichmentService implements OnModuleInit {
     return { success: true, jobId: job.id, row: found };
   }
 
+  /**
+   * Resolve the geographic scope of a job's location string.
+   *
+   * The tokenizer splits on commas and spaces (dropping tokens ≤ 2 chars) and
+   * tries each token against the commune / region indexes. The first match
+   * wins — so `"Lyon, France"` resolves to Rhône via `Lyon`.
+   *
+   * Two fallbacks apply when no explicit commune/region matches:
+   *   - If a `France` (or `french`) token is present but no city was found
+   *     (e.g. `"France"`, `"France et 6 autres"`), return a `national` scope
+   *     so the caller can attempt a nationwide match.
+   *   - Otherwise return `null` — the location is probably foreign (Milan,
+   *     Italy) or too degenerate to enrich safely.
+   */
   private resolveScope(location: string): LocationScope | null {
     const tokens = location
       .split(/[,\s]+/)
       .map((t) => t.trim())
       .filter((t) => t.length > 2);
+    let sawFrance = false;
     for (const token of tokens) {
       const scope = this.tokenToScope(token);
       if (scope) return scope;
+      const key = normalize(token);
+      if (key === 'france' || key === 'french') sawFrance = true;
     }
+    if (sawFrance) return { type: 'national' };
     return null;
   }
 
@@ -248,15 +294,44 @@ export class EnrichmentService implements OnModuleInit {
     onEnriched?.(jobId, establishment);
   }
 
+  /**
+   * Best-effort establishment resolution.
+   *
+   * 1. Query at the given scope with the raw company name (FTS then trigram).
+   * 2. On miss, retry with the simplified name (`Groupe X France SAS` → `X`).
+   * 3. On miss and non-national scope, widen to a national FTS-only search.
+   *
+   * National-scope queries — whether direct (location was `"France"`) or via
+   * the widen fallback — are guarded by `isSpecificCompanyName` to avoid
+   * matching random SIRENE rows on bare acronyms. Trigram is intentionally
+   * NOT run at national scope (13.5M rows × similarity is slow and noisy).
+   */
   private async findEstablishment(
     company: string,
     scope: LocationScope,
   ): Promise<SireneRow | null> {
-    const row = await this.queryLocal(company, scope);
-    if (row) return row;
+    // At national scope every query must be gated — the check is applied per
+    // name variant (raw + simplified) because simplification can shrink a
+    // specific-looking name down to a bare acronym (`ESCP Extension` → `ESCP`).
+    const canRunNational = (n: string) =>
+      scope.type !== 'national' || isSpecificCompanyName(n);
+
+    if (canRunNational(company)) {
+      const row = await this.queryLocal(company, scope);
+      if (row) return row;
+    }
 
     const simplified = this.simplifyCompanyName(company);
-    if (simplified !== company) return this.queryLocal(simplified, scope);
+    if (simplified !== company && canRunNational(simplified)) {
+      const simplifiedRow = await this.queryLocal(simplified, scope);
+      if (simplifiedRow) return simplifiedRow;
+    }
+
+    if (scope.type !== 'national' && isSpecificCompanyName(simplified)) {
+      const national: LocationScope = { type: 'national' };
+      const wideRow = await this.queryLocalFts(simplified, national);
+      if (wideRow) return wideRow;
+    }
 
     return null;
   }
@@ -265,28 +340,20 @@ export class EnrichmentService implements OnModuleInit {
    * Recherche le meilleur établissement dans la table SIRENE locale, restreint
    * au scope géographique. D'abord par full-text français (tokens + stemming,
    * proche du moteur de l'API), puis fallback trigramme (fautes / variantes).
+   *
+   * National scope skips the trigram step — on 13.5M rows the similarity
+   * search is both slow and prone to false positives without a geo filter.
    */
   private async queryLocal(
     company: string,
     scope: LocationScope,
   ): Promise<SireneRow | null> {
-    const scopeFilter =
-      scope.type === 'departement'
-        ? Prisma.sql`departement = ${scope.code}`
-        : Prisma.sql`region = ${scope.code}`;
+    const fts = await this.queryLocalFts(company, scope);
+    if (fts) return fts;
 
-    const fts = await this.prisma.$queryRaw<SireneRow[]>`
-      SELECT siret, name, address, city, lat, lng, company_size
-      FROM sirene.etablissement
-      WHERE ${scopeFilter}
-        AND to_tsvector('french', name) @@ websearch_to_tsquery('french', ${company})
-      ORDER BY ts_rank(
-        to_tsvector('french', name),
-        websearch_to_tsquery('french', ${company})
-      ) DESC
-      LIMIT 1`;
-    if (fts.length > 0) return fts[0];
+    if (scope.type === 'national') return null;
 
+    const scopeFilter = this.scopeFilter(scope);
     const trgm = await this.prisma.$queryRaw<SireneRow[]>`
       SELECT siret, name, address, city, lat, lng, company_size
       FROM sirene.etablissement
@@ -297,6 +364,45 @@ export class EnrichmentService implements OnModuleInit {
     return trgm.length > 0 ? trgm[0] : null;
   }
 
+  /**
+   * FTS-only variant — used both as the first step of `queryLocal` and as
+   * the national widen-on-miss fallback in `findEstablishment`.
+   *
+   * `stripAccents(company)` fixes a Postgres quirk where a query built from
+   * `École` (`'écol'`) never matches the tsvector `'ecol'` produced from an
+   * uppercase-ASCII SIRENE name like `ECOLE`.
+   */
+  private async queryLocalFts(
+    company: string,
+    scope: LocationScope,
+  ): Promise<SireneRow | null> {
+    const query = stripAccents(company);
+    const rows = await this.prisma.$queryRaw<SireneRow[]>`
+      SELECT siret, name, address, city, lat, lng, company_size
+      FROM sirene.etablissement
+      WHERE ${this.scopeFilter(scope)}
+        AND to_tsvector('french', name) @@ websearch_to_tsquery('french', ${query})
+      ORDER BY ts_rank(
+        to_tsvector('french', name),
+        websearch_to_tsquery('french', ${query})
+      ) DESC
+      LIMIT 1`;
+    return rows.length > 0 ? rows[0] : null;
+  }
+
+  private scopeFilter(scope: LocationScope) {
+    if (scope.type === 'departement')
+      return Prisma.sql`departement = ${scope.code}`;
+    if (scope.type === 'region') return Prisma.sql`region = ${scope.code}`;
+    return Prisma.sql`TRUE`;
+  }
+
+  /**
+   * Trim boilerplate around the human-friendly company name so it lines up
+   * with the SIRENE legal name. Applied one pass each of prefix and suffix
+   * stripping, then a dash-suffix pass (`- PSL`, `- CNRS`, …) that removes
+   * annexed institutional labels frequently seen on JTMS.
+   */
   private simplifyCompanyName(name: string): string {
     const prefixes = ['Groupe ', 'Group ', 'Cabinet ', 'Société '];
     const suffixes = [
@@ -309,6 +415,9 @@ export class EnrichmentService implements OnModuleInit {
       ' SAS',
       ' SA',
       ' SARL',
+      ' Extension',
+      ' Digital',
+      ' Corp',
     ];
 
     let s = name;
@@ -324,6 +433,8 @@ export class EnrichmentService implements OnModuleInit {
         break;
       }
     }
+    // Institutional dash suffixes: "Nom - PSL", "Nom - CNRS", "Nom - HEC".
+    s = s.replace(/\s*-\s*(PSL|CNRS|HEC|ENS|INSA|UPMC|UPEC)\b.*$/i, '');
     return s.trim();
   }
 }
