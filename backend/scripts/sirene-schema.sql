@@ -25,9 +25,12 @@ CREATE TABLE IF NOT EXISTS sirene.etablissement (
   city        text,
   address     text,
   lat         double precision NOT NULL,
-  lng         double precision NOT NULL,
-  company_size text
+  lng         double precision NOT NULL
 );
+
+-- Purge tranche d'effectifs: donnée trop bruitée (établissement != entreprise)
+-- et couverture SIRENE trop faible (~30%). Idempotent.
+ALTER TABLE sirene.etablissement DROP COLUMN IF EXISTS company_size;
 
 -- Filtrage par scope géographique.
 CREATE INDEX IF NOT EXISTS sirene_dept_idx ON sirene.etablissement (departement);

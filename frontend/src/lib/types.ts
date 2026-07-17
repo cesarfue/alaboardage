@@ -5,7 +5,6 @@ export interface Establishment {
   city: string;
   lat: number;
   lng: number;
-  companySize?: string | null;
 }
 
 export type InteractionStatus = 'SAVED' | 'APPLIED' | 'REJECTED';
