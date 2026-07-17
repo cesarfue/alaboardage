@@ -20,7 +20,9 @@ export class AlertsService {
   async runAlerts(): Promise<void> {
     this.logger.log('Running daily alerts cron');
 
-    const allSearches = await this.prisma.savedSearch.findMany();
+    const allSearches = await this.prisma.savedSearch.findMany({
+      where: { emailAlerts: true },
+    });
     if (allSearches.length === 0) return;
 
     const searchesByUser = new Map<string, SavedSearch[]>();
