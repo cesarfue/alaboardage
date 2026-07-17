@@ -53,27 +53,29 @@ export class WTTJScraper {
     private readonly signal?: AbortSignal,
   ) {}
 
-  async search(): Promise<CreateJobDto[]> {
-    const jobs: CreateJobDto[] = [];
+  async search(onJob: (job: CreateJobDto) => Promise<void>): Promise<void> {
     let page = this.params.offset - 1; // Algolia pages are 0-indexed
     const hitsPerPage = Math.min(this.params.limit, 50);
+    let emitted = 0;
 
-    while (jobs.length < this.params.limit) {
+    while (emitted < this.params.limit) {
       if (this.signal?.aborted) break;
       const response = await this.queryAlgolia(page, hitsPerPage);
       if (response.hits.length === 0) break;
 
-      for (const hit of response.hits) {
-        if (jobs.length >= this.params.limit) break;
-        const job = this.hitToJob(hit);
-        if (job) jobs.push(job);
-      }
+      const jobs = response.hits
+        .slice(0, this.params.limit - emitted)
+        .map((hit) => this.hitToJob(hit))
+        .filter((j): j is CreateJobDto => j !== null);
+
+      // Emit hits from this page in parallel — Algolia has no per-job detail
+      // fetch, so all jobs are ready at once.
+      await Promise.all(jobs.map((job) => onJob(job)));
+      emitted += jobs.length;
 
       if (this.params.singlePage || page >= response.nbPages - 1) break;
       page++;
     }
-
-    return jobs;
   }
 
   private async queryAlgolia(

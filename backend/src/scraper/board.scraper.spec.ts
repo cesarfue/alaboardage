@@ -7,7 +7,18 @@ import type { Browser, BrowserContext, Page } from 'playwright';
 import { BoardScraper } from './board.scraper';
 import type { BoardConfig } from './types';
 import type { ScrapeRequestDto } from './dto/scrape-request.dto';
+import type { CreateJobDto } from '../jobs/dto/create-job.dto';
 import { JobSource } from '../../generated/prisma/enums';
+
+/** Collect jobs emitted through the new callback-based `search()` API. */
+async function collect(scraper: BoardScraper): Promise<CreateJobDto[]> {
+  const jobs: CreateJobDto[] = [];
+  await scraper.search((job) => {
+    jobs.push(job);
+    return Promise.resolve();
+  });
+  return jobs;
+}
 
 // ---------------------------------------------------------------------------
 // Minimal board config used across tests
@@ -107,7 +118,7 @@ describe('BoardScraper', () => {
         JobSource.HELLOWORK,
       );
 
-      const jobs = await scraper.search();
+      const jobs = await collect(scraper);
 
       expect(jobs).toHaveLength(1);
       expect(jobs[0]).toMatchObject({
@@ -130,7 +141,7 @@ describe('BoardScraper', () => {
         JobSource.HELLOWORK,
       );
 
-      const jobs = await scraper.search();
+      const jobs = await collect(scraper);
 
       expect(jobs[0].description).toBe('Full job description goes here.');
     });
@@ -153,7 +164,7 @@ describe('BoardScraper', () => {
         JobSource.HELLOWORK,
       );
 
-      const jobs = await scraper.search();
+      const jobs = await collect(scraper);
 
       expect(jobs[0].description).toBe('Card snippet.');
       // context.newPage should have been called only once (board page, no detail fetches)
@@ -171,7 +182,7 @@ describe('BoardScraper', () => {
         JobSource.HELLOWORK,
       );
 
-      const jobs = await scraper.search();
+      const jobs = await collect(scraper);
 
       expect(jobs).toHaveLength(0);
     });
@@ -191,7 +202,7 @@ describe('BoardScraper', () => {
         JobSource.HELLOWORK,
       );
 
-      const jobs = await scraper.search();
+      const jobs = await collect(scraper);
 
       expect(jobs).toHaveLength(2);
     });
@@ -209,7 +220,7 @@ describe('BoardScraper', () => {
         controller.signal,
       );
 
-      const jobs = await scraper.search();
+      const jobs = await collect(scraper);
 
       expect(jobs).toHaveLength(0);
     });
@@ -225,7 +236,7 @@ describe('BoardScraper', () => {
         JobSource.HELLOWORK,
       );
 
-      const jobs = await scraper.search();
+      const jobs = await collect(scraper);
 
       expect(jobs).toHaveLength(0);
     });
@@ -240,7 +251,7 @@ describe('BoardScraper', () => {
         JobSource.HELLOWORK,
       );
 
-      const jobs = await scraper.search();
+      const jobs = await collect(scraper);
 
       // Only 1 card in the HTML, loop should break after first page despite limit=100
       expect(jobs).toHaveLength(1);
@@ -265,7 +276,7 @@ describe('BoardScraper', () => {
         JobSource.HELLOWORK,
       );
 
-      await scraper.search();
+      await collect(scraper);
 
       const context = await (browser.newContext as jest.Mock).mock.results[0]
         .value;
@@ -301,7 +312,7 @@ describe('BoardScraper', () => {
         JobSource.HELLOWORK,
       );
 
-      await scraper.search();
+      await collect(scraper);
 
       const page: Page = await (contextMock.newPage as jest.Mock).mock
         .results[0].value;

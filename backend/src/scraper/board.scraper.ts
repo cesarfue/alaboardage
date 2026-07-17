@@ -14,18 +14,18 @@ export class BoardScraper {
     private readonly signal?: AbortSignal,
   ) {}
 
-  async search(): Promise<CreateJobDto[]> {
+  async search(onJob: (job: CreateJobDto) => Promise<void>): Promise<void> {
     const context = await this.browser.newContext({
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     });
     const page = await context.newPage();
-    const jobs: CreateJobDto[] = [];
     let offset = this.params.offset;
     let actionsTaken = false;
+    let emitted = 0;
 
     try {
-      while (jobs.length < this.params.limit) {
+      while (emitted < this.params.limit) {
         if (this.signal?.aborted) break;
 
         // Randomised delay between pages to reduce ban risk.
@@ -63,14 +63,19 @@ export class BoardScraper {
         const partialJobs = cards
           .map((cardHtml) => this.parseCard(cardHtml))
           .filter((j) => j !== null)
-          .slice(0, this.params.limit - jobs.length);
+          .slice(0, this.params.limit - emitted);
 
         if (this.config.descriptionFromCard) {
           // Description already extracted from card — skip detail page fetches.
-          partialJobs.forEach((j) => jobs.push(j as CreateJobDto));
+          for (const j of partialJobs) {
+            if (this.signal?.aborted) break;
+            await onJob(j as CreateJobDto);
+            emitted++;
+          }
         } else {
           const batchSize = 10;
           for (let i = 0; i < partialJobs.length; i += batchSize) {
+            if (this.signal?.aborted) break;
             if (i > 0) {
               // Light delay between description-fetch batches.
               await this.sleep(300 + Math.random() * 500);
@@ -79,9 +84,14 @@ export class BoardScraper {
             const descriptions = await Promise.all(
               batch.map((j) => this.fetchDescription(context, j.url)),
             );
-            batch.forEach((j, idx) =>
-              jobs.push({ ...j, description: descriptions[idx] }),
+            // Emit in parallel: a slow handler on one job doesn't block the
+            // others in the batch. onJob is awaited so the caller can throttle.
+            await Promise.all(
+              batch.map((j, idx) =>
+                onJob({ ...j, description: descriptions[idx] }),
+              ),
             );
+            emitted += batch.length;
           }
         }
 
@@ -91,8 +101,6 @@ export class BoardScraper {
     } finally {
       await context.close();
     }
-
-    return jobs;
   }
 
   private extractCards(html: string): string[] {

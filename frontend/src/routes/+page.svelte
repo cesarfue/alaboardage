@@ -303,6 +303,7 @@
       { query: query || undefined, location: location || undefined },
       (job) => {
         if (gen !== streamGeneration) return;
+        // Each job arrives fully enriched (establishment + score already set).
         const withStatus = interactionsMap.has(job.id)
           ? { ...job, interactionStatus: interactionsMap.get(job.id) }
           : job;
@@ -316,10 +317,6 @@
       () => {
         if (gen !== streamGeneration) return;
         toast.error("Erreur lors de la recherche");
-      },
-      (jobId, establishment) => {
-        if (gen !== streamGeneration) return;
-        jobs = jobs.map((j) => (j.id === jobId ? { ...j, establishment } : j));
       },
     );
   }

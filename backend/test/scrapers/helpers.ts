@@ -64,15 +64,23 @@ export async function runScraper(
     singlePage: params.singlePage ?? true,
   };
 
+  const collected: CreateJobDto[] = [];
+  const onJob = (job: CreateJobDto) => {
+    collected.push(job);
+    return Promise.resolve();
+  };
+
   if (source === JobSource.WTTJ) {
     const scraper = new WTTJScraper(dto, source);
-    return scraper.search();
+    await scraper.search(onJob);
+    return collected;
   }
 
   const browser = await launchBrowser();
   try {
     const scraper = new BoardScraper(browser, config, dto, source);
-    return await scraper.search();
+    await scraper.search(onJob);
+    return collected;
   } finally {
     await browser.close();
   }

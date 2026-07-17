@@ -156,9 +156,11 @@ export class EnrichmentService implements OnModuleInit {
           else noMatch++;
         } else {
           saves.push(
-            this.saveEnrichment(result, onEnriched).catch((err: Error) =>
-              this.logger.error(`[${label}] save error: ${err.message}`),
-            ),
+            this.saveEnrichment(result, onEnriched)
+              .then(() => undefined)
+              .catch((err: Error) =>
+                this.logger.error(`[${label}] save error: ${err.message}`),
+              ),
           );
           enriched++;
         }
@@ -175,9 +177,14 @@ export class EnrichmentService implements OnModuleInit {
     );
   }
 
-  async enrichJob(job: { id: string; company: string; location: string }) {
+  async enrichJob(job: {
+    id: string;
+    company: string;
+    location: string;
+  }): Promise<Establishment | null> {
     const result = await this.resolveEstablishment(job);
-    if (result.success) await this.saveEnrichment(result);
+    if (!result.success) return null;
+    return this.saveEnrichment(result);
   }
 
   private async resolveEstablishment(job: {
@@ -223,7 +230,7 @@ export class EnrichmentService implements OnModuleInit {
   private async saveEnrichment(
     result: { success: true; jobId: string; row: SireneRow },
     onEnriched?: OnEnriched,
-  ) {
+  ): Promise<Establishment> {
     const { jobId, row } = result;
 
     const establishment = await this.prisma.establishment.upsert({
@@ -246,6 +253,7 @@ export class EnrichmentService implements OnModuleInit {
     });
 
     onEnriched?.(jobId, establishment);
+    return establishment;
   }
 
   private async findEstablishment(
