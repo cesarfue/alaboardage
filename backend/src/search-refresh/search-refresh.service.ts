@@ -114,9 +114,7 @@ export class SearchRefreshService {
         `< Scraped ${label} in ${elapsedS}s - ${total} enriched job(s)${suffix}`,
       );
     } catch (e) {
-      this.logger.warn(
-        `x Scrape failed for ${label}: ${(e as Error).message}`,
-      );
+      this.logger.warn(`x Scrape failed for ${label}: ${(e as Error).message}`);
     } finally {
       clearTimeout(timer);
     }

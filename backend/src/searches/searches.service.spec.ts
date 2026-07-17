@@ -23,7 +23,10 @@ describe('SearchesService', () => {
     jobsMock = {
       countMatchingSince: jest.fn().mockResolvedValue(0),
     };
-    service = new SearchesService(prismaMock, jobsMock as unknown as JobsService);
+    service = new SearchesService(
+      prismaMock,
+      jobsMock as unknown as JobsService,
+    );
   });
 
   describe('getSavedSearches', () => {

@@ -19,8 +19,7 @@ export class JobsService {
     location: string | undefined,
   ): Promise<Prisma.JobWhereInput> {
     const where: Prisma.JobWhereInput = {};
-    if (location)
-      where.location = { contains: location, mode: 'insensitive' };
+    if (location) where.location = { contains: location, mode: 'insensitive' };
     if (query) {
       const words = query.trim().split(/\s+/).filter(Boolean);
       if (words.length > 0) {
@@ -53,7 +52,10 @@ export class JobsService {
   }
 
   async findAll(query: FindJobsDto, userId: string) {
-    const where = await this.buildQueryLocationWhere(query.query, query.location);
+    const where = await this.buildQueryLocationWhere(
+      query.query,
+      query.location,
+    );
     if (query.source) where.source = query.source;
     if (query.company)
       where.company = { contains: query.company, mode: 'insensitive' };
