@@ -1,0 +1,35 @@
+{
+  "board": "JEUNESDAVENIR",
+  "lastRun": "2026-07-17",
+  "query": "developpeur",
+  "location": "Lyon, France",
+  "metrics": {
+    "scraperDurationMs": 3006,
+    "jobsScraped": 15,
+    "jobsInserted": 15,
+    "newJobs": 0,
+    "enrichmentDurationMs": 1646,
+    "enrichmentDurationPerJobMs": 110,
+    "enrichedCount": 15,
+    "enrichmentRatio": 1
+  },
+  "shape": {
+    "duplicateExternalIds": 0,
+    "invalidUrls": 0,
+    "invalidDates": 0,
+    "missingDescriptions": 1,
+    "missingCompanies": 0,
+    "missingLocations": 0,
+    "avgDescriptionLength": 1486
+  },
+  "sampleJob": {
+    "title": "Apprenti(e) chef(fe) de projet Usine 4.0 Connectée F/H",
+    "company": "Dassault Aviation",
+    "location": "Saint-Cloud",
+    "url": "https://jeunesdavenirs-recrut.fr/offre//offre/r_6a4fb8f9b454d14648518753",
+    "hasDescription": false,
+    "hasUrl": true,
+    "hasDatePosted": true
+  },
+  "missingCompanies": []
+}

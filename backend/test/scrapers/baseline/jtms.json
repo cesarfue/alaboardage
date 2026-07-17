@@ -1,0 +1,52 @@
+{
+  "board": "JTMS",
+  "lastRun": "2026-07-17",
+  "query": "developpeur",
+  "location": "Lyon, France",
+  "metrics": {
+    "scraperDurationMs": 26660,
+    "jobsScraped": 21,
+    "jobsInserted": 21,
+    "newJobs": 0,
+    "enrichmentDurationMs": 2122,
+    "enrichmentDurationPerJobMs": 101,
+    "enrichedCount": 17,
+    "enrichmentRatio": 0.81
+  },
+  "shape": {
+    "duplicateExternalIds": 0,
+    "invalidUrls": 0,
+    "invalidDates": 0,
+    "missingDescriptions": 3,
+    "missingCompanies": 0,
+    "missingLocations": 0,
+    "avgDescriptionLength": 3437
+  },
+  "sampleJob": {
+    "title": "Développeur·se Fullstack Confirmé·e (PHP Symfony / React)",
+    "company": "Jungle Bike",
+    "location": "Lyon, France",
+    "url": "https://jobs.makesense.org/fr/jobs/jungle-bike-developpeurse-fullstack-confirmee-php-symfony-react-oCxkey1XHXzEliS27ovz",
+    "hasDescription": true,
+    "hasUrl": true,
+    "hasDatePosted": true
+  },
+  "missingCompanies": [
+    {
+      "company": "École Pratique des Hautes Études - PSL",
+      "location": "France"
+    },
+    {
+      "company": "ENTPE",
+      "location": "France"
+    },
+    {
+      "company": "ESCP Extension",
+      "location": "France"
+    },
+    {
+      "company": "Jobs that makesense",
+      "location": "France et 6 autres"
+    }
+  ]
+}

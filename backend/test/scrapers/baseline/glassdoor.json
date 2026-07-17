@@ -1,0 +1,44 @@
+{
+  "board": "GLASSDOOR",
+  "lastRun": "2026-07-17",
+  "query": "developpeur",
+  "location": "France",
+  "metrics": {
+    "scraperDurationMs": 2162,
+    "jobsScraped": 30,
+    "jobsInserted": 30,
+    "newJobs": 6,
+    "enrichmentDurationMs": 1354,
+    "enrichmentDurationPerJobMs": 45,
+    "enrichedCount": 28,
+    "enrichmentRatio": 0.933
+  },
+  "shape": {
+    "duplicateExternalIds": 0,
+    "invalidUrls": 0,
+    "invalidDates": 0,
+    "missingDescriptions": 0,
+    "missingCompanies": 0,
+    "missingLocations": 0,
+    "avgDescriptionLength": 223
+  },
+  "sampleJob": {
+    "title": "ANALYSTE DEVELOPPEUR ERP H/F",
+    "company": "Phytomer",
+    "location": "Saint-Malo",
+    "url": "https://www.glassdoor.fr/job-listing/job.htm",
+    "hasDescription": true,
+    "hasUrl": true,
+    "hasDatePosted": true
+  },
+  "missingCompanies": [
+    {
+      "company": "AgileSoft.NC",
+      "location": "France"
+    },
+    {
+      "company": "Wall Street English",
+      "location": "France"
+    }
+  ]
+}

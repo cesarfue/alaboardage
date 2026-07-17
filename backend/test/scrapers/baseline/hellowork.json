@@ -1,0 +1,35 @@
+{
+  "board": "HELLOWORK",
+  "lastRun": "2026-07-17",
+  "query": "developpeur",
+  "location": "Lyon, France",
+  "metrics": {
+    "scraperDurationMs": 12124,
+    "jobsScraped": 30,
+    "jobsInserted": 30,
+    "newJobs": 0,
+    "enrichmentDurationMs": 836,
+    "enrichmentDurationPerJobMs": 28,
+    "enrichedCount": 30,
+    "enrichmentRatio": 1
+  },
+  "shape": {
+    "duplicateExternalIds": 0,
+    "invalidUrls": 0,
+    "invalidDates": 0,
+    "missingDescriptions": 1,
+    "missingCompanies": 0,
+    "missingLocations": 0,
+    "avgDescriptionLength": 4023
+  },
+  "sampleJob": {
+    "title": "Développeur IA H/F",
+    "company": "Klanik",
+    "location": "Lyon - 69",
+    "url": "https://www.hellowork.com/emplois/81330602.html",
+    "hasDescription": true,
+    "hasUrl": true,
+    "hasDatePosted": true
+  },
+  "missingCompanies": []
+}

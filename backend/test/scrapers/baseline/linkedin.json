@@ -1,0 +1,35 @@
+{
+  "board": "LINKEDIN",
+  "lastRun": "2026-07-17",
+  "query": "developpeur",
+  "location": "Lyon, France",
+  "metrics": {
+    "scraperDurationMs": 1229,
+    "jobsScraped": 10,
+    "jobsInserted": 10,
+    "newJobs": 1,
+    "enrichmentDurationMs": 393,
+    "enrichmentDurationPerJobMs": 39,
+    "enrichedCount": 10,
+    "enrichmentRatio": 1
+  },
+  "shape": {
+    "duplicateExternalIds": 0,
+    "invalidUrls": 0,
+    "invalidDates": 0,
+    "missingDescriptions": 1,
+    "missingCompanies": 0,
+    "missingLocations": 0,
+    "avgDescriptionLength": 3242
+  },
+  "sampleJob": {
+    "title": "Développeur JAVA H/F",
+    "company": "Synanto",
+    "location": "Lyon, Auvergne-Rhône-Alpes, France",
+    "url": "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4436183036",
+    "hasDescription": true,
+    "hasUrl": true,
+    "hasDatePosted": true
+  },
+  "missingCompanies": []
+}
