@@ -1,0 +1,44 @@
+{
+  "board": "WTTJ",
+  "lastRun": "2026-07-17",
+  "query": "developpeur",
+  "location": "Lyon, France",
+  "metrics": {
+    "scraperDurationMs": 164,
+    "jobsScraped": 30,
+    "jobsInserted": 30,
+    "newJobs": 0,
+    "enrichmentDurationMs": 765,
+    "enrichmentDurationPerJobMs": 26,
+    "enrichedCount": 28,
+    "enrichmentRatio": 0.933
+  },
+  "shape": {
+    "duplicateExternalIds": 0,
+    "invalidUrls": 0,
+    "invalidDates": 0,
+    "missingDescriptions": 0,
+    "missingCompanies": 0,
+    "missingLocations": 0,
+    "avgDescriptionLength": 795
+  },
+  "sampleJob": {
+    "title": "Lead développeur(se) Java F/H",
+    "company": "CGI",
+    "location": "Lyon, France",
+    "url": "https://www.welcometothejungle.com/fr/companies/cgi/jobs/lead-developpeur-se-java-f-h_lyon_CGI_g78oqO3",
+    "hasDescription": true,
+    "hasUrl": true,
+    "hasDatePosted": true
+  },
+  "missingCompanies": [
+    {
+      "company": "Galadrim",
+      "location": "Milan, Italy"
+    },
+    {
+      "company": "N2jsoft",
+      "location": "Lyon, France"
+    }
+  ]
+}

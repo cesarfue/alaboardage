@@ -1,0 +1,14 @@
+{
+  "lastRun": "2026-07-17",
+  "query": "developpeur",
+  "location": "Lyon, France",
+  "totalScraperDurationMs": 45345,
+  "totalEnrichmentDurationMs": 7116,
+  "totalJobsScraped": 136,
+  "totalJobsInserted": 136,
+  "totalJobsEnriched": 128,
+  "globalEnrichmentRatio": 0.941,
+  "boardsSuccessful": 6,
+  "boardsWithZeroResults": [],
+  "boardsWithError": []
+}
