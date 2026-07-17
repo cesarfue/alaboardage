@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS sirene.etablissement (
   city        text,
   address     text,
   lat         double precision NOT NULL,
-  lng         double precision NOT NULL
+  lng         double precision NOT NULL,
+  company_size text
 );
 
 -- Filtrage par scope géographique.

@@ -23,6 +23,7 @@ interface SireneRow {
   city: string | null;
   lat: number;
   lng: number;
+  company_size: string | null;
 }
 
 function normalize(s: string): string {
@@ -234,8 +235,9 @@ export class EnrichmentService implements OnModuleInit {
         city: row.city ?? '',
         lat: row.lat,
         lng: row.lng,
+        companySize: row.company_size ?? null,
       },
-      update: {},
+      update: row.company_size != null ? { companySize: row.company_size } : {},
     });
 
     await this.prisma.job.update({
@@ -274,7 +276,7 @@ export class EnrichmentService implements OnModuleInit {
         : Prisma.sql`region = ${scope.code}`;
 
     const fts = await this.prisma.$queryRaw<SireneRow[]>`
-      SELECT siret, name, address, city, lat, lng
+      SELECT siret, name, address, city, lat, lng, company_size
       FROM sirene.etablissement
       WHERE ${scopeFilter}
         AND to_tsvector('french', name) @@ websearch_to_tsquery('french', ${company})
@@ -286,7 +288,7 @@ export class EnrichmentService implements OnModuleInit {
     if (fts.length > 0) return fts[0];
 
     const trgm = await this.prisma.$queryRaw<SireneRow[]>`
-      SELECT siret, name, address, city, lat, lng
+      SELECT siret, name, address, city, lat, lng, company_size
       FROM sirene.etablissement
       WHERE ${scopeFilter}
         AND f_unaccent(name) % f_unaccent(${company})

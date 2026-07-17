@@ -71,7 +71,8 @@ COPY (
     e.libelleCommuneEtablissement AS city,
     e.geo_adresse AS address,
     ST_Y(e.geometry) AS lat,
-    ST_X(e.geometry) AS lng
+    ST_X(e.geometry) AS lng,
+    e.trancheEffectifsEtablissement AS company_size
   FROM read_parquet('$PARQUET') e,
   LATERAL (SELECT CASE
     WHEN e.codeCommuneEtablissement LIKE '97%' OR e.codeCommuneEtablissement LIKE '98%'
@@ -97,7 +98,7 @@ echo "→ chargement dans Postgres..."
 $DC exec -T postgres psql -v ON_ERROR_STOP=1 -U alaboardage -d alaboardage \
   -c "TRUNCATE sirene.etablissement;"
 $DC exec -T postgres psql -v ON_ERROR_STOP=1 -U alaboardage -d alaboardage \
-  -c "\copy sirene.etablissement(siret,name,departement,region,city,address,lat,lng) FROM STDIN WITH (FORMAT csv, HEADER true)" \
+  -c "\copy sirene.etablissement(siret,name,departement,region,city,address,lat,lng,company_size) FROM STDIN WITH (FORMAT csv, HEADER true)" \
   < "$CSV"
 
 COUNT=$($DC exec -T postgres psql -tA -U alaboardage -d alaboardage \
