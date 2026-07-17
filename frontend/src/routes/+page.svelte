@@ -7,6 +7,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { MapLibre, GeoJSON, CircleLayer, SymbolLayer } from "svelte-maplibre";
+  import { Search } from "@lucide/svelte";
   import type { LayerClickInfo } from "svelte-maplibre";
   import type { GeoJSONSource } from "maplibre-gl";
   import type maplibregl from "maplibre-gl";
@@ -47,6 +48,25 @@
       const data: { lat: string; lon: string }[] = await res.json();
       if (data.length > 0)
         return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }
+
+  async function reverseGeocode(
+    lat: number,
+    lng: number,
+  ): Promise<string | null> {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+        { headers: { "Accept-Language": "fr" } },
+      );
+      const data: { address?: Record<string, string | undefined> } =
+        await res.json();
+      const a = data.address ?? {};
+      return a.city ?? a.town ?? a.village ?? a.county ?? a.state ?? null;
     } catch {
       /* ignore */
     }
@@ -377,12 +397,14 @@
     }
   }
 
-  function startStream() {
+  function startStream(opts: { skipGeocode?: boolean } = {}) {
     closeStream?.();
     const gen = ++streamGeneration;
     jobs = [];
     searching = true;
-    if (location) {
+    if (opts.skipGeocode) {
+      // Caller has already set searchCenter/center — leave zoom untouched.
+    } else if (location) {
       geocodeLocation(location).then((coords) => {
         if (gen !== streamGeneration || !coords) return;
         searchCenter = coords;
@@ -420,6 +442,28 @@
     if (location) urlParams.set("location", location);
     goto(`?${urlParams}`);
     startStream();
+  }
+
+  // Show "Search this area" button when the map center has moved outside the
+  // current search radius. Hidden when no search yet (searchCenter === null).
+  const isOutsideSearchZone = $derived(
+    searchCenter !== null &&
+      haversineKm(searchCenter[0], searchCenter[1], center[1], center[0]) >
+        radiusKm,
+  );
+
+  async function searchThisArea() {
+    // Snapshot map center; user may keep panning during reverse-geocode.
+    const [lng, lat] = center;
+    const newSearchCenter: [number, number] = [lat, lng];
+    const place = await reverseGeocode(lat, lng);
+    location = place ?? `Autour de ${lat.toFixed(3)}, ${lng.toFixed(3)}`;
+    searchCenter = newSearchCenter;
+    const urlParams = new URLSearchParams();
+    if (query) urlParams.set("query", query);
+    if (location) urlParams.set("location", location);
+    goto(`?${urlParams}`);
+    startStream({ skipGeocode: true });
   }
 
   function applyInteraction(
@@ -515,6 +559,19 @@
       />
     </GeoJSON>
   </MapLibre>
+  {#if isOutsideSearchZone}
+    <button
+      onclick={searchThisArea}
+      disabled={searching}
+      class="absolute top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-auto
+             flex items-center gap-2 bg-background border rounded-full
+             px-4 py-2 text-sm font-medium shadow-lg
+             hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <Search size={14} />
+      Rechercher dans cette zone
+    </button>
+  {/if}
   <div class="absolute bottom-10 top-30 left-10 z-10 flex flex-row gap-4">
     <JobList
       jobs={filteredJobs}
