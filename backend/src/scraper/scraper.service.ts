@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { MessageEvent } from '@nestjs/common';
 import { chromium } from 'playwright';
+import type { Browser } from 'playwright';
 import { Observable } from 'rxjs';
 import { JobsService } from '../jobs/jobs.service';
 import { BoardScraper } from './board.scraper';
@@ -12,11 +13,12 @@ import { JTMS } from './boards/jtms.config';
 import { LINKEDIN } from './boards/linkedin.config';
 import type { BoardConfig } from './types';
 import { JobSource } from '../../generated/prisma/enums';
-import type { Job, Establishment } from '../../generated/prisma/client';
+import type { CreateJobDto } from '../jobs/dto/create-job.dto';
 import { ScrapeRequestDto } from './dto/scrape-request.dto';
 import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
 import { EnrichmentService } from '../enrichment/enrichment.service';
 import { ScoringService } from '../scoring/scoring.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ScraperService {
@@ -26,6 +28,7 @@ export class ScraperService {
     private readonly jobsService: JobsService,
     private readonly enrichmentService: EnrichmentService,
     private readonly scoringService: ScoringService,
+    private readonly prisma: PrismaService,
   ) {}
 
   scrapeAllBoardsStream(
@@ -36,54 +39,73 @@ export class ScraperService {
       const controller = new AbortController();
       const { signal } = controller;
       const start = Date.now();
-      const sources = Object.values(JobSource);
       let total = 0;
 
-      const onEnriched = (jobId: string, establishment: Establishment) => {
-        if (!signal.aborted)
-          observer.next({
-            data: { type: 'establishment', jobId, establishment },
-          });
-      };
+      // Skills are loaded once at stream start; the score is then computed
+      // inline for each job so the client receives a fully scored payload.
+      void this.prisma.skill
+        .findMany({ where: { userId } })
+        .then((skills) => {
+          const sources = Object.values(JobSource);
+          const tasks = sources.map((source) =>
+            this.scrapeStreaming(
+              {
+                source,
+                query: dto.query ?? '',
+                location: dto.location ?? '',
+                limit: 150,
+                offset: 1,
+                singlePage: false,
+              },
+              signal,
+              async (dtoJob) => {
+                if (signal.aborted) return;
+                const job = await this.jobsService.upsert(dtoJob);
+                const establishment = await this.enrichmentService.enrichJob({
+                  id: job.id,
+                  company: job.company,
+                  location: job.location,
+                });
+                // Drop jobs without a resolved establishment — they never
+                // reach the client. A follow-up ticket reduces the miss rate.
+                if (!establishment || signal.aborted) return;
+                const score = this.scoringService.scoreJob(job, skills);
+                // Persist the score asynchronously; the fresh score is
+                // already in the SSE payload.
+                void this.scoringService
+                  .computeAndSave(job, userId)
+                  .catch((e: Error) =>
+                    this.logger.error(
+                      `computeAndSave failed for ${job.id}: ${e.message}`,
+                    ),
+                  );
+                total++;
+                observer.next({
+                  data: {
+                    type: 'job',
+                    job: { ...job, establishment, score },
+                  },
+                });
+              },
+            ).catch((e: Error) => {
+              if (!signal.aborted)
+                this.logger.error(`Failed to scrape ${source}: ${e.message}`);
+            }),
+          );
 
-      const tasks = sources.map((source) =>
-        this.scrape(
-          {
-            source,
-            query: dto.query ?? '',
-            location: dto.location ?? '',
-            limit: 150,
-            offset: 1,
-            singlePage: false,
-          },
-          signal,
-        )
-          .then((jobs) => {
-            if (signal.aborted) return;
-            total += jobs.length;
-            for (const job of jobs) {
+          return Promise.all(tasks).then(() => {
+            if (!signal.aborted) {
               observer.next({
-                data: { type: 'job', job: { ...job, establishment: null } },
+                data: { type: 'done', total, durationMs: Date.now() - start },
               });
-              // fire-and-forget: score is available on next GET /jobs
-              void this.scoringService.computeAndSave(job, userId);
+              observer.complete();
             }
-            return this.enrichmentService.enrichJobs(jobs, onEnriched, source);
-          })
-          .catch((e: Error) => {
-            if (!signal.aborted)
-              this.logger.error(`Failed to scrape ${source}: ${e.message}`);
-          }),
-      );
-
-      Promise.all(tasks).then(() => {
-        if (!signal.aborted) {
-          observer.next({
-            data: { type: 'done', total, durationMs: Date.now() - start },
           });
-          observer.complete();
-        }
-      });
+        })
+        .catch((e: Error) => {
+          if (!signal.aborted)
+            this.logger.error(`Stream setup failed: ${e.message}`);
+        });
 
       return () => {
         controller.abort();
@@ -92,12 +114,18 @@ export class ScraperService {
     });
   }
 
-  private async scrape(
+  private async scrapeStreaming(
     dto: ScrapeRequestDto,
     signal: AbortSignal,
-  ): Promise<Job[]> {
+    onJob: (dto: CreateJobDto) => Promise<void>,
+  ): Promise<void> {
     if (dto.source === JobSource.WTTJ) {
-      return this.scrapeWTTJ(dto, signal);
+      this.logger.log(
+        `Scraping WTTJ (Algolia) q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
+      );
+      const scraper = new WTTJScraper(dto, dto.source, signal);
+      await scraper.search(onJob);
+      return;
     }
 
     const config = this.configFor(dto.source);
@@ -105,10 +133,9 @@ export class ScraperService {
       `Scraping ${config.name} q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
     );
 
-    const browser = await chromium.launch({
+    const browser: Browser = await chromium.launch({
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
-
     try {
       const scraper = new BoardScraper(
         browser,
@@ -117,27 +144,10 @@ export class ScraperService {
         dto.source,
         signal,
       );
-      const dtoJobs = await scraper.search();
-      this.logger.log(`Scraped ${dtoJobs.length} jobs from ${config.name}`);
-      if (dtoJobs.length === 0 || signal.aborted) return [];
-      return this.jobsService.upsertMany(dtoJobs);
+      await scraper.search(onJob);
     } finally {
       await browser.close();
     }
-  }
-
-  private async scrapeWTTJ(
-    dto: ScrapeRequestDto,
-    signal: AbortSignal,
-  ): Promise<Job[]> {
-    this.logger.log(
-      `Scraping WTTJ (Algolia) q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
-    );
-    const scraper = new WTTJScraper(dto, dto.source, signal);
-    const dtoJobs = await scraper.search();
-    this.logger.log(`Scraped ${dtoJobs.length} jobs from WTTJ`);
-    if (dtoJobs.length === 0 || signal.aborted) return [];
-    return this.jobsService.upsertMany(dtoJobs);
   }
 
   private configFor(source: JobSource): BoardConfig {
