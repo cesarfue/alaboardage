@@ -28,8 +28,12 @@ export const HELLOWORK: BoardConfig = {
       returns: { kind: 'text' },
     },
     description: {
-      selects: 'script[type="application/ld+json"]:contains("JobPosting")',
-      returns: { kind: 'text' },
+      // JSON-LD JobPosting is available on most detail pages; when it is not
+      // (some aggregated offers), fall back to the visible "Détail du poste"
+      // container. The transform detects which of the two it received.
+      selects:
+        'script[type="application/ld+json"]:contains("JobPosting"), [data-truncate-text-target="content"]',
+      returns: { kind: 'html' },
       transforms: helloworkDescription,
     },
     datePosted: {

@@ -1,28 +1,51 @@
 import { load } from 'cheerio';
 
 /**
- * Transform for Hellowork description extracted from the JSON-LD JobPosting
- * script tag. Receives raw JSON text, parses the `description` HTML field and
- * converts it to plain text (block elements → newlines).
+ * Convert a Hellowork description HTML snippet to plain text.
+ * Block-level tags become newlines; <li> items become bullet lines.
+ */
+function htmlToText(html: string): string {
+  const $ = load(html);
+  $('br').replaceWith('\n');
+  $('li').each((_, el) => {
+    const text = $(el).text().trim();
+    $(el).replaceWith(`- ${text}\n`);
+  });
+  $('p, h1, h2, h3, h4, ul, ol').each((_, el) => {
+    $(el).replaceWith($(el).text() + '\n\n');
+  });
+  return $.root()
+    .text()
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * Extract the Hellowork description from either the JSON-LD JobPosting script
+ * tag (preferred, available on most detail pages) or, as a fallback, the
+ * `[data-truncate-text-target="content"]` div rendered directly in the HTML
+ * for offers that ship without JSON-LD (aggregated / external listings).
+ *
+ * Input is the outerHTML of a matched element from the combined selector in
+ * `hellowork.config.ts`.
  */
 export function helloworkDescription(raw: string): string {
   try {
-    const data = JSON.parse(raw) as { '@type'?: string; description?: string };
-    if (data['@type'] !== 'JobPosting' || !data.description) return '';
-    const $ = load(data.description);
-    // Replace block-level tags with newlines before extracting text
-    $('br').replaceWith('\n');
-    $('li').each((_, el) => {
-      const text = $(el).text().trim();
-      $(el).replaceWith(`- ${text}\n`);
-    });
-    $('p, h1, h2, h3, h4, ul, ol').each((_, el) => {
-      $(el).replaceWith($(el).text() + '\n\n');
-    });
-    return $.root()
-      .text()
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    const $ = load(raw);
+    // JSON-LD path: the wrapper is a <script> whose text is the JSON payload.
+    const script = $('script[type="application/ld+json"]').first();
+    if (script.length) {
+      const data = JSON.parse(script.text()) as {
+        '@type'?: string;
+        description?: string;
+      };
+      if (data['@type'] === 'JobPosting' && data.description) {
+        return htmlToText(data.description);
+      }
+      return '';
+    }
+    // HTML fallback: raw is the outerHTML of the description container.
+    return htmlToText(raw);
   } catch {
     return '';
   }
