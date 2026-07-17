@@ -109,11 +109,14 @@ model User {
 }
 
 model SavedSearch {
-  id          String    @id @default(cuid())
-  userId      String
-  name        String
-  query       String
-  location    String
-  createdAt   DateTime  @default(now())
-  lastAlertAt DateTime?
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  query         String
+  location      String
+  createdAt     DateTime  @default(now())
+  emailAlerts   Boolean   @default(true)
+  lastAlertAt   DateTime?
+  lastCheckedAt DateTime?
+  lastSeenAt    DateTime?
 }
