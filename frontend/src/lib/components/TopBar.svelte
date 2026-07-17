@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Bookmark, Funnel, User, LogOut, Search, X } from "@lucide/svelte";
+  import { Bell, BellOff, Bookmark, Funnel, User, LogOut, Search, X } from "@lucide/svelte";
   import FiltersPanel from "$lib/components/FiltersPanel.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
   import type { SavedSearch, Skill } from "$lib/types";
@@ -67,19 +67,67 @@
     if (!canSave || isCurrentSearchSaved) return;
     const name = [query, location].filter(Boolean).join(" · ");
     const saved = await api.saveSearch(name, query, location);
-    savedSearches = [saved, ...savedSearches];
+    // A brand-new saved search has never been seen — its badge is 0 by
+    // definition. Everything else comes straight from the DB response.
+    savedSearches = [{ ...saved, newResultsCount: 0 }, ...savedSearches];
   }
 
   async function deleteSearch(id: string) {
-    await api.deleteSavedSearch(id);
+    // Optimistic UI — restore on error so the item is never silently stuck
+    const before = savedSearches;
     savedSearches = savedSearches.filter((s) => s.id !== id);
+    try {
+      await api.deleteSavedSearch(id);
+    } catch (e) {
+      console.error("Failed to delete saved search", e);
+      savedSearches = before;
+    }
   }
 
-  function loadSearch(q: string, loc: string) {
-    query = q;
-    location = loc;
+  async function toggleEmailAlerts(s: SavedSearch) {
+    const nextValue = !s.emailAlerts;
+    // Optimistic update
+    savedSearches = savedSearches.map((x) =>
+      x.id === s.id ? { ...x, emailAlerts: nextValue } : x,
+    );
+    try {
+      await api.updateSavedSearch(s.id, { emailAlerts: nextValue });
+    } catch (e) {
+      console.error("Failed to update saved search", e);
+      // Revert
+      savedSearches = savedSearches.map((x) =>
+        x.id === s.id ? { ...x, emailAlerts: s.emailAlerts } : x,
+      );
+    }
+  }
+
+  async function loadSearch(s: SavedSearch) {
+    query = s.query;
+    location = s.location;
     showingSaved = false;
+    // Clear the badge immediately, then persist
+    if ((s.newResultsCount ?? 0) > 0 || s.lastSeenAt === null) {
+      savedSearches = savedSearches.map((x) =>
+        x.id === s.id
+          ? { ...x, newResultsCount: 0, lastSeenAt: new Date().toISOString() }
+          : x,
+      );
+      api.markSavedSearchSeen(s.id).catch((e) => {
+        console.error("Failed to mark saved search as seen", e);
+      });
+    }
     search();
+  }
+
+  function formatCheckedAt(iso: string | null): string {
+    if (!iso) return "Jamais vérifiée";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "Jamais vérifiée";
+    return `Dernière vérif : ${d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`;
+  }
+
+  function formatBadge(n: number): string {
+    return n > 99 ? "99+" : String(n);
   }
 </script>
 
@@ -151,7 +199,7 @@
       <Bookmark size={16} class={isCurrentSearchSaved ? "fill-current" : ""} />
     </button>
     {#if showingSaved}
-      <div class="absolute top-full mt-1 z-50 left-0 w-[280px] flex flex-col rounded-xl bg-background shadow-xl p-3 gap-2">
+      <div class="absolute top-full mt-1 z-50 left-0 w-[400px] flex flex-col rounded-xl bg-background shadow-xl p-3 gap-2">
         {#if canSave}
           {#if isCurrentSearchSaved}
             <p class="text-xs text-muted-foreground px-1">Déjà sauvegardée</p>
@@ -169,20 +217,47 @@
           {#if canSave}<hr class="border-border" />{/if}
           <ul class="flex flex-col gap-0.5">
             {#each savedSearches as s (s.id)}
-              <li class="flex items-center gap-1 group">
+              <li class="flex items-stretch gap-1 rounded-lg hover:bg-muted/60">
                 <button
-                  onclick={() => loadSearch(s.query, s.location)}
-                  class="flex items-center gap-2 flex-1 text-sm px-2 py-1.5 rounded-lg hover:bg-muted text-left truncate"
+                  onclick={() => loadSearch(s)}
+                  title={formatCheckedAt(s.lastCheckedAt)}
+                  class="flex flex-col gap-0.5 flex-1 text-sm px-2 py-1.5 rounded-lg text-left min-w-0"
                 >
-                  <Search size={12} class="shrink-0 text-muted-foreground" />
-                  <span class="truncate">{s.name}</span>
+                  <span class="flex items-center gap-2 min-w-0">
+                    <Search size={12} class="shrink-0 text-muted-foreground" />
+                    <span class="truncate font-medium">{s.name}</span>
+                    {#if (s.newResultsCount ?? 0) > 0}
+                      <span
+                        class="ml-auto shrink-0 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 leading-none"
+                        aria-label="{s.newResultsCount} nouveaux résultats"
+                      >
+                        {formatBadge(s.newResultsCount ?? 0)}
+                      </span>
+                    {/if}
+                  </span>
+                  <span class="text-xs text-muted-foreground truncate pl-5">
+                    {[s.query, s.location].filter(Boolean).join(" · ") || "—"}
+                  </span>
+                </button>
+                <button
+                  onclick={() => toggleEmailAlerts(s)}
+                  class="shrink-0 p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground"
+                  title={s.emailAlerts ? "Notifs email activées" : "Notifs email désactivées"}
+                  aria-pressed={s.emailAlerts}
+                >
+                  {#if s.emailAlerts}
+                    <Bell size={14} class="text-primary" />
+                  {:else}
+                    <BellOff size={14} />
+                  {/if}
                 </button>
                 <button
                   onclick={() => deleteSearch(s.id)}
-                  class="shrink-0 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground hover:text-foreground transition-opacity"
+                  class="shrink-0 p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground"
                   title="Supprimer"
+                  aria-label="Supprimer {s.name}"
                 >
-                  <X size={12} />
+                  <X size={14} />
                 </button>
               </li>
             {/each}

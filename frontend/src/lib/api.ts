@@ -36,6 +36,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(res.status, detail);
   }
+  // 204 No Content (and any other empty body) — return undefined instead of
+  // choking on `res.json()`. Callers typing this as `Promise<void>` get what
+  // they expect; callers awaiting real JSON parse it normally.
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -142,6 +146,23 @@ export const api = {
     return request<void>(`/searches/${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
+  },
+
+  updateSavedSearch(
+    id: string,
+    patch: { name?: string; emailAlerts?: boolean },
+  ): Promise<SavedSearch> {
+    return request<SavedSearch>(`/searches/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+  },
+
+  markSavedSearchSeen(id: string): Promise<SavedSearch> {
+    return request<SavedSearch>(
+      `/searches/${encodeURIComponent(id)}/seen`,
+      { method: "POST" },
+    );
   },
 
   register(email: string, name: string, password: string): Promise<{ access_token: string }> {

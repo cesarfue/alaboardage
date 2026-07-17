@@ -54,6 +54,13 @@ export interface SavedSearch {
   query: string;
   location: string;
   createdAt: string;
+  emailAlerts: boolean;
+  lastCheckedAt: string | null;
+  lastSeenAt: string | null;
+  // Only present on the list endpoint (GET /searches). CRUD endpoints
+  // (create/update/markSeen) return the plain DB row without the count —
+  // callers assemble the view field client-side.
+  newResultsCount?: number;
 }
 
 export type SkillLevel = 'primary' | 'secondary';
