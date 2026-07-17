@@ -46,13 +46,14 @@ model Job {
 }
 
 model Establishment {
-  siret   String @id
-  name    String
-  address String
-  city    String
-  lat     Float
-  lng     Float
-  jobs    Job[]
+  siret       String  @id
+  name        String
+  address     String
+  city        String
+  lat         Float
+  lng         Float
+  companySize String?
+  jobs        Job[]
 }
 
 enum SkillLevel {

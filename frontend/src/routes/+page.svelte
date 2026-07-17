@@ -7,6 +7,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { MapLibre, Marker } from "svelte-maplibre";
+  import { Users, Building2, Building } from "@lucide/svelte";
   import type maplibregl from "maplibre-gl";
   import JobList from "$lib/components/JobList.svelte";
   import TopBar from "$lib/components/TopBar.svelte";
@@ -256,6 +257,14 @@
     startStream();
   }
 
+  function companySizeCategory(code: string | null | undefined): 'small' | 'medium' | 'large' | null {
+    if (!code || code === 'NN' || code === '00') return null;
+    const n = parseInt(code, 10);
+    if (isNaN(n) || n <= 11) return 'small';  // < 20 salariés
+    if (n <= 31) return 'medium';              // 20–249 salariés
+    return 'large';                            // 250+
+  }
+
   function applyInteraction(jobId: string, status: InteractionStatus | undefined) {
     // Update interactionsMap
     const newMap = new Map(interactionsMap);
@@ -286,20 +295,31 @@
     bind:map
   >
     {#each filteredJobs as job (job.id)}
+      {@const sizeCategory = companySizeCategory(job.establishment?.companySize)}
+      {@const isSelected = selectedJob?.id === job.id}
       <Marker
         lngLat={[job.establishment!.lng, job.establishment!.lat]}
         asButton
         offset={markerOffset.get(job.id) ?? [0, 0]}
       >
         <div class="flex flex-col items-center gap-0.5">
-          {#if selectedJob?.id === job.id}
+          {#if isSelected}
             <span class="text-primary text-xs leading-none">▼</span>
           {/if}
           <div
-            class="w-3 h-3 rounded-full {selectedJob?.id === job.id
-              ? 'bg-red-500'
-              : 'bg-primary'} border-2 border-white shadow-md cursor-pointer"
-          ></div>
+            class="rounded-full {isSelected ? 'bg-red-500' : sizeCategory === 'large' ? 'bg-violet-600' : sizeCategory === 'medium' ? 'bg-orange-500' : 'bg-primary'} border-2 border-white shadow-md cursor-pointer flex items-center justify-center
+              {sizeCategory === 'large' ? 'w-5 h-5' : sizeCategory === 'medium' ? 'w-3.5 h-3.5' : 'w-2.5 h-2.5'}"
+          >
+            {#if !isSelected}
+              {#if sizeCategory === 'large'}
+                <Building size={10} color="white" strokeWidth={2.5} />
+              {:else if sizeCategory === 'medium'}
+                <Building2 size={8} color="white" strokeWidth={2.5} />
+              {:else if sizeCategory === 'small'}
+                <Users size={7} color="white" strokeWidth={2.5} />
+              {/if}
+            {/if}
+          </div>
         </div>
       </Marker>
     {/each}
