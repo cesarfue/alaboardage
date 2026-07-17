@@ -6,7 +6,7 @@
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
-  import { MapLibre, GeoJSON, CircleLayer, SymbolLayer } from "svelte-maplibre";
+  import { MapLibre, GeoJSON, CircleLayer, SymbolLayer, Marker } from "svelte-maplibre";
   import type { LayerClickInfo } from "svelte-maplibre";
   import type { GeoJSONSource } from "maplibre-gl";
   import type maplibregl from "maplibre-gl";
@@ -198,6 +198,25 @@
   let activeJob = $state<Job | null>(null);
   let selectedJob = $state<Job | null>(null);
   let map = $state<maplibregl.Map | undefined>(undefined);
+  let spiderJobs = $state<Array<{ job: Job; offset: [number, number] }>>([]);
+
+  $effect(() => {
+    if (!map) return;
+    const clearSpider = () => { spiderJobs = []; };
+    const onMapClick = (e: maplibregl.MapMouseEvent) => {
+      if (!map) return;
+      const hits = map.queryRenderedFeatures(e.point, {
+        layers: ['clusters', 'unclustered-point'],
+      });
+      if (hits.length === 0) spiderJobs = [];
+    };
+    map.on('zoomstart', clearSpider);
+    map.on('click', onMapClick);
+    return () => {
+      map?.off('zoomstart', clearSpider);
+      map?.off('click', onMapClick);
+    };
+  });
 
   const jobsGeoJSON = $derived<FeatureCollection>({
     type: "FeatureCollection",
@@ -214,15 +233,39 @@
     })),
   });
 
-  function onClusterClick(e: LayerClickInfo) {
+  async function onClusterClick(e: LayerClickInfo) {
     if (!e.features?.length || !e.map) return;
     const clusterId = e.features[0].properties?.cluster_id as number;
     const coords = (e.features[0].geometry as Point).coordinates as [number, number];
-    const source = e.map.getSource('jobs-source') as GeoJSONSource;
+    const source = e.map.getSource('jobs-source') as GeoJSONSource | undefined;
     if (!source) return;
-    source.getClusterExpansionZoom(clusterId).then((zoomLevel: number) => {
-      e.map.easeTo({ center: coords, zoom: zoomLevel });
-    }).catch(() => {});
+
+    try {
+      const expansionZoom = await source.getClusterExpansionZoom(clusterId);
+      const currentZoom = e.map.getZoom();
+
+      if (expansionZoom > currentZoom) {
+        spiderJobs = [];
+        e.map.easeTo({ center: coords, zoom: expansionZoom });
+        return;
+      }
+
+      // Cluster cannot be expanded further (jobs share the same coordinates) — spiderify.
+      const leaves = await source.getClusterLeaves(clusterId, Infinity, 0);
+      const radius = 32; // px
+      const next: Array<{ job: Job; offset: [number, number] }> = [];
+      leaves.forEach((leaf, i) => {
+        const angle = (i / leaves.length) * 2 * Math.PI - Math.PI / 2;
+        const jobId = (leaf.properties as { id?: string } | null)?.id;
+        const job = filteredJobs.find((j) => j.id === jobId);
+        if (!job) return;
+        next.push({
+          job,
+          offset: [Math.cos(angle) * radius, Math.sin(angle) * radius],
+        });
+      });
+      spiderJobs = next;
+    } catch { /* ignore */ }
   }
 
   function onPointClick(e: LayerClickInfo) {
@@ -350,6 +393,27 @@
         onclick={onPointClick}
       />
     </GeoJSON>
+    {#each spiderJobs as { job, offset } (job.id)}
+      <Marker
+        lngLat={[job.establishment!.lng, job.establishment!.lat]}
+        {offset}
+        asButton
+        onclick={() => {
+          selectedJob = job;
+          activeJob = job;
+          spiderJobs = [];
+          map?.easeTo({
+            center: [job.establishment!.lng, job.establishment!.lat],
+            padding: { left: 760, top: 0, right: 0, bottom: 0 },
+            zoom: map.getZoom(),
+          });
+        }}
+      >
+        <div
+          class="w-3 h-3 rounded-full {selectedJob?.id === job.id ? 'bg-red-500' : 'bg-blue-500'} border-2 border-white shadow-md cursor-pointer"
+        ></div>
+      </Marker>
+    {/each}
   </MapLibre>
   <div class="absolute bottom-10 top-30 left-10 z-10 flex flex-row gap-4">
     <JobList
