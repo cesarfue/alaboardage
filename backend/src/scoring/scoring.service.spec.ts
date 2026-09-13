@@ -32,39 +32,39 @@ describe('ScoringService.scoreJob', () => {
     service = new ScoringService(null as never);
   });
 
-  it('gives 3 points when PRIMARY skill is present in title (regardless of count)', () => {
+  it('PRIMARY in title = 1 (skill) + 0.5 (title bonus) = 1.5', () => {
     const score = service.scoreJob(
       { title: 'TypeScript developer', description: '' },
       [makeSkill('TypeScript', SkillLevel.PRIMARY)],
     );
-    expect(score).toBe(3); // present in title → 3
+    expect(score).toBe(1.5);
   });
 
-  it('does not give extra points for repeated PRIMARY skill in title', () => {
+  it('repeated PRIMARY in title counts once', () => {
     const score = service.scoreJob(
       { title: 'TypeScript TypeScript developer', description: '' },
       [makeSkill('TypeScript', SkillLevel.PRIMARY)],
     );
-    expect(score).toBe(3); // 2 occurrences still → 3, not 6
+    expect(score).toBe(1.5);
   });
 
-  it('gives 1 point when PRIMARY skill is present in description (regardless of count)', () => {
+  it('PRIMARY in description only = 1 (no title bonus)', () => {
     const score = service.scoreJob(
       { title: '', description: 'Experience with TypeScript and TypeScript.' },
       [makeSkill('TypeScript', SkillLevel.PRIMARY)],
     );
-    expect(score).toBe(1); // present in description → 1, not 2
+    expect(score).toBe(1);
   });
 
-  it('gives 1.5 points per title occurrence for a SECONDARY skill', () => {
+  it('SECONDARY in title = 0.5 + 0.5 = 1', () => {
     const score = service.scoreJob(
       { title: 'React developer', description: '' },
       [makeSkill('React', SkillLevel.SECONDARY)],
     );
-    expect(score).toBe(1.5);
+    expect(score).toBe(1);
   });
 
-  it('gives 0.5 points per description occurrence for a SECONDARY skill', () => {
+  it('SECONDARY in description only = 0.5', () => {
     const score = service.scoreJob(
       { title: '', description: 'Must know React' },
       [makeSkill('React', SkillLevel.SECONDARY)],
@@ -80,18 +80,37 @@ describe('ScoringService.scoreJob', () => {
     expect(score).toBe(0);
   });
 
-  it('sums correctly across multiple skills', () => {
+  it('breadth beats depth: 3 skills in desc > 1 skill in title', () => {
+    const skills = [
+      makeSkill('terraform', SkillLevel.PRIMARY),
+      makeSkill('ansible', SkillLevel.PRIMARY),
+      makeSkill('sql', SkillLevel.PRIMARY),
+    ];
+    const wideMatch = service.scoreJob(
+      { title: 'DevOps engineer', description: 'terraform ansible sql' },
+      skills,
+    );
+    const titleOnly = service.scoreJob(
+      { title: 'Ansible engineer', description: '' },
+      skills,
+    );
+    expect(wideMatch).toBe(3); // 3 primary in desc, no title match
+    expect(titleOnly).toBe(1.5); // 1 primary in title + bonus
+    expect(wideMatch).toBeGreaterThan(titleOnly);
+  });
+
+  it('sums correctly across multiple skills with title bonus applied once', () => {
     const score = service.scoreJob(
       {
         title: 'TypeScript React engineer',
         description: 'TypeScript experience',
       },
       [
-        makeSkill('TypeScript', SkillLevel.PRIMARY), // title: 3, desc: 1 → 4
-        makeSkill('React', SkillLevel.SECONDARY), // title: 1.5 → 1.5
+        makeSkill('TypeScript', SkillLevel.PRIMARY),
+        makeSkill('React', SkillLevel.SECONDARY),
       ],
     );
-    expect(score).toBe(5.5);
+    expect(score).toBe(2);
   });
 
   it('matches case-insensitively', () => {
@@ -99,7 +118,7 @@ describe('ScoringService.scoreJob', () => {
       { title: 'TYPESCRIPT developer', description: '' },
       [makeSkill('typescript', SkillLevel.PRIMARY)],
     );
-    expect(score).toBe(3);
+    expect(score).toBe(1.5);
   });
 
   it('matches accented characters by normalizing both sides', () => {
@@ -107,7 +126,7 @@ describe('ScoringService.scoreJob', () => {
       { title: 'développeur senior', description: '' },
       [makeSkill('développeur', SkillLevel.PRIMARY)],
     );
-    expect(score).toBe(3);
+    expect(score).toBe(1.5);
   });
 
   it('does not match partial words (word boundary)', () => {

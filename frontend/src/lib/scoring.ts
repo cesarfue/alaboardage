@@ -17,20 +17,19 @@ export function scoreJob(
 	const normDesc = normalize(job.description);
 
 	let total = 0;
+	let hasTitleMatch = false;
 	for (const skill of skills) {
 		const re = makePattern(skill.name);
-
-		const inTitle = re.test(normTitle) ? 1 : 0;
-		re.lastIndex = 0; // reset car le regex a le flag 'g'
-		const inDesc = re.test(normDesc) ? 1 : 0;
+		const inTitle = re.test(normTitle);
+		re.lastIndex = 0;
+		const inDesc = re.test(normDesc);
 		re.lastIndex = 0;
 
-		if (skill.level === 'primary') {
-			total += inTitle * 3 + inDesc * 1;
-		} else {
-			total += inTitle * 1.5 + inDesc * 0.5;
-		}
+		if (!inTitle && !inDesc) continue;
+		total += skill.level === 'primary' ? 1 : 0.5;
+		if (inTitle) hasTitleMatch = true;
 	}
+	if (hasTitleMatch) total += 0.5;
 
 	return total;
 }

@@ -23,19 +23,18 @@ export class ScoringService {
     const normDesc = normalize(job.description);
 
     let total = 0;
+    let hasTitleMatch = false;
     for (const skill of skills) {
       const pattern = `\\b${escapeRegex(normalize(skill.name))}\\b`;
       const re = new RegExp(pattern, 'i');
+      const inTitle = re.test(normTitle);
+      const inDesc = re.test(normDesc);
 
-      const inTitle = re.test(normTitle) ? 1 : 0;
-      const inDesc = re.test(normDesc) ? 1 : 0;
-
-      if (skill.level === SkillLevel.PRIMARY) {
-        total += inTitle * 3 + inDesc * 1;
-      } else {
-        total += inTitle * 1.5 + inDesc * 0.5;
-      }
+      if (!inTitle && !inDesc) continue;
+      total += skill.level === SkillLevel.PRIMARY ? 1 : 0.5;
+      if (inTitle) hasTitleMatch = true;
     }
+    if (hasTitleMatch) total += 0.5;
 
     return total;
   }
