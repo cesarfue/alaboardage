@@ -265,6 +265,17 @@
     };
   });
 
+  let mapMoveVersion = $state(0);
+  $effect(() => {
+    const m = map;
+    if (!m) return;
+    const onMoveEnd = () => mapMoveVersion++;
+    m.on("moveend", onMoveEnd);
+    return () => {
+      m.off("moveend", onMoveEnd);
+    };
+  });
+
   const CLUSTER_MAX_ZOOM = 12;
   const COLLISION_PX = 20;
   const MIN_FAN_RADIUS_PX = 14;
@@ -446,15 +457,18 @@
 
   // Show "Search this area" button when the map center has moved outside the
   // current search radius. Hidden when no search yet (searchCenter === null).
-  const isOutsideSearchZone = $derived(
-    searchCenter !== null &&
-      haversineKm(searchCenter[0], searchCenter[1], center[1], center[0]) >
-        radiusKm,
-  );
+  const isOutsideSearchZone = $derived.by(() => {
+    void mapMoveVersion; // subscribe to map pan/zoom events
+    if (searchCenter === null || !map) return false;
+    const c = map.getCenter();
+    return haversineKm(searchCenter[0], searchCenter[1], c.lat, c.lng) > radiusKm;
+  });
 
   async function searchThisArea() {
+    if (!map) return;
     // Snapshot map center; user may keep panning during reverse-geocode.
-    const [lng, lat] = center;
+    const c = map.getCenter();
+    const [lng, lat] = [c.lng, c.lat];
     const newSearchCenter: [number, number] = [lat, lng];
     const place = await reverseGeocode(lat, lng);
     location = place ?? `Autour de ${lat.toFixed(3)}, ${lng.toFixed(3)}`;
