@@ -42,13 +42,19 @@ export class ScraperService {
     location: string,
     signal: AbortSignal,
   ): Promise<{ total: number }> {
+    const label = `cron:${Math.random().toString(36).slice(2, 8)}`;
+    const start = Date.now();
     let total = 0;
     // Mirror the SSE stream's abort behaviour: also drop any in-flight
     // enrichment when the caller times out — otherwise a stuck geocoding
     // lookup keeps the cron busy after the deadline.
-    const onAbort = () => this.enrichmentService.cancelEnrichment();
+    const onAbort = () => {
+      this.logger.warn(`[${label}] abort signal received`);
+      this.enrichmentService.cancelEnrichment();
+    };
     signal.addEventListener('abort', onAbort, { once: true });
 
+    this.logger.log(`[${label}] START q="${query}" loc="${location}"`);
     try {
       const sources = Object.values(JobSource);
       await Promise.all(
@@ -74,11 +80,17 @@ export class ScraperService {
               if (!establishment || signal.aborted) return;
               total++;
             },
+            label,
           ).catch((e: Error) => {
             if (!signal.aborted)
-              this.logger.error(`Failed to scrape ${source}: ${e.message}`);
+              this.logger.error(
+                `[${label}] Failed to scrape ${source}: ${e.stack ?? e.message ?? String(e)}`,
+              );
           }),
         ),
+      );
+      this.logger.log(
+        `[${label}] END total=${total} durationMs=${Date.now() - start}${signal.aborted ? ' (ABORTED)' : ''}`,
       );
       return { total };
     } finally {
@@ -91,10 +103,16 @@ export class ScraperService {
     userId: string,
   ): Observable<MessageEvent> {
     return new Observable((observer) => {
+      const label = `stream:${Math.random().toString(36).slice(2, 8)}`;
       const controller = new AbortController();
       const { signal } = controller;
       const start = Date.now();
       let total = 0;
+      let completed = false;
+
+      this.logger.log(
+        `[${label}] START user=${userId} q="${dto.query ?? ''}" loc="${dto.location ?? ''}"`,
+      );
 
       // Skills are loaded once at stream start; the score is then computed
       // inline for each job so the client receives a fully scored payload.
@@ -131,7 +149,7 @@ export class ScraperService {
                   .computeAndSave(job, userId)
                   .catch((e: Error) =>
                     this.logger.error(
-                      `computeAndSave failed for ${job.id}: ${e.message}`,
+                      `[${label}] computeAndSave failed for ${job.id}: ${e.message}`,
                     ),
                   );
                 total++;
@@ -142,14 +160,21 @@ export class ScraperService {
                   },
                 });
               },
+              label,
             ).catch((e: Error) => {
               if (!signal.aborted)
-                this.logger.error(`Failed to scrape ${source}: ${e.message}`);
+                this.logger.error(
+                  `[${label}] Failed to scrape ${source}: ${e.stack ?? e.message ?? String(e)}`,
+                );
             }),
           );
 
           return Promise.all(tasks).then(() => {
             if (!signal.aborted) {
+              completed = true;
+              this.logger.log(
+                `[${label}] DONE total=${total} durationMs=${Date.now() - start}`,
+              );
               observer.next({
                 data: { type: 'done', total, durationMs: Date.now() - start },
               });
@@ -159,10 +184,17 @@ export class ScraperService {
         })
         .catch((e: Error) => {
           if (!signal.aborted)
-            this.logger.error(`Stream setup failed: ${e.message}`);
+            this.logger.error(
+              `[${label}] Stream setup failed: ${e.stack ?? e.message ?? String(e)}`,
+            );
         });
 
       return () => {
+        if (!completed) {
+          this.logger.warn(
+            `[${label}] TEARDOWN before completion — client disconnect or new stream (elapsed=${Date.now() - start}ms, jobsSent=${total})`,
+          );
+        }
         controller.abort();
         this.enrichmentService.cancelEnrichment();
       };
@@ -173,25 +205,45 @@ export class ScraperService {
     dto: ScrapeRequestDto,
     signal: AbortSignal,
     onJob: (dto: CreateJobDto) => Promise<void>,
+    label = 'anon',
   ): Promise<void> {
+    const boardStart = Date.now();
+    let jobCount = 0;
+    const countedOnJob = async (job: CreateJobDto) => {
+      await onJob(job);
+      jobCount++;
+    };
+
     if (dto.source === JobSource.WTTJ) {
       this.logger.log(
-        `Scraping WTTJ (Algolia) q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
+        `[${label}] > WTTJ (Algolia) q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
       );
       const scraper = new WTTJScraper(dto, dto.source, signal);
-      await scraper.search(onJob);
+      try {
+        await scraper.search(countedOnJob);
+        this.logger.log(
+          `[${label}] < WTTJ ${jobCount} jobs in ${Date.now() - boardStart}ms${signal.aborted ? ' (ABORTED)' : ''}`,
+        );
+      } catch (e) {
+        const err = e as Error;
+        this.logger.error(
+          `[${label}] × WTTJ crashed after ${jobCount} jobs in ${Date.now() - boardStart}ms: ${err.stack ?? err.message ?? String(e)}`,
+        );
+        throw e;
+      }
       return;
     }
 
     const config = this.configFor(dto.source);
     this.logger.log(
-      `Scraping ${config.name} q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
+      `[${label}] > ${config.name} q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
     );
 
-    const browser: Browser = await chromium.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    let browser: Browser | null = null;
     try {
+      browser = await chromium.launch({
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
       const scraper = new BoardScraper(
         browser,
         config,
@@ -199,9 +251,26 @@ export class ScraperService {
         dto.source,
         signal,
       );
-      await scraper.search(onJob);
+      await scraper.search(countedOnJob);
+      this.logger.log(
+        `[${label}] < ${config.name} ${jobCount} jobs in ${Date.now() - boardStart}ms${signal.aborted ? ' (ABORTED)' : ''}`,
+      );
+    } catch (e) {
+      const err = e as Error;
+      this.logger.error(
+        `[${label}] × ${config.name} crashed after ${jobCount} jobs in ${Date.now() - boardStart}ms: ${err.stack ?? err.message ?? String(e)}`,
+      );
+      throw e;
     } finally {
-      await browser.close();
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (e) {
+          this.logger.warn(
+            `[${label}] ${config.name} browser.close() failed: ${(e as Error).message}`,
+          );
+        }
+      }
     }
   }
 

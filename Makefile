@@ -1,4 +1,4 @@
-.PHONY: up down build logs ps shell-back shell-front \
+.PHONY: up down re build logs ps shell-back shell-front \
         migrate prisma-generate import-geo import-sirene \
         lint-back lint-front test-back \
         clean
@@ -13,6 +13,10 @@ up-build:
 
 down:
 	docker compose down
+
+re:
+	docker compose down
+	docker compose up -d
 
 build:
 	docker compose build
