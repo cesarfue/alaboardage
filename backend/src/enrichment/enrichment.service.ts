@@ -278,18 +278,29 @@ export class EnrichmentService implements OnModuleInit {
   ): Promise<Establishment> {
     const { jobId, row } = result;
 
-    const establishment = await this.prisma.establishment.upsert({
-      where: { siret: row.siret },
-      create: {
-        siret: row.siret,
-        name: row.name,
-        address: row.address ?? '',
-        city: row.city ?? '',
-        lat: row.lat,
-        lng: row.lng,
-      },
-      update: {},
-    });
+    let establishment: Establishment;
+    try {
+      establishment = await this.prisma.establishment.upsert({
+        where: { siret: row.siret },
+        create: {
+          siret: row.siret,
+          name: row.name,
+          address: row.address ?? '',
+          city: row.city ?? '',
+          lat: row.lat,
+          lng: row.lng,
+        },
+        update: {},
+      });
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      if (code !== 'P2002') throw e;
+      const found = await this.prisma.establishment.findUnique({
+        where: { siret: row.siret },
+      });
+      if (!found) throw e;
+      establishment = found;
+    }
 
     await this.prisma.job.update({
       where: { id: jobId },
