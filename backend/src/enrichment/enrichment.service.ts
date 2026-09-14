@@ -73,10 +73,11 @@ export class EnrichmentService implements OnModuleInit {
   private readonly communePop = new Map<string, number>();
   private readonly regionToCode = new Map<string, string>();
   private controller: AbortController | null = null;
+  private sireneAvailable = false;
 
   constructor(private readonly prisma: PrismaService) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     const path = join(process.cwd(), 'data', 'communes.json');
     try {
       const { communes, regions } = JSON.parse(
@@ -98,6 +99,19 @@ export class EnrichmentService implements OnModuleInit {
         `Could not load ${path} — run 'make import-geo'. Scope resolution disabled.`,
       );
     }
+
+    try {
+      const rows = await this.prisma.$queryRaw<{ present: boolean }[]>`
+        SELECT to_regclass('sirene.etablissement') IS NOT NULL AS present`;
+      this.sireneAvailable = rows[0]?.present ?? false;
+    } catch {
+      this.sireneAvailable = false;
+    }
+    this.logger.log(
+      this.sireneAvailable
+        ? 'SIRENE table detected — establishment resolution enabled'
+        : "SIRENE table absent — run 'make import-sirene'. Establishment resolution disabled.",
+    );
   }
 
   async backfill(
@@ -327,6 +341,8 @@ export class EnrichmentService implements OnModuleInit {
     company: string,
     scope: LocationScope,
   ): Promise<SireneRow | null> {
+    if (!this.sireneAvailable) return null;
+
     // At national scope every query must be gated — the check is applied per
     // name variant (raw + simplified) because simplification can shrink a
     // specific-looking name down to a bare acronym (`ESCP Extension` → `ESCP`).
