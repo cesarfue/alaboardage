@@ -22,7 +22,11 @@ import { UsersModule } from '../users/users.module';
     UsersModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, GoogleStrategy, JwtStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    ...(process.env.GOOGLE_CLIENT_ID ? [GoogleStrategy] : []),
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}
