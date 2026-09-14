@@ -12,7 +12,7 @@ set -euo pipefail
 
 PARQUET_URL="https://www.data.gouv.fr/api/1/datasets/r/d20b0aed-e206-40cf-b301-04ca8e209de7"
 case "$(uname -m)" in
-  aarch64 | arm64) DUCKDB_ARCH="linux-aarch64" ;;
+  aarch64 | arm64) DUCKDB_ARCH="linux-arm64" ;;
   *) DUCKDB_ARCH="linux-amd64" ;;
 esac
 DUCKDB_URL="https://github.com/duckdb/duckdb/releases/latest/download/duckdb_cli-${DUCKDB_ARCH}.zip"
