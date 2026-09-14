@@ -11,7 +11,11 @@
 set -euo pipefail
 
 PARQUET_URL="https://www.data.gouv.fr/api/1/datasets/r/d20b0aed-e206-40cf-b301-04ca8e209de7"
-DUCKDB_URL="https://github.com/duckdb/duckdb/releases/latest/download/duckdb_cli-linux-amd64.zip"
+case "$(uname -m)" in
+  aarch64 | arm64) DUCKDB_ARCH="linux-aarch64" ;;
+  *) DUCKDB_ARCH="linux-amd64" ;;
+esac
+DUCKDB_URL="https://github.com/duckdb/duckdb/releases/latest/download/duckdb_cli-${DUCKDB_ARCH}.zip"
 DEPT_REGION_URL="https://geo.api.gouv.fr/departements?fields=code,codeRegion"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
