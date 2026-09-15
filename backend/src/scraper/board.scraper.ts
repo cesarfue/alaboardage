@@ -82,7 +82,9 @@ export class BoardScraper {
             }
             const batch = partialJobs.slice(i, i + batchSize);
             const descriptions = await Promise.all(
-              batch.map((j) => this.fetchDescription(context, j.url)),
+              batch.map((j) =>
+                this.fetchDescription(context, this.buildJobUrl(j.externalId)),
+              ),
             );
             // Emit in parallel: a slow handler on one job doesn't block the
             // others in the batch. onJob is awaited so the caller can throttle.
@@ -132,7 +134,7 @@ export class BoardScraper {
     const selectors = this.config.selectors;
     const externalId = this.extract($card, selectors.id);
     if (!externalId) return null;
-    const url = this.buildJobUrl(externalId);
+    const url = this.buildDisplayUrl(externalId);
     const datePostedRaw = this.extract($card, selectors.datePosted);
     const datePosted = datePostedRaw ? parseDate(datePostedRaw) : new Date();
 
@@ -224,6 +226,12 @@ export class BoardScraper {
 
   private buildJobUrl(jobId: string): string {
     const path = this.config.jobPath.replace('{id}', jobId);
+    return new URL(path, this.config.baseUrl + '/').toString();
+  }
+
+  private buildDisplayUrl(jobId: string): string {
+    const template = this.config.displayJobPath ?? this.config.jobPath;
+    const path = template.replace('{id}', jobId);
     return new URL(path, this.config.baseUrl + '/').toString();
   }
 }

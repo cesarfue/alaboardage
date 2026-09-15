@@ -33,6 +33,7 @@ export interface BoardConfig {
   baseUrl: string;
   boardPath: string;
   jobPath: string;
+  displayJobPath?: string;
   selectors: Selectors;
   urlParams: UrlParameters;
   locationPathTransform?: (location: string) => string;

@@ -6,6 +6,7 @@ export const LINKEDIN: BoardConfig = {
   baseUrl: 'https://www.linkedin.com',
   boardPath: '/jobs-guest/jobs/api/seeMoreJobPostings/search?',
   jobPath: '/jobs-guest/jobs/api/jobPosting/{id}',
+  displayJobPath: '/jobs/view/{id}',
   selectors: {
     card: {
       selects: 'div.base-search-card',
