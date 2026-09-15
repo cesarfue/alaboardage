@@ -144,4 +144,31 @@ describe('ScoringService.scoreJob', () => {
       ]),
     ).not.toThrow();
   });
+
+  it.each([
+    ['C++', 'Développeur C++ senior'],
+    ['C#', 'Développeur C# senior'],
+    ['.NET', 'Développeur .NET senior'],
+  ])('scores %s when it appears in the title', (skill, title) => {
+    const score = service.scoreJob({ title, description: '' }, [
+      makeSkill(skill, SkillLevel.PRIMARY),
+    ]);
+    expect(score).toBe(1.5);
+  });
+
+  it('matches .NET inside ASP.NET', () => {
+    const score = service.scoreJob(
+      { title: 'Développeur ASP.NET', description: '' },
+      [makeSkill('.NET', SkillLevel.PRIMARY)],
+    );
+    expect(score).toBe(1.5);
+  });
+
+  it('does not match .NET inside a longer word', () => {
+    const score = service.scoreJob(
+      { title: 'Ingénieur socket.network', description: '' },
+      [makeSkill('.NET', SkillLevel.PRIMARY)],
+    );
+    expect(score).toBe(0);
+  });
 });

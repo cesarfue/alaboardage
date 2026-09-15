@@ -11,6 +11,17 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const WORD_EDGE = /[a-z0-9_]/;
+
+function skillPattern(normalizedName: string): string | null {
+  if (normalizedName.length === 0) return null;
+  const left = WORD_EDGE.test(normalizedName[0]) ? '\\b' : '';
+  const right = WORD_EDGE.test(normalizedName[normalizedName.length - 1])
+    ? '\\b'
+    : '';
+  return `${left}${escapeRegex(normalizedName)}${right}`;
+}
+
 @Injectable()
 export class ScoringService {
   constructor(private readonly prisma: PrismaService) {}
@@ -25,7 +36,8 @@ export class ScoringService {
     let total = 0;
     let hasTitleMatch = false;
     for (const skill of skills) {
-      const pattern = `\\b${escapeRegex(normalize(skill.name))}\\b`;
+      const pattern = skillPattern(normalize(skill.name));
+      if (pattern === null) continue;
       const re = new RegExp(pattern, 'i');
       const inTitle = re.test(normTitle);
       const inDesc = re.test(normDesc);
