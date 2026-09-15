@@ -3,6 +3,7 @@
   import { READABLE_SOURCES } from "$lib/types";
   import { api } from "$lib/api";
   import { Bookmark, CheckCircle, XCircle } from "@lucide/svelte";
+  import { toast } from "svelte-sonner";
 
   let {
     job,
@@ -33,7 +34,7 @@
         applyInteraction?.(job.id, status);
       }
     } catch {
-      // silently ignore
+      toast.error("Impossible d'enregistrer cette action");
     }
   }
 </script>
