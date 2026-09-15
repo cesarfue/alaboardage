@@ -29,7 +29,7 @@
 </script>
 
 <div
-  class="h-full w-[380px] flex flex-col rounded-xl
+  class="h-full w-full md:w-[380px] flex flex-col rounded-none md:rounded-xl
          bg-background shadow-xl pointer-events-auto"
 >
   <div class="px-4 pt-3 pb-2 border-b shrink-0 flex flex-col gap-2">
@@ -50,7 +50,7 @@
       {jobs.length} offre{jobs.length !== 1 ? "s" : ""}
     </span>
   </div>
-  <div class="flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+  <div class="flex-1 overflow-y-auto pb-20 md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
     {#each jobs as job (job.id)}
       <JobCard {job} {skills} active={job.id === activeJob?.id} selected={job.id === selectedJobId} {onHover} {onSelect} />
     {/each}

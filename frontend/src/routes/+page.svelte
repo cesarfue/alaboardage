@@ -7,7 +7,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { MapLibre, GeoJSON, CircleLayer, SymbolLayer } from "svelte-maplibre";
-  import { Search } from "@lucide/svelte";
+  import { List, Map as MapIcon, Search } from "@lucide/svelte";
   import type { LayerClickInfo } from "svelte-maplibre";
   import type { GeoJSONSource } from "maplibre-gl";
   import type maplibregl from "maplibre-gl";
@@ -36,6 +36,18 @@
   let daysFilter = $state<number | null>(30);
   let statusFilter = $state<InteractionStatus | null>(null);
   let searchCenter = $state<[number, number] | null>(null); // [lat, lng]
+
+  const WIDE_SCREEN = "(min-width: 768px)";
+  let wideScreen = $state(true);
+  let mobileView = $state<"map" | "list">("map");
+
+  onMount(() => {
+    const mql = window.matchMedia(WIDE_SCREEN);
+    wideScreen = mql.matches;
+    const onChange = (e: MediaQueryListEvent) => (wideScreen = e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  });
 
   async function geocodeLocation(
     loc: string,
@@ -250,6 +262,9 @@
 
   let activeJob = $state<Job | null>(null);
   let selectedJob = $state<Job | null>(null);
+  const listVisible = $derived(
+    wideScreen || (mobileView === "list" && selectedJob === null),
+  );
   let map = $state<maplibregl.Map | undefined>(undefined);
 
   // svelte-maplibre's bind:zoom only updates on zoomend; hook MapLibre's raw
@@ -393,6 +408,14 @@
     }
   }
 
+  function focusJob(job: Job) {
+    if (!job.establishment) return;
+    map?.easeTo({
+      center: [job.establishment.lng, job.establishment.lat],
+      padding: { left: wideScreen ? 760 : 0, top: 0, right: 0, bottom: 0 },
+    });
+  }
+
   function onPointClick(e: LayerClickInfo) {
     if (!e.features?.length) return;
     const jobId = e.features[0].properties?.id as string;
@@ -400,12 +423,7 @@
     if (!job) return;
     selectedJob = job;
     activeJob = job;
-    if (job.establishment) {
-      map?.easeTo({
-        center: [job.establishment.lng, job.establishment.lat],
-        padding: { left: 760, top: 0, right: 0, bottom: 0 },
-      });
-    }
+    focusJob(job);
   }
 
   function startStream(opts: { skipGeocode?: boolean } = {}) {
@@ -506,7 +524,7 @@
   }
 </script>
 
-<main class="relative w-full h-screen overflow-hidden">
+<main class="relative w-full h-dvh overflow-hidden">
   <TopBar
     bind:query
     bind:location
@@ -574,7 +592,7 @@
       />
     </GeoJSON>
   </MapLibre>
-  {#if isOutsideSearchZone}
+  {#if isOutsideSearchZone && (wideScreen || mobileView === "map")}
     <button
       onclick={searchThisArea}
       disabled={searching}
@@ -587,24 +605,26 @@
       Rechercher dans cette zone
     </button>
   {/if}
-  <div class="absolute bottom-10 top-30 left-10 z-10 flex flex-row gap-4">
-    <JobList
-      jobs={filteredJobs}
-      {skills}
-      {activeJob}
-      selectedJobId={selectedJob?.id ?? null}
-      bind:statusFilter
-      onSelect={(job) => {
-        selectedJob = job;
-        activeJob = job;
-        if (job?.establishment)
-          map?.easeTo({
-            center: [job.establishment.lng, job.establishment.lat],
-            padding: { left: 760, top: 0, right: 0, bottom: 0 },
-          });
-      }}
-      onHover={(job) => (activeJob = job)}
-    />
+  <div
+    class="absolute z-10 flex flex-row gap-4 pointer-events-none
+           inset-x-0 top-16 bottom-0
+           md:inset-x-auto md:left-10 md:top-30 md:bottom-10"
+  >
+    {#if listVisible}
+      <JobList
+        jobs={filteredJobs}
+        {skills}
+        {activeJob}
+        selectedJobId={selectedJob?.id ?? null}
+        bind:statusFilter
+        onSelect={(job) => {
+          selectedJob = job;
+          activeJob = job;
+          focusJob(job);
+        }}
+        onHover={(job) => (activeJob = job)}
+      />
+    {/if}
     {#if selectedJob !== null}
       <JobDetail
         job={selectedJob}
@@ -613,4 +633,20 @@
       />
     {/if}
   </div>
+  {#if selectedJob === null}
+    <button
+      onclick={() => (mobileView = mobileView === "map" ? "list" : "map")}
+      class="md:hidden absolute bottom-6 left-1/2 -translate-x-1/2 z-20
+             flex items-center gap-2 bg-background border rounded-full
+             px-5 py-2.5 text-sm font-medium shadow-lg"
+    >
+      {#if mobileView === "map"}
+        <List size={16} />
+        Liste
+      {:else}
+        <MapIcon size={16} />
+        Carte
+      {/if}
+    </button>
+  {/if}
 </main>

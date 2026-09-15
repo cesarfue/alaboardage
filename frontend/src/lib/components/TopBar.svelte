@@ -141,23 +141,24 @@
 {/if}
 
 <div
-  class="absolute w-full z-50 pointer-events-auto
-         flex flex-row items-center gap-2 p-3 bg-background"
+  class="absolute w-full z-50 pointer-events-auto h-16 md:h-auto
+         flex flex-row items-center gap-1.5 md:gap-2 p-3 bg-background"
 >
   <input
     type="text"
     placeholder="Poste"
     bind:value={query}
-    class="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+    class="min-w-0 flex-1 md:flex-none border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+    onkeydown={(e) => e.key === "Enter" && search()}
   />
   <input
     type="text"
     placeholder="Lieu"
     bind:value={location}
-    class="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+    class="min-w-0 flex-1 md:flex-none border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
     onkeydown={(e) => e.key === "Enter" && search()}
   />
-  <div class="relative">
+  <div class="relative shrink-0">
     <button
       onclick={toggleFilters}
       class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingFilters ? 'bg-muted' : ''}"
@@ -165,16 +166,18 @@
       <Funnel size={16} />
     </button>
     {#if showingFilters}
-      <div class="absolute top-full mt-1 z-50 left-0">
+      <div class="absolute top-full mt-1 z-50 left-0 max-md:left-auto max-md:right-0">
         <FiltersPanel bind:radiusKm bind:daysFilter onClose={() => (showingFilters = false)} />
       </div>
     {/if}
   </div>
   <button
     onclick={search}
-    class="bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
+    aria-label="Rechercher"
+    class="shrink-0 bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
   >
-    Rechercher
+    <Search size={16} class="md:hidden" />
+    <span class="hidden md:inline">Rechercher</span>
   </button>
   {#if searching}
     <svg
@@ -190,7 +193,7 @@
     </svg>
   {/if}
 
-  <div class="relative">
+  <div class="relative shrink-0">
     <button
       onclick={toggleSaved}
       class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingSaved ? 'bg-muted' : ''}"
@@ -199,7 +202,7 @@
       <Bookmark size={16} class={isCurrentSearchSaved ? "fill-current" : ""} />
     </button>
     {#if showingSaved}
-      <div class="absolute top-full mt-1 z-50 left-0 w-[400px] flex flex-col rounded-xl bg-background shadow-xl p-3 gap-2">
+      <div class="absolute top-full mt-1 z-50 left-0 max-md:left-auto max-md:right-0 w-[min(400px,calc(100vw-1.5rem))] flex flex-col rounded-xl bg-background shadow-xl p-3 gap-2">
         {#if canSave}
           {#if isCurrentSearchSaved}
             <p class="text-xs text-muted-foreground px-1">Déjà sauvegardée</p>
@@ -269,7 +272,7 @@
     {/if}
   </div>
 
-  <div class="relative">
+  <div class="relative shrink-0">
     <button
       onclick={toggleProfile}
       class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingProfile ? 'bg-muted' : ''}"

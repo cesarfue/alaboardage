@@ -40,7 +40,7 @@
 </script>
 
 <div
-  class="h-full w-[380px] flex flex-col pointer-events-auto bg-background/95 backdrop-blur border rounded-xl shadow-lg overflow-hidden"
+  class="h-full w-full md:w-[380px] flex flex-col pointer-events-auto bg-background/95 backdrop-blur border rounded-none md:rounded-xl shadow-lg overflow-hidden"
 >
   <div class="flex items-start justify-between gap-2 p-4 border-b">
     <div class="min-w-0">
