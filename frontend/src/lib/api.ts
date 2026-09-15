@@ -64,8 +64,10 @@ export const api = {
     onDone: () => void,
     onError?: () => void,
   ): () => void {
-    const qs = buildQuery(params);
-    const eventSource = new EventSource(`${BASE}/scraper/search${qs}`);
+    const search = new URLSearchParams(buildQuery(params).replace(/^\?/, ""));
+    const token = getToken();
+    if (token) search.set("token", token);
+    const eventSource = new EventSource(`${BASE}/scraper/search?${search}`);
 
     eventSource.onmessage = (event) => {
       const data = JSON.parse(event.data) as {
