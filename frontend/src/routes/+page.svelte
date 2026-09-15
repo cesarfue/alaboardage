@@ -426,11 +426,26 @@
     focusJob(job);
   }
 
-  function startStream(opts: { skipGeocode?: boolean } = {}) {
+  async function startStream(opts: { skipGeocode?: boolean } = {}) {
     closeStream?.();
     const gen = ++streamGeneration;
-    jobs = [];
     searching = true;
+    try {
+      const cached = await api.listJobs({
+        query: query || undefined,
+        location: location || undefined,
+        limit: 200,
+      });
+      if (gen !== streamGeneration) return;
+      jobs = cached.items.map((j) =>
+        interactionsMap.has(j.id)
+          ? { ...j, interactionStatus: interactionsMap.get(j.id) }
+          : j,
+      );
+    } catch {
+      if (gen === streamGeneration) jobs = [];
+    }
+    if (gen !== streamGeneration) return;
     if (opts.skipGeocode) {
       // Caller has already set searchCenter/center — leave zoom untouched.
     } else if (location) {
