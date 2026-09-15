@@ -429,6 +429,7 @@
       { query: query || undefined, location: location || undefined },
       (job) => {
         if (gen !== streamGeneration) return;
+        if (jobs.some((j) => j.id === job.id)) return;
         // Each job arrives fully enriched (establishment + score already set).
         const withStatus = interactionsMap.has(job.id)
           ? { ...job, interactionStatus: interactionsMap.get(job.id) }

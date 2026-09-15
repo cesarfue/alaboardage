@@ -45,6 +45,7 @@ export class ScraperService {
     const label = `cron:${Math.random().toString(36).slice(2, 8)}`;
     const start = Date.now();
     let total = 0;
+    const emittedJobIds = new Set<string>();
     // Mirror the SSE stream's abort behaviour: also drop any in-flight
     // enrichment when the caller times out — otherwise a stuck geocoding
     // lookup keeps the cron busy after the deadline.
@@ -72,6 +73,8 @@ export class ScraperService {
             async (dtoJob) => {
               if (signal.aborted) return;
               const job = await this.jobsService.upsert(dtoJob);
+              if (emittedJobIds.has(job.id)) return;
+              emittedJobIds.add(job.id);
               const establishment = await this.enrichmentService.enrichJob({
                 id: job.id,
                 company: job.company,
@@ -109,6 +112,7 @@ export class ScraperService {
       const start = Date.now();
       let total = 0;
       let completed = false;
+      const emittedJobIds = new Set<string>();
 
       this.logger.log(
         `[${label}] START user=${userId} q="${dto.query ?? ''}" loc="${dto.location ?? ''}"`,
@@ -134,6 +138,8 @@ export class ScraperService {
               async (dtoJob) => {
                 if (signal.aborted) return;
                 const job = await this.jobsService.upsert(dtoJob);
+                if (emittedJobIds.has(job.id)) return;
+                emittedJobIds.add(job.id);
                 const establishment = await this.enrichmentService.enrichJob({
                   id: job.id,
                   company: job.company,
