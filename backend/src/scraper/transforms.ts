@@ -67,9 +67,7 @@ export function jeunesdavenirsGtm(
 }
 
 export function jeunesdavenirsId(href: string): string {
-  // IDs follow the pattern i_<alphanumeric>. Use [a-z0-9] rather than [a-f0-9]
-  // to avoid silently failing on IDs that contain g-z.
-  const match = href.match(/\/offre\/(i_[a-z0-9]+)$/i);
+  const match = href.match(/\/offre\/([a-z]_[a-z0-9]+)$/i);
   return match?.[1] ?? href;
 }
 

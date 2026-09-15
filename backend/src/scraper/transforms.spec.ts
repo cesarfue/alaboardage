@@ -98,6 +98,12 @@ describe('transforms', () => {
       expect(jeunesdavenirsId('/offre/i_g7k9m2x3q1r4')).toBe('i_g7k9m2x3q1r4');
     });
 
+    it('extracts an "r_"-prefixed id', () => {
+      expect(jeunesdavenirsId('/offre/r_6a4fb8f9b454d14648518753')).toBe(
+        'r_6a4fb8f9b454d14648518753',
+      );
+    });
+
     it('returns the raw href when the path does not match', () => {
       const raw = '/some-other-path/42';
       expect(jeunesdavenirsId(raw)).toBe(raw);
