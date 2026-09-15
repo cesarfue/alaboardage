@@ -15,7 +15,7 @@ import type { BoardConfig } from '../../src/scraper/types';
 describe('WTTJ scraper (live)', () => {
   jest.setTimeout(180_000);
 
-  it.skip('returns jobs for a basic search', async () => {
+  it('returns jobs for a basic search', async () => {
     // WTTJScraper does not need a BoardConfig; pass null — runScraper handles it.
     const jobs = await runScraper(
       null as unknown as BoardConfig,

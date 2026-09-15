@@ -12,7 +12,7 @@ import {
 describe('LinkedIn scraper (live)', () => {
   jest.setTimeout(180_000);
 
-  it.skip('returns jobs for a basic search', async () => {
+  it('returns jobs for a basic search', async () => {
     const jobs = await runScraper(LINKEDIN, JobSource.LINKEDIN, {
       query: TEST_QUERY,
       location: TEST_LOCATION,

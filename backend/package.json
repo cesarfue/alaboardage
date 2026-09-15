@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "test:scrapers": "jest --config ./test/jest-e2e.json test/scrapers/all-boards --runInBand"
+    "test:scrapers": "jest --config ./test/jest-e2e.json test/scrapers/all-boards --runInBand",
+    "test:scrapers:health": "jest --config ./test/jest-e2e.json --runInBand \"test/scrapers/(glassdoor|hellowork|jeunesdavenir|jtms|linkedin|wttj)\""
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

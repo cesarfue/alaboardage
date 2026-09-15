@@ -13,7 +13,7 @@ import {
 describe('Hellowork scraper (live)', () => {
   jest.setTimeout(180_000);
 
-  it.skip('returns jobs for a basic search', async () => {
+  it('returns jobs for a basic search', async () => {
     const jobs = await runScraper(HELLOWORK, JobSource.HELLOWORK, {
       query: TEST_QUERY,
       location: TEST_LOCATION,
