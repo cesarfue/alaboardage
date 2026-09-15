@@ -4,6 +4,7 @@ import * as nodemailer from 'nodemailer';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { SkillsService } from '../skills/skills.service';
+import { JobsService } from '../jobs/jobs.service';
 import type { Job, SavedSearch, Skill } from '../../generated/prisma/client';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class AlertsService {
     private readonly prisma: PrismaService,
     private readonly scoring: ScoringService,
     private readonly skills: SkillsService,
+    private readonly jobs: JobsService,
   ) {}
 
   @Cron(process.env.ALERT_CRON ?? '0 8 * * *')
@@ -45,17 +47,6 @@ export class AlertsService {
         continue;
       }
 
-      const earliestSince = searches.reduce<Date>((min, s) => {
-        const since = s.lastAlertAt ?? fallbackSince;
-        return since < min ? since : min;
-      }, now);
-
-      const recentJobs: Job[] = await this.prisma.job.findMany({
-        where: { scrapedAt: { gt: earliestSince } },
-      });
-
-      if (recentJobs.length === 0) continue;
-
       const sections: {
         search: SavedSearch;
         jobs: Array<{ job: Job; score: number }>;
@@ -63,7 +54,13 @@ export class AlertsService {
 
       for (const search of searches) {
         const since = search.lastAlertAt ?? fallbackSince;
-        const candidateJobs = recentJobs.filter((j) => j.scrapedAt > since);
+        const matching = await this.jobs.buildQueryLocationWhere(
+          search.query,
+          search.location,
+        );
+        const candidateJobs: Job[] = await this.prisma.job.findMany({
+          where: { ...matching, scrapedAt: { gt: since } },
+        });
 
         const scored = candidateJobs
           .map((job) => ({

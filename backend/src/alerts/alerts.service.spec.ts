@@ -16,6 +16,7 @@ jest.mock('../prisma/prisma.service');
 import { AlertsService } from './alerts.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { SkillsService } from '../skills/skills.service';
+import { JobsService } from '../jobs/jobs.service';
 import { SkillLevel } from '../../generated/prisma/enums';
 import type {
   Skill,
@@ -88,6 +89,8 @@ describe('AlertsService.runAlerts', () => {
   let prismaMock: any;
   let scoringService: ScoringService;
   let skillsService: SkillsService;
+  let jobsService: JobsService;
+  let buildQueryLocationWhere: jest.Mock;
 
   beforeEach(() => {
     prismaMock = {
@@ -105,8 +108,15 @@ describe('AlertsService.runAlerts', () => {
 
     scoringService = new ScoringService(null as never);
     skillsService = { getSkills: jest.fn() } as any;
+    buildQueryLocationWhere = jest.fn().mockResolvedValue({});
+    jobsService = { buildQueryLocationWhere } as any;
 
-    service = new AlertsService(prismaMock, scoringService, skillsService);
+    service = new AlertsService(
+      prismaMock,
+      scoringService,
+      skillsService,
+      jobsService,
+    );
   });
 
   it('does nothing when no saved searches', async () => {
@@ -197,6 +207,42 @@ describe('AlertsService.runAlerts', () => {
     expect(jobLines).toHaveLength(10);
   });
 
+  it('limits a section to the jobs matching its own search criteria', async () => {
+    const search = makeSearch();
+    prismaMock.savedSearch.findMany.mockResolvedValue([search]);
+    prismaMock.user.findUnique.mockResolvedValue(makeUser());
+    (skillsService.getSkills as jest.Mock).mockResolvedValue([
+      makeSkill('TypeScript', SkillLevel.PRIMARY),
+    ]);
+    buildQueryLocationWhere.mockResolvedValue({
+      id: { in: ['in-scope'] },
+    });
+
+    const stored = [
+      makeJob({ id: 'in-scope', title: 'TypeScript dev in Paris' }),
+      makeJob({ id: 'out-of-scope', title: 'TypeScript dev in Berlin' }),
+    ];
+    prismaMock.job.findMany.mockImplementation(({ where }: any) =>
+      Promise.resolve(
+        stored.filter((j) => (where.id?.in as string[]).includes(j.id)),
+      ),
+    );
+
+    const loggedLines: string[] = [];
+    jest
+      .spyOn((service as any).logger, 'log')
+      .mockImplementation((...args: unknown[]) => {
+        loggedLines.push(String(args[0]));
+      });
+
+    await service.runAlerts();
+
+    expect(buildQueryLocationWhere).toHaveBeenCalledWith('TypeScript', 'Paris');
+    const jobLines = loggedLines.filter((l) => l.includes('[score='));
+    expect(jobLines).toHaveLength(1);
+    expect(jobLines[0]).toContain('in Paris');
+  });
+
   it('does not update lastAlertAt for a search whose window contains no new jobs', async () => {
     // search-A has no lastAlertAt (uses 25h fallback) → job is in window
     // search-B has a future lastAlertAt → job is NOT in its window
@@ -214,9 +260,12 @@ describe('AlertsService.runAlerts', () => {
       makeSkill('TypeScript', SkillLevel.PRIMARY),
     ]);
     // Job was scraped now — before search-B's future lastAlertAt threshold
-    prismaMock.job.findMany.mockResolvedValue([
-      makeJob({ scrapedAt: new Date() }),
-    ]);
+    const scraped = [makeJob({ scrapedAt: new Date() })];
+    prismaMock.job.findMany.mockImplementation(({ where }: any) =>
+      Promise.resolve(
+        scraped.filter((j) => j.scrapedAt > (where.scrapedAt.gt as Date)),
+      ),
+    );
 
     await service.runAlerts();
 
