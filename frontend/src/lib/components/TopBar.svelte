@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Bell, BellOff, Bookmark, Funnel, User, LogOut, Search, X } from "@lucide/svelte";
+  import { Bell, BellOff, Bookmark, ClipboardList, Funnel, User, LogOut, Search, X } from "@lucide/svelte";
   import FiltersPanel from "$lib/components/FiltersPanel.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
   import type { SavedSearch, Skill } from "$lib/types";
@@ -10,6 +10,7 @@
   let {
     query = $bindable(),
     location = $bindable(),
+    view = $bindable("search"),
     search,
     searching,
     skills = $bindable(),
@@ -19,6 +20,7 @@
   }: {
     query: string;
     location: string;
+    view?: "search" | "suivi";
     search: () => void;
     searching: boolean;
     skills: Skill[];
@@ -26,6 +28,11 @@
     radiusKm: number;
     daysFilter: number | null;
   } = $props();
+
+  function toggleView() {
+    view = view === "suivi" ? "search" : "suivi";
+    closeAll();
+  }
 
   let showingFilters = $state(false);
   let showingProfile = $state(false);
@@ -193,6 +200,15 @@
     </svg>
   {/if}
 
+  <button
+    onclick={toggleView}
+    class="shrink-0 flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm font-medium transition-colors
+      {view === 'suivi' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
+    title="Suivi des candidatures (toutes recherches)"
+  >
+    <ClipboardList size={16} />
+    <span class="hidden md:inline">Suivi</span>
+  </button>
   <div class="relative shrink-0">
     <button
       onclick={toggleSaved}

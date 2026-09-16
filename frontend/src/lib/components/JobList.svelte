@@ -7,6 +7,7 @@
     skills = [],
     activeJob,
     selectedJobId = null,
+    showChips = false,
     statusFilter = $bindable(null),
     onHover,
     onSelect,
@@ -15,6 +16,7 @@
     skills?: Skill[];
     activeJob?: Job | null;
     selectedJobId?: string | null;
+    showChips?: boolean;
     statusFilter?: InteractionStatus | null;
     onHover?: (job: Job | null) => void;
     onSelect?: (job: Job) => void;
@@ -33,19 +35,21 @@
          bg-background shadow-xl pointer-events-auto"
 >
   <div class="px-4 pt-3 pb-2 border-b shrink-0 flex flex-col gap-2">
-    <div class="flex gap-1.5 flex-wrap">
-      {#each chips as chip (chip.value)}
-        <button
-          class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors
-            {statusFilter === chip.value
-              ? 'bg-primary text-primary-foreground'
-              : 'border hover:bg-muted text-muted-foreground'}"
-          onclick={() => (statusFilter = chip.value)}
-        >
-          {chip.label}
-        </button>
-      {/each}
-    </div>
+    {#if showChips}
+      <div class="flex gap-1.5 flex-wrap">
+        {#each chips as chip (chip.value)}
+          <button
+            class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors
+              {statusFilter === chip.value
+                ? 'bg-primary text-primary-foreground'
+                : 'border hover:bg-muted text-muted-foreground'}"
+            onclick={() => (statusFilter = chip.value)}
+          >
+            {chip.label}
+          </button>
+        {/each}
+      </div>
+    {/if}
     <span class="text-xs font-medium text-muted-foreground">
       {jobs.length} offre{jobs.length !== 1 ? "s" : ""}
     </span>

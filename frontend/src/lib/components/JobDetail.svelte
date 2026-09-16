@@ -23,6 +23,18 @@
     })
   );
 
+  const STATUS_LABEL: Record<InteractionStatus, string> = {
+    SAVED: "Sauvegardé",
+    APPLIED: "Postulé",
+    REJECTED: "Refusé",
+  };
+
+  const interactionFormatted = $derived(
+    job.interactionStatus && job.interactionAt
+      ? `${STATUS_LABEL[job.interactionStatus]} le ${new Date(job.interactionAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`
+      : null,
+  );
+
   async function toggleStatus(status: InteractionStatus) {
     const isActive = job.interactionStatus === status;
     try {
@@ -118,6 +130,11 @@
     </button>
   </div>
 
+  {#if interactionFormatted}
+    <p class="px-4 pb-2 -mt-1 text-xs text-muted-foreground text-center">
+      {interactionFormatted}
+    </p>
+  {/if}
   <div class="px-4 pb-4">
     <a
       href={job.url}

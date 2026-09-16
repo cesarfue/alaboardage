@@ -5,7 +5,7 @@
   import { scoreJob } from "$lib/scoring";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { MapLibre, GeoJSON, CircleLayer, SymbolLayer } from "svelte-maplibre";
   import { List, Map as MapIcon, Search } from "@lucide/svelte";
   import type { LayerClickInfo } from "svelte-maplibre";
@@ -85,8 +85,36 @@
     return null;
   }
 
-  // Interactions map: jobId → status (source of truth for status merging)
-  let interactionsMap = $state<Map<string, InteractionStatus>>(new Map());
+  let interactionsMap = $state<
+    Map<string, { status: InteractionStatus; at: string }>
+  >(new Map());
+
+  function stamp(j: Job): Job {
+    const it = interactionsMap.get(j.id);
+    return it ? { ...j, interactionStatus: it.status, interactionAt: it.at } : j;
+  }
+
+  let view = $state<"search" | "suivi">("search");
+  let trackedJobs = $state<Job[]>([]);
+
+  async function refreshTracked() {
+    try {
+      const res = await api.listJobs({ tracked: "true", limit: 200 });
+      trackedJobs = res.items.map(stamp);
+    } catch {
+      toast.error("Impossible de charger le suivi");
+    }
+  }
+
+  $effect(() => {
+    if (view !== "suivi") return;
+    untrack(() => {
+      closeStream?.();
+      closeStream = null;
+      searching = false;
+      void refreshTracked();
+    });
+  });
 
   $effect(() => {
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -138,8 +166,9 @@
     // Load interactions and build map
     try {
       const interactions = await api.getInteractions();
-      const map = new Map<string, InteractionStatus>();
-      for (const { jobId, status } of interactions) map.set(jobId, status);
+      const map = new Map<string, { status: InteractionStatus; at: string }>();
+      for (const { jobId, status, updatedAt } of interactions)
+        map.set(jobId, { status, at: updatedAt });
       interactionsMap = map;
     } catch {
       /* non-blocking */
@@ -172,11 +201,7 @@
           location: location || undefined,
           limit: 200,
         });
-        jobs = res.items.map((j) =>
-          interactionsMap.has(j.id)
-            ? { ...j, interactionStatus: interactionsMap.get(j.id) }
-            : j,
-        );
+        jobs = res.items.map(stamp);
       } catch {
         toast.error("Impossible de charger les résultats");
       } finally {
@@ -185,8 +210,13 @@
     }
   });
 
+  let sourceJobs = $derived(view === "suivi" ? trackedJobs : jobs);
   let sortedJobs = $derived(
-    [...jobs].sort((a, b) => scoreJob(b, skills) - scoreJob(a, skills)),
+    view === "suivi"
+      ? [...sourceJobs].sort((a, b) =>
+          (b.interactionAt ?? "").localeCompare(a.interactionAt ?? ""),
+        )
+      : [...sourceJobs].sort((a, b) => scoreJob(b, skills) - scoreJob(a, skills)),
   );
 
   let mappedJobs = $derived(
@@ -224,6 +254,10 @@
 
   let filteredJobs = $derived(
     mappedJobs.filter((j) => {
+      if (view === "suivi") {
+        return statusFilter === null || j.interactionStatus === statusFilter;
+      }
+
       // Radius filter — use geocoded searchCenter when available, else map center
       if (radiusKm < 500) {
         const refLat = searchCenter ? searchCenter[0] : center[1];
@@ -245,10 +279,6 @@
           if (d.getTime() < cutoff) return false;
         }
       }
-
-      // Status filter
-      if (statusFilter !== null && j.interactionStatus !== statusFilter)
-        return false;
 
       // Title keyword filter — every word of the query must appear in the job title
       if (titleWords.length > 0) {
@@ -437,11 +467,7 @@
         limit: 200,
       });
       if (gen !== streamGeneration) return;
-      jobs = cached.items.map((j) =>
-        interactionsMap.has(j.id)
-          ? { ...j, interactionStatus: interactionsMap.get(j.id) }
-          : j,
-      );
+      jobs = cached.items.map(stamp);
     } catch {
       if (gen === streamGeneration) jobs = [];
     }
@@ -464,10 +490,7 @@
         if (gen !== streamGeneration) return;
         if (jobs.some((j) => j.id === job.id)) return;
         // Each job arrives fully enriched (establishment + score already set).
-        const withStatus = interactionsMap.has(job.id)
-          ? { ...job, interactionStatus: interactionsMap.get(job.id) }
-          : job;
-        jobs = [...jobs, withStatus];
+        jobs = [...jobs, stamp(job)];
       },
       () => {
         if (gen !== streamGeneration) return;
@@ -482,6 +505,7 @@
   }
 
   function search() {
+    view = "search";
     const urlParams = new URLSearchParams();
     if (query) urlParams.set("query", query);
     if (location) urlParams.set("location", location);
@@ -518,23 +542,37 @@
     jobId: string,
     status: InteractionStatus | undefined,
   ) {
-    // Update interactionsMap
+    const at = new Date().toISOString();
     const newMap = new Map(interactionsMap);
     if (status === undefined) {
       newMap.delete(jobId);
     } else {
-      newMap.set(jobId, status);
+      newMap.set(jobId, { status, at });
     }
     interactionsMap = newMap;
 
-    // Update jobs array
-    jobs = jobs.map((j) =>
-      j.id === jobId ? { ...j, interactionStatus: status } : j,
-    );
+    const patch = (j: Job): Job =>
+      j.id === jobId
+        ? {
+            ...j,
+            interactionStatus: status,
+            interactionAt: status === undefined ? undefined : at,
+          }
+        : j;
 
-    // Update selectedJob if it's the same
+    jobs = jobs.map(patch);
+
+    if (status === undefined) {
+      trackedJobs = trackedJobs.filter((j) => j.id !== jobId);
+      if (view === "suivi") toast("Offre retirée du suivi");
+    } else {
+      trackedJobs = trackedJobs.some((j) => j.id === jobId)
+        ? trackedJobs.map(patch)
+        : trackedJobs;
+    }
+
     if (selectedJob?.id === jobId) {
-      selectedJob = { ...selectedJob, interactionStatus: status };
+      selectedJob = patch(selectedJob);
     }
   }
 </script>
@@ -543,6 +581,7 @@
   <TopBar
     bind:query
     bind:location
+    bind:view
     {search}
     {searching}
     bind:skills
@@ -631,6 +670,7 @@
         {skills}
         {activeJob}
         selectedJobId={selectedJob?.id ?? null}
+        showChips={view === "suivi"}
         bind:statusFilter
         onSelect={(job) => {
           selectedJob = job;

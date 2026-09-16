@@ -24,6 +24,7 @@ export interface Job {
   establishment: Establishment | null;
   score?: number;
   interactionStatus?: InteractionStatus;
+  interactionAt?: string;
 }
 
 export interface SearchOrListRequest {
@@ -31,6 +32,8 @@ export interface SearchOrListRequest {
   query?: string;
   company?: string;
   location?: string;
+  status?: InteractionStatus;
+  tracked?: "true";
   limit?: number;
   offset?: number;
 }

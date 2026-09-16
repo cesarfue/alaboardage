@@ -9,7 +9,7 @@ export class InteractionsService {
   getInteractions(userId: string) {
     return this.prisma.jobInteraction.findMany({
       where: { userId },
-      select: { jobId: true, status: true },
+      select: { jobId: true, status: true, updatedAt: true },
     });
   }
 

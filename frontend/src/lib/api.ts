@@ -116,8 +116,12 @@ export const api = {
     });
   },
 
-  getInteractions(): Promise<{ jobId: string; status: InteractionStatus }[]> {
-    return request<{ jobId: string; status: InteractionStatus }[]>("/interactions");
+  getInteractions(): Promise<
+    { jobId: string; status: InteractionStatus; updatedAt: string }[]
+  > {
+    return request<
+      { jobId: string; status: InteractionStatus; updatedAt: string }[]
+    >("/interactions");
   },
 
   setInteraction(jobId: string, status: InteractionStatus): Promise<void> {

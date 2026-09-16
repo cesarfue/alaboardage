@@ -59,6 +59,11 @@ export class JobsService {
     if (query.source) where.source = query.source;
     if (query.company)
       where.company = { contains: query.company, mode: 'insensitive' };
+    if (query.status) {
+      where.interactions = { some: { userId, status: query.status } };
+    } else if (query.tracked) {
+      where.interactions = { some: { userId } };
+    }
 
     const [rawItems, total] = await Promise.all([
       this.prisma.job.findMany({
