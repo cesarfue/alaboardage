@@ -52,11 +52,18 @@ export interface ListJobsResponse {
   offset: number;
 }
 
+export type View =
+  | { kind: "saved"; id: string }
+  | { kind: "new" }
+  | { kind: "suivi" };
+
 export interface SavedSearch {
   id: string;
   name: string;
   query: string;
   location: string;
+  queries: string[];
+  locations: string[];
   createdAt: string;
   emailAlerts: boolean;
   lastCheckedAt: string | null;

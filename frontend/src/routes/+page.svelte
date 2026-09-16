@@ -91,6 +91,7 @@
 
   let viewedIds = $state<Set<string>>(new Set());
   let hideViewed = $state(false);
+  let barHeight = $state(0);
 
   function stamp(j: Job): Job {
     const it = interactionsMap.get(j.id);
@@ -103,17 +104,88 @@
   function markViewed(job: Job) {
     if (viewedIds.has(job.id)) return;
     viewedIds = new Set(viewedIds).add(job.id);
-    jobs = jobs.map((j) => (j.id === job.id ? { ...j, viewed: true } : j));
-    trackedJobs = trackedJobs.map((j) =>
-      j.id === job.id ? { ...j, viewed: true } : j,
-    );
+    const seen = (j: Job) => (j.id === job.id ? { ...j, viewed: true } : j);
+    jobs = jobs.map(seen);
+    trackedJobs = trackedJobs.map(seen);
+    savedJobs = savedJobs.map(seen);
     api.markViewed(job.id).catch(() => {
       toast.error("Impossible de marquer cette offre comme lue");
     });
   }
 
-  let view = $state<"search" | "suivi">("search");
+  type View =
+    | { kind: "saved"; id: string }
+    | { kind: "new" }
+    | { kind: "suivi" };
+
+  const VIEW_KEY = "lastView";
+
+  let view = $state<View>({ kind: "new" });
   let trackedJobs = $state<Job[]>([]);
+  let savedJobs = $state<Job[]>([]);
+  let savedJobsLoading = $state(false);
+
+  const activeSearch = $derived.by(() => {
+    const current = view;
+    if (current.kind !== "saved") return null;
+    return savedSearches.find((s) => s.id === current.id) ?? null;
+  });
+
+  function openView(next: View) {
+    view = next;
+    try {
+      localStorage.setItem(VIEW_KEY, JSON.stringify(next));
+    } catch {
+      view = next;
+    }
+  }
+
+  function restoreView() {
+    let stored: View | null = null;
+    try {
+      stored = JSON.parse(localStorage.getItem(VIEW_KEY) ?? "null") as View;
+    } catch {
+      stored = null;
+    }
+    if (
+      stored?.kind === "saved" &&
+      savedSearches.some((s) => s.id === stored.id)
+    ) {
+      view = stored;
+      return;
+    }
+    if (stored?.kind === "suivi") {
+      view = stored;
+      return;
+    }
+    view = savedSearches.length > 0
+      ? { kind: "saved", id: savedSearches[0].id }
+      : { kind: "new" };
+  }
+
+  async function loadSavedSearchJobs(id: string) {
+    savedJobsLoading = true;
+    try {
+      const res = await api.listSavedSearchJobs(id);
+      if (view.kind === "saved" && view.id === id) savedJobs = res.items.map(stamp);
+    } catch {
+      toast.error("Impossible de charger cette recherche");
+    } finally {
+      savedJobsLoading = false;
+    }
+  }
+
+  async function showNewResults() {
+    if (!activeSearch) return;
+    const id = activeSearch.id;
+    await loadSavedSearchJobs(id);
+    savedSearches = savedSearches.map((s) =>
+      s.id === id ? { ...s, newResultsCount: 0 } : s,
+    );
+    api.markSavedSearchSeen(id).catch(() => {
+      toast.error("Impossible de marquer cette recherche comme vue");
+    });
+  }
 
   async function refreshTracked() {
     try {
@@ -125,12 +197,14 @@
   }
 
   $effect(() => {
-    if (view !== "suivi") return;
+    const current = view;
+    if (current.kind === "new") return;
     untrack(() => {
       closeStream?.();
       closeStream = null;
       searching = false;
-      void refreshTracked();
+      if (current.kind === "suivi") void refreshTracked();
+      else void loadSavedSearchJobs(current.id);
     });
   });
 
@@ -203,6 +277,8 @@
       }
     }
 
+    if (!query && !location) restoreView();
+
     if (query || location) {
       // Geocode on initial page load so radius filter uses the searched city, not the map center
       if (location) {
@@ -230,9 +306,15 @@
     }
   });
 
-  let sourceJobs = $derived(view === "suivi" ? trackedJobs : jobs);
+  let sourceJobs = $derived(
+    view.kind === "suivi"
+      ? trackedJobs
+      : view.kind === "saved"
+        ? savedJobs
+        : jobs,
+  );
   let sortedJobs = $derived(
-    view === "suivi"
+    view.kind === "suivi"
       ? [...sourceJobs].sort((a, b) =>
           (b.interactionAt ?? "").localeCompare(a.interactionAt ?? ""),
         )
@@ -274,7 +356,7 @@
 
   let filteredJobs = $derived(
     mappedJobs.filter((j) => {
-      if (view === "suivi") {
+      if (view.kind === "suivi") {
         return statusFilter === null || j.interactionStatus === statusFilter;
       }
 
@@ -528,7 +610,7 @@
   }
 
   function search() {
-    view = "search";
+    openView({ kind: "new" });
     const urlParams = new URLSearchParams();
     if (query) urlParams.set("query", query);
     if (location) urlParams.set("location", location);
@@ -587,7 +669,7 @@
 
     if (status === undefined) {
       trackedJobs = trackedJobs.filter((j) => j.id !== jobId);
-      if (view === "suivi") toast("Offre retirée du suivi");
+      if (view.kind === "suivi") toast("Offre retirée du suivi");
     } else {
       trackedJobs = trackedJobs.some((j) => j.id === jobId)
         ? trackedJobs.map(patch)
@@ -600,11 +682,15 @@
   }
 </script>
 
-<main class="relative w-full h-dvh overflow-hidden">
+<main
+  class="relative w-full h-dvh overflow-hidden"
+  style="--bar: {barHeight}px"
+>
   <TopBar
     bind:query
     bind:location
-    bind:view
+    {view}
+    {openView}
     {search}
     {searching}
     bind:skills
@@ -612,6 +698,7 @@
     bind:radiusKm
     bind:daysFilter
     bind:hideViewed
+    bind:barHeight
   />
   <MapLibre
     style="https://tiles.openfreemap.org/styles/liberty"
@@ -674,7 +761,7 @@
     <button
       onclick={searchThisArea}
       disabled={searching}
-      class="absolute top-30 md:top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-auto
+      class="absolute top-[calc(var(--bar)+0.5rem)] md:top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-auto
              flex items-center gap-2 bg-background border rounded-full
              px-4 py-2 text-sm font-medium shadow-lg
              hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -685,16 +772,19 @@
   {/if}
   <div
     class="absolute z-10 flex flex-row gap-4 pointer-events-none
-           inset-x-0 top-28 bottom-0
+           inset-x-0 top-[var(--bar)] bottom-0
            md:inset-x-auto md:left-10 md:top-30 md:bottom-10"
   >
     {#if listVisible}
       <JobList
+        newResultsCount={activeSearch?.newResultsCount ?? 0}
+        onShowNewResults={showNewResults}
+        loading={savedJobsLoading}
         jobs={filteredJobs}
         {skills}
         {activeJob}
         selectedJobId={selectedJob?.id ?? null}
-        showChips={view === "suivi"}
+        showChips={view.kind === "suivi"}
         bind:statusFilter
         onSelect={(job) => {
           selectedJob = job;

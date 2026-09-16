@@ -2,7 +2,7 @@
   import { Bell, BellOff, Bookmark, ClipboardList, Funnel, User, LogOut, Search, X } from "@lucide/svelte";
   import FiltersPanel from "$lib/components/FiltersPanel.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
-  import type { SavedSearch, Skill } from "$lib/types";
+  import type { SavedSearch, Skill, View } from "$lib/types";
   import { clearToken } from "$lib/auth";
   import { userState } from "$lib/user.svelte";
   import { api } from "$lib/api";
@@ -10,7 +10,7 @@
   let {
     query = $bindable(),
     location = $bindable(),
-    view = $bindable("search"),
+    view,
     search,
     searching,
     skills = $bindable(),
@@ -18,10 +18,12 @@
     radiusKm = $bindable(),
     daysFilter = $bindable(),
     hideViewed = $bindable(false),
+    barHeight = $bindable(0),
+    openView,
   }: {
     query: string;
     location: string;
-    view?: "search" | "suivi";
+    view: View;
     search: () => void;
     searching: boolean;
     skills: Skill[];
@@ -29,11 +31,13 @@
     radiusKm: number;
     daysFilter: number | null;
     hideViewed?: boolean;
+    barHeight?: number;
+    openView: (v: View) => void;
   } = $props();
 
-  function toggleView() {
-    view = view === "suivi" ? "search" : "suivi";
+  function goTo(next: View) {
     closeAll();
+    openView(next);
   }
 
   let showingFilters = $state(false);
@@ -75,7 +79,11 @@
   async function saveSearch() {
     if (!canSave || isCurrentSearchSaved) return;
     const name = [query, location].filter(Boolean).join(" · ");
-    const saved = await api.saveSearch(name, query, location);
+    const saved = await api.saveSearch(
+      name,
+      query ? [query] : [],
+      location ? [location] : [],
+    );
     // A brand-new saved search has never been seen — its badge is 0 by
     // definition. Everything else comes straight from the DB response.
     savedSearches = [{ ...saved, newResultsCount: 0 }, ...savedSearches];
@@ -110,22 +118,8 @@
     }
   }
 
-  async function loadSearch(s: SavedSearch) {
-    query = s.query;
-    location = s.location;
-    showingSaved = false;
-    // Clear the badge immediately, then persist
-    if ((s.newResultsCount ?? 0) > 0 || s.lastSeenAt === null) {
-      savedSearches = savedSearches.map((x) =>
-        x.id === s.id
-          ? { ...x, newResultsCount: 0, lastSeenAt: new Date().toISOString() }
-          : x,
-      );
-      api.markSavedSearchSeen(s.id).catch((e) => {
-        console.error("Failed to mark saved search as seen", e);
-      });
-    }
-    search();
+  function loadSearch(s: SavedSearch) {
+    goTo({ kind: "saved", id: s.id });
   }
 
   function formatCheckedAt(iso: string | null): string {
@@ -150,23 +144,51 @@
 {/if}
 
 <div
-  class="absolute w-full z-50 pointer-events-auto h-28 md:h-auto
-         flex flex-row flex-wrap md:flex-nowrap items-center gap-1.5 md:gap-2 p-3 bg-background"
+  bind:clientHeight={barHeight}
+  class="absolute w-full z-50 pointer-events-auto flex flex-col gap-2 p-3 bg-background"
 >
-  <input
-    type="text"
-    placeholder="Poste"
-    bind:value={query}
-    class="min-w-0 flex-1 md:flex-none border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-    onkeydown={(e) => e.key === "Enter" && search()}
-  />
-  <input
-    type="text"
-    placeholder="Lieu"
-    bind:value={location}
-    class="min-w-0 flex-1 md:flex-none border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-    onkeydown={(e) => e.key === "Enter" && search()}
-  />
+<div class="flex flex-row items-center gap-1.5 md:gap-2 min-w-0">
+  <div class="flex-1 min-w-0 flex flex-row items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    {#each savedSearches as s (s.id)}
+      <button
+        onclick={() => goTo({ kind: "saved", id: s.id })}
+        class="shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+          {view.kind === 'saved' && view.id === s.id
+            ? 'bg-primary text-primary-foreground'
+            : 'border hover:bg-muted'}"
+      >
+        <span class="max-w-[10rem] truncate">{s.name}</span>
+        {#if (s.newResultsCount ?? 0) > 0}
+          <span
+            class="rounded-full bg-background text-foreground text-[10px] font-semibold px-1.5 py-0.5 leading-none"
+          >
+            {formatBadge(s.newResultsCount ?? 0)}
+          </span>
+        {/if}
+      </button>
+    {/each}
+    <button
+      onclick={() => goTo({ kind: "new" })}
+      class="shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+        {view.kind === 'new'
+          ? 'bg-primary text-primary-foreground'
+          : 'border hover:bg-muted'}"
+    >
+      <Search size={16} />
+      <span class="hidden sm:inline">Nouvelle recherche</span>
+    </button>
+    <button
+      onclick={() => goTo({ kind: "suivi" })}
+      class="shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+        {view.kind === 'suivi'
+          ? 'bg-primary text-primary-foreground'
+          : 'border hover:bg-muted'}"
+      title="Suivi des candidatures (toutes recherches)"
+    >
+      <ClipboardList size={16} />
+      <span class="hidden sm:inline">Suivi</span>
+    </button>
+  </div>
   <div class="relative shrink-0">
     <button
       onclick={toggleFilters}
@@ -180,38 +202,6 @@
       </div>
     {/if}
   </div>
-  <button
-    onclick={search}
-    aria-label="Rechercher"
-    class="shrink-0 bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
-  >
-    <Search size={16} class="md:hidden" />
-    <span class="hidden md:inline">Rechercher</span>
-  </button>
-  {#if searching}
-    <svg
-      class="animate-spin h-4 w-4 text-primary"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      role="status"
-      aria-label="Recherche en cours"
-    >
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-    </svg>
-  {/if}
-  <div class="basis-full md:hidden" aria-hidden="true"></div>
-
-  <button
-    onclick={toggleView}
-    class="shrink-0 flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm font-medium transition-colors
-      {view === 'suivi' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
-    title="Suivi des candidatures (toutes recherches)"
-  >
-    <ClipboardList size={16} />
-    <span class="hidden md:inline">Suivi</span>
-  </button>
   <div class="relative shrink-0">
     <button
       onclick={toggleSaved}
@@ -325,4 +315,44 @@
       Se connecter
     </a>
   {/if}
+</div>
+{#if view.kind === "new"}
+  <div class="flex flex-row items-center gap-1.5 md:gap-2 min-w-0">
+    <input
+      type="text"
+      placeholder="Poste"
+      bind:value={query}
+      class="min-w-0 flex-1 border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+      onkeydown={(e) => e.key === "Enter" && search()}
+    />
+    <input
+      type="text"
+      placeholder="Lieu"
+      bind:value={location}
+      class="min-w-0 flex-1 border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+      onkeydown={(e) => e.key === "Enter" && search()}
+    />
+    <button
+      onclick={search}
+      aria-label="Rechercher"
+      class="shrink-0 bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
+    >
+      <Search size={16} class="md:hidden" />
+      <span class="hidden md:inline">Rechercher</span>
+    </button>
+    {#if searching}
+      <svg
+        class="animate-spin h-4 w-4 text-primary shrink-0"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        role="status"
+        aria-label="Recherche en cours"
+      >
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    {/if}
+  </div>
+{/if}
 </div>

@@ -151,11 +151,21 @@ export const api = {
     return request<SavedSearch[]>("/searches");
   },
 
-  saveSearch(name: string, query: string, location: string): Promise<SavedSearch> {
+  saveSearch(
+    name: string,
+    queries: string[],
+    locations: string[],
+  ): Promise<SavedSearch> {
     return request<SavedSearch>("/searches", {
       method: "POST",
-      body: JSON.stringify({ name, query, location }),
+      body: JSON.stringify({ name, queries, locations }),
     });
+  },
+
+  listSavedSearchJobs(id: string, limit = 200): Promise<ListJobsResponse> {
+    return request<ListJobsResponse>(
+      `/searches/${encodeURIComponent(id)}/jobs?limit=${limit}`,
+    );
   },
 
   deleteSavedSearch(id: string): Promise<void> {
@@ -166,7 +176,12 @@ export const api = {
 
   updateSavedSearch(
     id: string,
-    patch: { name?: string; emailAlerts?: boolean },
+    patch: {
+      name?: string;
+      emailAlerts?: boolean;
+      queries?: string[];
+      locations?: string[];
+    },
   ): Promise<SavedSearch> {
     return request<SavedSearch>(`/searches/${encodeURIComponent(id)}`, {
       method: "PATCH",
