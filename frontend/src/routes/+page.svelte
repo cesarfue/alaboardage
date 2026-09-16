@@ -100,7 +100,19 @@
 
   let viewedIds = $state<Set<string>>(new Set());
   let hideViewed = $state(false);
+  let hiddenIds = $state<Set<string>>(new Set());
   let barHeight = $state(0);
+
+  function snapshotHidden() {
+    const s = new Set(viewedIds);
+    for (const id of interactionsMap.keys()) s.add(id);
+    hiddenIds = s;
+  }
+
+  $effect(() => {
+    if (!hideViewed) return;
+    untrack(snapshotHidden);
+  });
 
   function stamp(j: Job): Job {
     const it = interactionsMap.get(j.id);
@@ -144,6 +156,7 @@
   });
 
   function openView(next: View) {
+    snapshotHidden();
     view = next;
     try {
       localStorage.setItem(VIEW_KEY, JSON.stringify(next));
@@ -273,6 +286,7 @@
   });
 
   async function showNewResults() {
+    snapshotHidden();
     if (view.kind === "all") {
       await loadSavedSearchJobs(ALL_TAB);
       feedNewCount = 0;
@@ -371,6 +385,7 @@
     }
 
     viewedIds = new Set(await api.getViews().catch(() => []));
+    snapshotHidden();
 
     // Load saved searches (only if authenticated)
     if (getToken()) {
@@ -466,7 +481,7 @@
         return statusFilter === null || j.interactionStatus === statusFilter;
       }
 
-      if (hideViewed && (j.viewed || j.interactionStatus)) return false;
+      if (hideViewed && hiddenIds.has(j.id)) return false;
 
       // Radius filter — use geocoded searchCenter when available, else map center
       if (radiusKm < 500) {
@@ -669,6 +684,7 @@
 
   async function startStream(opts: { skipGeocode?: boolean } = {}) {
     closeStream?.();
+    snapshotHidden();
     const gen = ++streamGeneration;
     searching = true;
     try {
