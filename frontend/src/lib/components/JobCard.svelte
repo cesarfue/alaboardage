@@ -25,6 +25,7 @@
   } = $props();
 
   let matched = $derived(matchedSkills(job, skills).slice(0, 4));
+  let dimmed = $derived(!!job.viewed && !job.interactionStatus);
 </script>
 
 <article
@@ -33,8 +34,10 @@
   onmouseleave={() => onHover?.(null)}
   onclick={() => onSelect?.(job)}
 >
-  <p class="font-medium truncate">{job.title}</p>
-  <p class="text-sm text-muted-foreground truncate">
+  <p class="font-medium truncate {dimmed ? 'text-muted-foreground' : ''}">
+    {job.title}
+  </p>
+  <p class="text-sm text-muted-foreground truncate {dimmed ? 'opacity-70' : ''}">
     {job.company} · {job.establishment?.city ?? job.location}
   </p>
   {#if job.interactionStatus}

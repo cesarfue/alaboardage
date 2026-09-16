@@ -137,6 +137,16 @@ export const api = {
     });
   },
 
+  getViews(): Promise<string[]> {
+    return request<string[]>("/views");
+  },
+
+  markViewed(jobId: string): Promise<void> {
+    return request<void>(`/jobs/${encodeURIComponent(jobId)}/view`, {
+      method: "POST",
+    });
+  },
+
   getSavedSearches(): Promise<SavedSearch[]> {
     return request<SavedSearch[]>("/searches");
   },

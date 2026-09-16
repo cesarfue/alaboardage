@@ -26,4 +26,20 @@ export class InteractionsService {
       where: { userId, jobId },
     });
   }
+
+  markViewed(userId: string, jobId: string) {
+    return this.prisma.jobView.upsert({
+      where: { userId_jobId: { userId, jobId } },
+      create: { userId, jobId },
+      update: {},
+    });
+  }
+
+  async getViewedJobIds(userId: string): Promise<string[]> {
+    const rows = await this.prisma.jobView.findMany({
+      where: { userId },
+      select: { jobId: true },
+    });
+    return rows.map((r) => r.jobId);
+  }
 }

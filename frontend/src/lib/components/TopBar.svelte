@@ -17,6 +17,7 @@
     savedSearches = $bindable(),
     radiusKm = $bindable(),
     daysFilter = $bindable(),
+    hideViewed = $bindable(false),
   }: {
     query: string;
     location: string;
@@ -27,6 +28,7 @@
     savedSearches: SavedSearch[];
     radiusKm: number;
     daysFilter: number | null;
+    hideViewed?: boolean;
   } = $props();
 
   function toggleView() {
@@ -174,7 +176,7 @@
     </button>
     {#if showingFilters}
       <div class="absolute top-full mt-1 z-50 left-0 max-md:left-auto max-md:right-0">
-        <FiltersPanel bind:radiusKm bind:daysFilter onClose={() => (showingFilters = false)} />
+        <FiltersPanel bind:radiusKm bind:daysFilter bind:hideViewed onClose={() => (showingFilters = false)} />
       </div>
     {/if}
   </div>

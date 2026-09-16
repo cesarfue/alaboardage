@@ -89,9 +89,27 @@
     Map<string, { status: InteractionStatus; at: string }>
   >(new Map());
 
+  let viewedIds = $state<Set<string>>(new Set());
+  let hideViewed = $state(false);
+
   function stamp(j: Job): Job {
     const it = interactionsMap.get(j.id);
-    return it ? { ...j, interactionStatus: it.status, interactionAt: it.at } : j;
+    const viewed = viewedIds.has(j.id);
+    return it
+      ? { ...j, interactionStatus: it.status, interactionAt: it.at, viewed }
+      : { ...j, viewed };
+  }
+
+  function markViewed(job: Job) {
+    if (viewedIds.has(job.id)) return;
+    viewedIds = new Set(viewedIds).add(job.id);
+    jobs = jobs.map((j) => (j.id === job.id ? { ...j, viewed: true } : j));
+    trackedJobs = trackedJobs.map((j) =>
+      j.id === job.id ? { ...j, viewed: true } : j,
+    );
+    api.markViewed(job.id).catch(() => {
+      toast.error("Impossible de marquer cette offre comme lue");
+    });
   }
 
   let view = $state<"search" | "suivi">("search");
@@ -173,6 +191,8 @@
     } catch {
       /* non-blocking */
     }
+
+    viewedIds = new Set(await api.getViews().catch(() => []));
 
     // Load saved searches (only if authenticated)
     if (getToken()) {
@@ -257,6 +277,8 @@
       if (view === "suivi") {
         return statusFilter === null || j.interactionStatus === statusFilter;
       }
+
+      if (hideViewed && j.viewed && !j.interactionStatus) return false;
 
       // Radius filter — use geocoded searchCenter when available, else map center
       if (radiusKm < 500) {
@@ -453,6 +475,7 @@
     if (!job) return;
     selectedJob = job;
     activeJob = job;
+    markViewed(job);
     focusJob(job);
   }
 
@@ -588,6 +611,7 @@
     bind:savedSearches
     bind:radiusKm
     bind:daysFilter
+    bind:hideViewed
   />
   <MapLibre
     style="https://tiles.openfreemap.org/styles/liberty"
@@ -675,6 +699,7 @@
         onSelect={(job) => {
           selectedJob = job;
           activeJob = job;
+          markViewed(job);
           focusJob(job);
         }}
         onHover={(job) => (activeJob = job)}

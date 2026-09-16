@@ -3,7 +3,10 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
+  Post,
   Put,
   UseGuards,
 } from '@nestjs/common';
@@ -35,5 +38,16 @@ export class InteractionsController {
   @Delete('jobs/:id/interaction')
   deleteInteraction(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.interactionsService.deleteInteraction(user.sub, id);
+  }
+
+  @Get('views')
+  getViews(@CurrentUser() user: JwtPayload) {
+    return this.interactionsService.getViewedJobIds(user.sub);
+  }
+
+  @Post('jobs/:id/view')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async markViewed(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    await this.interactionsService.markViewed(user.sub, id);
   }
 }

@@ -25,6 +25,7 @@ export interface Job {
   score?: number;
   interactionStatus?: InteractionStatus;
   interactionAt?: string;
+  viewed?: boolean;
 }
 
 export interface SearchOrListRequest {

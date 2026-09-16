@@ -4,10 +4,12 @@
   let {
     radiusKm = $bindable(),
     daysFilter = $bindable(),
+    hideViewed = $bindable(false),
     onClose,
   }: {
     radiusKm: number;
     daysFilter: number | null;
+    hideViewed?: boolean;
     onClose: () => void;
   } = $props();
 
@@ -16,6 +18,11 @@
     { label: "30 jours", value: 30 },
     { label: "3 mois", value: 90 },
     { label: "Tout", value: null },
+  ];
+
+  const viewedOptions: { label: string; value: boolean }[] = [
+    { label: "Afficher", value: false },
+    { label: "Masquer", value: true },
   ];
 </script>
 
@@ -65,6 +72,25 @@
           onclick={() => (daysFilter = opt.value)}
           class="px-3 py-1 rounded-full text-xs border transition-colors
                  {daysFilter === opt.value
+                   ? 'bg-primary text-primary-foreground border-primary'
+                   : 'bg-background text-foreground hover:bg-muted border-border'}"
+        >
+          {opt.label}
+        </button>
+      {/each}
+    </div>
+  </section>
+
+  <section class="flex flex-col gap-2">
+    <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+      Offres déjà vues
+    </p>
+    <div class="flex flex-wrap gap-2">
+      {#each viewedOptions as opt (opt.label)}
+        <button
+          onclick={() => (hideViewed = opt.value)}
+          class="px-3 py-1 rounded-full text-xs border transition-colors
+                 {hideViewed === opt.value
                    ? 'bg-primary text-primary-foreground border-primary'
                    : 'bg-background text-foreground hover:bg-muted border-border'}"
         >

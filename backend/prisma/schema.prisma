@@ -38,6 +38,7 @@ model Job {
   establishmentId String?
   scores          JobScore[]
   interactions    JobInteraction[]
+  views           JobView[]
 
   @@unique([source, externalId])
   @@index([datePosted])
@@ -94,6 +95,16 @@ model JobInteraction {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   job       Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+}
+
+model JobView {
+  id       String   @id @default(cuid())
+  userId   String
+  jobId    String
+  viewedAt DateTime @default(now())
+  job      Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@unique([userId, jobId])
 }
