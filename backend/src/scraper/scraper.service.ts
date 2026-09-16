@@ -13,9 +13,10 @@ import { JTMS } from './boards/jtms.config';
 import { LINKEDIN } from './boards/linkedin.config';
 import type { BoardConfig } from './types';
 import { JobSource } from '../../generated/prisma/enums';
+import type { Skill } from '../../generated/prisma/client';
 import type { CreateJobDto } from '../jobs/dto/create-job.dto';
 import { ScrapeRequestDto } from './dto/scrape-request.dto';
-import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
+import { StreamSearchDto } from './dto/stream-search.dto';
 import { EnrichmentService } from '../enrichment/enrichment.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -102,7 +103,7 @@ export class ScraperService {
   }
 
   scrapeAllBoardsStream(
-    dto: FindJobsDto,
+    dto: StreamSearchDto,
     userId: string,
   ): Observable<MessageEvent> {
     return new Observable((observer) => {
@@ -114,79 +115,46 @@ export class ScraperService {
       let completed = false;
       const emittedJobIds = new Set<string>();
 
+      const queries = dto.query.length > 0 ? dto.query : [''];
+      const locations = dto.location.length > 0 ? dto.location : [''];
+      const pairs = queries.flatMap((query) =>
+        locations.map((location) => ({ query, location })),
+      );
+
       this.logger.log(
-        `[${label}] START user=${userId} q="${dto.query ?? ''}" loc="${dto.location ?? ''}"`,
+        `[${label}] START user=${userId} pairs=${pairs.length} q="${queries.join('|')}" loc="${locations.join('|')}"`,
       );
 
       // Skills are loaded once at stream start; the score is then computed
       // inline for each job so the client receives a fully scored payload.
       void this.prisma.skill
         .findMany({ where: { userId } })
-        .then((skills) => {
-          const sources = Object.values(JobSource);
-          const tasks = sources.map((source) =>
-            this.scrapeStreaming(
-              {
-                source,
-                query: dto.query ?? '',
-                location: dto.location ?? '',
-                limit: 150,
-                offset: 1,
-                singlePage: false,
-              },
+        .then(async (skills) => {
+          for (const pair of pairs) {
+            if (signal.aborted) break;
+            await this.scrapePair(pair, {
               signal,
-              async (dtoJob) => {
-                if (signal.aborted) return;
-                const job = await this.jobsService.upsert(dtoJob);
-                if (emittedJobIds.has(job.id)) return;
-                emittedJobIds.add(job.id);
-                const establishment = await this.enrichmentService.enrichJob({
-                  id: job.id,
-                  company: job.company,
-                  location: job.location,
-                });
-                // Drop jobs without a resolved establishment — they never
-                // reach the client. A follow-up ticket reduces the miss rate.
-                if (!establishment || signal.aborted) return;
-                const score = this.scoringService.scoreJob(job, skills);
-                // Persist the score asynchronously; the fresh score is
-                // already in the SSE payload.
-                void this.scoringService
-                  .computeAndSave(job, userId)
-                  .catch((e: Error) =>
-                    this.logger.error(
-                      `[${label}] computeAndSave failed for ${job.id}: ${e.message}`,
-                    ),
-                  );
-                total++;
-                observer.next({
-                  data: {
-                    type: 'job',
-                    job: { ...job, establishment, score },
-                  },
-                });
-              },
               label,
-            ).catch((e: Error) => {
-              if (!signal.aborted)
-                this.logger.error(
-                  `[${label}] Failed to scrape ${source}: ${e.stack ?? e.message ?? String(e)}`,
-                );
-            }),
-          );
+              skills,
+              userId,
+              emittedJobIds,
+              onJob: (event) => {
+                total++;
+                observer.next(event);
+              },
+            });
+          }
 
-          return Promise.all(tasks).then(() => {
-            if (!signal.aborted) {
-              completed = true;
-              this.logger.log(
-                `[${label}] DONE total=${total} durationMs=${Date.now() - start}`,
-              );
-              observer.next({
-                data: { type: 'done', total, durationMs: Date.now() - start },
-              });
-              observer.complete();
-            }
-          });
+          if (!signal.aborted) {
+            completed = true;
+            this.logger.log(
+              `[${label}] DONE total=${total} durationMs=${Date.now() - start}`,
+            );
+            observer.next({
+              data: { type: 'done', total, durationMs: Date.now() - start },
+            });
+            observer.complete();
+          }
         })
         .catch((e: Error) => {
           if (!signal.aborted)
@@ -205,6 +173,64 @@ export class ScraperService {
         this.enrichmentService.cancelEnrichment();
       };
     });
+  }
+
+  private async scrapePair(
+    pair: { query: string; location: string },
+    ctx: {
+      signal: AbortSignal;
+      label: string;
+      skills: Skill[];
+      userId: string;
+      emittedJobIds: Set<string>;
+      onJob: (event: MessageEvent) => void;
+    },
+  ): Promise<void> {
+    const { signal, label, skills, userId, emittedJobIds, onJob } = ctx;
+    await Promise.all(
+      Object.values(JobSource).map((source) =>
+        this.scrapeStreaming(
+          {
+            source,
+            query: pair.query,
+            location: pair.location,
+            limit: 150,
+            offset: 1,
+            singlePage: false,
+          },
+          signal,
+          async (dtoJob) => {
+            if (signal.aborted) return;
+            const job = await this.jobsService.upsert(dtoJob);
+            if (emittedJobIds.has(job.id)) return;
+            emittedJobIds.add(job.id);
+            const establishment = await this.enrichmentService.enrichJob({
+              id: job.id,
+              company: job.company,
+              location: job.location,
+            });
+            if (!establishment || signal.aborted) return;
+            const score = this.scoringService.scoreJob(job, skills);
+            void this.scoringService
+              .computeAndSave(job, userId)
+              .catch((e: Error) =>
+                this.logger.error(
+                  `[${label}] computeAndSave failed for ${job.id}: ${e.message}`,
+                ),
+              );
+            onJob({
+              data: { type: 'job', job: { ...job, establishment, score } },
+            });
+          },
+          label,
+        ).catch((e: Error) => {
+          if (!signal.aborted)
+            this.logger.error(
+              `[${label}] Failed to scrape ${source}: ${e.stack ?? e.message ?? String(e)}`,
+            );
+        }),
+      ),
+    );
   }
 
   private async scrapeStreaming(

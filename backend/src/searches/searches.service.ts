@@ -5,9 +5,14 @@ import { CreateSearchDto } from './dto/create-search.dto';
 import { UpdateSearchDto } from './dto/update-search.dto';
 import type { SavedSearch } from '../../generated/prisma/client';
 import { criteriaOf } from './criteria';
+import {
+  RefreshState,
+  SearchRefreshService,
+} from '../search-refresh/search-refresh.service';
 
 export interface SavedSearchWithCount extends SavedSearch {
   newResultsCount: number;
+  refreshState: RefreshState;
 }
 
 @Injectable()
@@ -15,6 +20,7 @@ export class SearchesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jobs: JobsService,
+    private readonly refresh: SearchRefreshService,
   ) {}
 
   async getSavedSearches(userId: string): Promise<SavedSearchWithCount[]> {
@@ -30,6 +36,7 @@ export class SearchesService {
         const { queries, locations } = criteriaOf(s);
         return {
           ...s,
+          refreshState: this.refresh.stateOf(s.id),
           newResultsCount: await this.jobs.countMatchingSince(
             queries,
             locations,
@@ -70,6 +77,14 @@ export class SearchesService {
         location: dto.locations[0],
       }),
     });
+  }
+
+  async requestRefresh(userId: string, id: string): Promise<RefreshState> {
+    const search = await this.prisma.savedSearch.findFirst({
+      where: { id, userId },
+    });
+    if (!search) throw new NotFoundException('Saved search not found');
+    return this.refresh.requestRefresh(id);
   }
 
   async findJobsFor(userId: string, id: string, limit: number, offset: number) {

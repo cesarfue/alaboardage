@@ -5,7 +5,6 @@ jest.mock('../prisma/prisma.service');
 import { firstValueFrom, toArray } from 'rxjs';
 import { ScraperService } from './scraper.service';
 import type { CreateJobDto } from '../jobs/dto/create-job.dto';
-import type { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
 
 describe('ScraperService', () => {
   let service: ScraperService;
@@ -59,7 +58,7 @@ describe('ScraperService', () => {
   async function streamedJobIds(): Promise<string[]> {
     const events = await firstValueFrom(
       service
-        .scrapeAllBoardsStream({} as FindJobsDto, 'user-1')
+        .scrapeAllBoardsStream({ query: [], location: [] }, 'user-1')
         .pipe(toArray()),
     );
     return events

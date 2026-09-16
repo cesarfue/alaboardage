@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { ScraperService } from './scraper.service';
-import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
+import { StreamSearchDto } from './dto/stream-search.dto';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -19,7 +19,7 @@ export class ScraperController {
   @Sse('/search')
   @UseGuards(OptionalJwtAuthGuard)
   search(
-    @Query() query: FindJobsDto,
+    @Query() query: StreamSearchDto,
     @CurrentUser() user: JwtPayload | undefined,
   ): Observable<MessageEvent> {
     const userId = user?.sub ?? 'default';

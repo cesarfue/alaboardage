@@ -9,6 +9,7 @@ describe('SearchesService', () => {
   let service: SearchesService;
   let prismaMock: any;
   let jobsMock: jest.Mocked<Pick<JobsService, 'countMatchingSince'>>;
+  let refreshMock: any;
 
   beforeEach(() => {
     prismaMock = {
@@ -23,9 +24,14 @@ describe('SearchesService', () => {
     jobsMock = {
       countMatchingSince: jest.fn().mockResolvedValue(0),
     };
+    refreshMock = {
+      stateOf: jest.fn().mockReturnValue('idle'),
+      requestRefresh: jest.fn().mockReturnValue('queued'),
+    };
     service = new SearchesService(
       prismaMock,
       jobsMock as unknown as JobsService,
+      refreshMock,
     );
   });
 

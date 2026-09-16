@@ -1,4 +1,4 @@
-import type { InteractionStatus, Job, ListJobsResponse, SavedSearch, SearchOrListRequest, Skill } from "./types";
+import type { InteractionStatus, Job, ListJobsResponse, RefreshState, SavedSearch, SearchOrListRequest, Skill } from "./types";
 import { getToken, clearToken } from "./auth";
 
 const BASE = "/api";
@@ -59,12 +59,14 @@ export const api = {
   },
 
   streamSearch(
-    params: SearchOrListRequest,
+    params: { queries: string[]; locations: string[] },
     onJob: (job: Job) => void,
     onDone: () => void,
     onError?: () => void,
   ): () => void {
-    const search = new URLSearchParams(buildQuery(params).replace(/^\?/, ""));
+    const search = new URLSearchParams();
+    for (const q of params.queries) search.append("query", q);
+    for (const l of params.locations) search.append("location", l);
     const token = getToken();
     if (token) search.set("token", token);
     const eventSource = new EventSource(`${BASE}/scraper/search?${search}`);
@@ -187,6 +189,13 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(patch),
     });
+  },
+
+  requestSearchRefresh(id: string): Promise<{ state: RefreshState }> {
+    return request<{ state: RefreshState }>(
+      `/searches/${encodeURIComponent(id)}/refresh`,
+      { method: "POST" },
+    );
   },
 
   markSavedSearchSeen(id: string): Promise<SavedSearch> {

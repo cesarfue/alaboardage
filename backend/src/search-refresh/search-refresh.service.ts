@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ScraperService } from '../scraper/scraper.service';
 import { criteriaOf } from '../searches/criteria';
 
+export type RefreshState = 'idle' | 'queued' | 'running';
+
 /**
  * Periodically re-scrapes each saved search so `newResultsCount` and the
  * daily alert email stay fresh even for users who don't manually search.
@@ -21,6 +23,8 @@ import { criteriaOf } from '../searches/criteria';
 export class SearchRefreshService {
   private readonly logger = new Logger(SearchRefreshService.name);
   private isRunning = false;
+  private readonly queue: string[] = [];
+  private runningSearchId: string | null = null;
 
   private static readonly PER_SEARCH_TIMEOUT_MS = 2 * 60 * 1000; // 2 min
   private static readonly MAX_SEARCHES_PER_RUN = 40;
@@ -29,6 +33,47 @@ export class SearchRefreshService {
     private readonly prisma: PrismaService,
     private readonly scraper: ScraperService,
   ) {}
+
+  requestRefresh(searchId: string): RefreshState {
+    if (this.runningSearchId === searchId) return 'running';
+    if (!this.queue.includes(searchId)) this.queue.push(searchId);
+    void this.drainQueue();
+    return this.stateOf(searchId);
+  }
+
+  stateOf(searchId: string): RefreshState {
+    if (this.runningSearchId === searchId) return 'running';
+    return this.queue.includes(searchId) ? 'queued' : 'idle';
+  }
+
+  private async drainQueue(): Promise<void> {
+    if (this.isRunning) return;
+    this.isRunning = true;
+    try {
+      while (this.queue.length > 0) {
+        const searchId = this.queue.shift()!;
+        this.runningSearchId = searchId;
+        await this.refreshSearch(searchId);
+        this.runningSearchId = null;
+      }
+    } finally {
+      this.runningSearchId = null;
+      this.isRunning = false;
+    }
+  }
+
+  private async refreshSearch(searchId: string): Promise<void> {
+    const search = await this.prisma.savedSearch.findUnique({
+      where: { id: searchId },
+    });
+    if (!search) return;
+    const { queries, locations } = criteriaOf(search);
+    for (const query of queries) {
+      for (const location of locations) {
+        await this.refreshOne({ query, location, ids: [searchId] });
+      }
+    }
+  }
 
   @Cron(process.env.SEARCH_REFRESH_CRON ?? '0 */6 * * *')
   async refreshAll(): Promise<void> {

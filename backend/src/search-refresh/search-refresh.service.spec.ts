@@ -15,6 +15,7 @@ describe('SearchRefreshService', () => {
     prismaMock = {
       savedSearch: {
         findMany: jest.fn(),
+        findUnique: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
@@ -117,6 +118,66 @@ describe('SearchRefreshService', () => {
 
     // findMany should have been called exactly once (the second run was skipped)
     expect(prismaMock.savedSearch.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  describe('on-demand refresh queue', () => {
+    function pending() {
+      let release!: () => void;
+      const promise = new Promise<{ total: number }>((res) => {
+        release = () => res({ total: 0 });
+      });
+      return { promise, release };
+    }
+
+    it('runs queued searches one after another, never two at once', async () => {
+      prismaMock.savedSearch.findUnique.mockImplementation(({ where }: any) =>
+        Promise.resolve({
+          id: where.id,
+          queries: [`q-${where.id}`],
+          locations: ['Paris'],
+        }),
+      );
+      const first = pending();
+      const second = pending();
+      scraperMock.scrapeAllBoards
+        .mockReturnValueOnce(first.promise)
+        .mockReturnValueOnce(second.promise);
+
+      expect(service.requestRefresh('a')).toBe('running');
+      expect(service.requestRefresh('b')).toBe('queued');
+      await Promise.resolve();
+      expect(scraperMock.scrapeAllBoards).toHaveBeenCalledTimes(1);
+
+      first.release();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(scraperMock.scrapeAllBoards).toHaveBeenCalledTimes(2);
+      expect(service.stateOf('b')).toBe('running');
+
+      second.release();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(service.stateOf('a')).toBe('idle');
+      expect(service.stateOf('b')).toBe('idle');
+    });
+
+    it('does not queue the same search twice', async () => {
+      prismaMock.savedSearch.findUnique.mockResolvedValue({
+        id: 'a',
+        queries: ['q'],
+        locations: ['Paris'],
+      });
+      const held = pending();
+      scraperMock.scrapeAllBoards.mockReturnValueOnce(held.promise);
+
+      service.requestRefresh('a');
+      service.requestRefresh('b');
+      service.requestRefresh('b');
+      expect(service.stateOf('b')).toBe('queued');
+
+      held.release();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      expect(scraperMock.scrapeAllBoards).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('caps the number of pairs per run', async () => {

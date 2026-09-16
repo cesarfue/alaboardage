@@ -60,6 +60,13 @@ export class SearchesController {
     );
   }
 
+  @Post('searches/:id/refresh')
+  requestRefresh(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.searchesService
+      .requestRefresh(user.sub, id)
+      .then((state) => ({ state }));
+  }
+
   @Post('searches/:id/seen')
   markSeen(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.searchesService.markSeen(user.sub, id);

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { InteractionStatus, Job, Skill } from "$lib/types";
+  import type { InteractionStatus, Job, RefreshState, Skill } from "$lib/types";
   import { RefreshCw } from "@lucide/svelte";
   import JobCard from "./JobCard.svelte";
 
@@ -11,7 +11,9 @@
     showChips = false,
     newResultsCount = 0,
     loading = false,
+    refreshState = "idle",
     onShowNewResults,
+    onRequestRefresh,
     statusFilter = $bindable(null),
     onHover,
     onSelect,
@@ -23,7 +25,9 @@
     showChips?: boolean;
     newResultsCount?: number;
     loading?: boolean;
+    refreshState?: RefreshState;
     onShowNewResults?: () => void;
+    onRequestRefresh?: () => void;
     statusFilter?: InteractionStatus | null;
     onHover?: (job: Job | null) => void;
     onSelect?: (job: Job) => void;
@@ -57,9 +61,29 @@
         {/each}
       </div>
     {/if}
-    <span class="text-xs font-medium text-muted-foreground">
-      {loading ? "Chargement…" : `${jobs.length} offre${jobs.length !== 1 ? "s" : ""}`}
-    </span>
+    <div class="flex items-center justify-between gap-2">
+      <span class="text-xs font-medium text-muted-foreground">
+        {loading ? "Chargement…" : `${jobs.length} offre${jobs.length !== 1 ? "s" : ""}`}
+      </span>
+      {#if onRequestRefresh}
+        <button
+          onclick={() => onRequestRefresh?.()}
+          disabled={refreshState !== "idle"}
+          class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground
+                 disabled:cursor-not-allowed disabled:opacity-100"
+        >
+          <RefreshCw
+            size={13}
+            class={refreshState === "running" ? "animate-spin" : ""}
+          />
+          {refreshState === "running"
+            ? "Scraping en cours…"
+            : refreshState === "queued"
+              ? "En file d'attente"
+              : "Relancer le scraping"}
+        </button>
+      {/if}
+    </div>
   </div>
   {#if newResultsCount > 0}
     <button

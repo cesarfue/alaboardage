@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Plus, X } from "@lucide/svelte";
+  import { Bell, BellOff, Plus, Trash2, X } from "@lucide/svelte";
 
   let {
     name = $bindable(""),
@@ -7,6 +7,9 @@
     locations = $bindable<string[]>([]),
     title,
     submitLabel,
+    emailAlerts = true,
+    onToggleAlerts,
+    onDelete,
     onSubmit,
     onClose,
   }: {
@@ -15,6 +18,9 @@
     locations?: string[];
     title: string;
     submitLabel: string;
+    emailAlerts?: boolean;
+    onToggleAlerts?: () => void;
+    onDelete?: () => void;
     onSubmit: (v: {
       name: string;
       queries: string[];
@@ -151,6 +157,21 @@
     (v) => (locationDraft = v),
   )}
 
+  {#if onToggleAlerts}
+    <button
+      onclick={() => onToggleAlerts?.()}
+      class="flex items-center gap-2 text-sm text-left rounded-lg px-2 py-1.5 hover:bg-muted"
+    >
+      {#if emailAlerts}
+        <Bell size={14} class="text-primary" />
+        Alertes email activées
+      {:else}
+        <BellOff size={14} class="text-muted-foreground" />
+        Alertes email désactivées
+      {/if}
+    </button>
+  {/if}
+
   <button
     onclick={() =>
       onSubmit({ name: name.trim(), queries, locations })}
@@ -160,4 +181,15 @@
   >
     {submitLabel}
   </button>
+
+  {#if onDelete}
+    <button
+      onclick={() => onDelete?.()}
+      class="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm
+             text-destructive hover:bg-destructive/10 transition-colors"
+    >
+      <Trash2 size={14} />
+      Supprimer cette recherche
+    </button>
+  {/if}
 </div>

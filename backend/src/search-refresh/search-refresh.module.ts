@@ -5,5 +5,6 @@ import { ScraperModule } from '../scraper/scraper.module';
 @Module({
   imports: [ScraperModule],
   providers: [SearchRefreshService],
+  exports: [SearchRefreshService],
 })
 export class SearchRefreshModule {}

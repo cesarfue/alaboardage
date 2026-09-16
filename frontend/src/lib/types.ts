@@ -52,6 +52,8 @@ export interface ListJobsResponse {
   offset: number;
 }
 
+export type RefreshState = "idle" | "queued" | "running";
+
 export type View =
   | { kind: "saved"; id: string }
   | { kind: "new" }
@@ -68,6 +70,7 @@ export interface SavedSearch {
   emailAlerts: boolean;
   lastCheckedAt: string | null;
   lastSeenAt: string | null;
+  refreshState?: RefreshState;
   // Only present on the list endpoint (GET /searches). CRUD endpoints
   // (create/update/markSeen) return the plain DB row without the count —
   // callers assemble the view field client-side.

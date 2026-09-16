@@ -5,7 +5,7 @@
   import { scoreJob } from "$lib/scoring";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
-  import { onMount, untrack } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
   import { MapLibre, GeoJSON, CircleLayer, SymbolLayer } from "svelte-maplibre";
   import { List, Map as MapIcon, Search } from "@lucide/svelte";
   import type { LayerClickInfo } from "svelte-maplibre";
@@ -19,8 +19,10 @@
   import { userState } from "$lib/user.svelte";
   import { normalizeText } from "$lib/utils";
 
-  let query = $state(page.url.searchParams.get("query") ?? "");
-  let location = $state(page.url.searchParams.get("location") ?? "");
+  let queries = $state<string[]>(page.url.searchParams.getAll("query"));
+  let locations = $state<string[]>(page.url.searchParams.getAll("location"));
+  const query = $derived(queries[0] ?? "");
+  const location = $derived(locations[0] ?? "");
   let jobs = $state<Job[]>([]);
   let searching = $state(false);
   let center = $state<[number, number]>([2.35, 48.85]);
@@ -174,6 +176,44 @@
       savedJobsLoading = false;
     }
   }
+
+  let refreshPoll: ReturnType<typeof setInterval> | null = null;
+
+  async function pollSearches() {
+    try {
+      savedSearches = await api.getSavedSearches();
+    } catch {
+      return;
+    }
+    const busy = savedSearches.some(
+      (s) => s.refreshState === "queued" || s.refreshState === "running",
+    );
+    if (busy) return;
+    if (refreshPoll !== null) {
+      clearInterval(refreshPoll);
+      refreshPoll = null;
+    }
+  }
+
+  async function requestRefresh() {
+    if (!activeSearch) return;
+    const id = activeSearch.id;
+    try {
+      const { state } = await api.requestSearchRefresh(id);
+      savedSearches = savedSearches.map((s) =>
+        s.id === id ? { ...s, refreshState: state } : s,
+      );
+      if (refreshPoll === null) {
+        refreshPoll = setInterval(() => void pollSearches(), 5000);
+      }
+    } catch {
+      toast.error("Impossible de lancer le rafraîchissement");
+    }
+  }
+
+  onDestroy(() => {
+    if (refreshPoll !== null) clearInterval(refreshPoll);
+  });
 
   async function showNewResults() {
     if (!activeSearch) return;
@@ -350,8 +390,10 @@
   }
 
   // Hoist title-filter word list: computed once per query change, not per job
-  const titleWords = $derived(
-    query.trim() ? query.trim().split(/\s+/).map(normalizeText) : [],
+  const titleWordGroups = $derived(
+    queries
+      .map((q) => q.trim().split(/\s+/).filter(Boolean).map(normalizeText))
+      .filter((words) => words.length > 0),
   );
 
   let filteredJobs = $derived(
@@ -384,9 +426,9 @@
         }
       }
 
-      // Title keyword filter — every word of the query must appear in the job title
-      if (titleWords.length > 0) {
-        if (!titleWords.every((w) => normalizeText(j.title ?? "").includes(w)))
+      if (titleWordGroups.length > 0) {
+        const title = normalizeText(j.title ?? "");
+        if (!titleWordGroups.some((words) => words.every((w) => title.includes(w))))
           return false;
       }
 
@@ -590,7 +632,7 @@
       searchCenter = null;
     }
     closeStream = api.streamSearch(
-      { query: query || undefined, location: location || undefined },
+      { queries, locations },
       (job) => {
         if (gen !== streamGeneration) return;
         if (jobs.some((j) => j.id === job.id)) return;
@@ -609,12 +651,16 @@
     );
   }
 
+  function criteriaParams(): URLSearchParams {
+    const urlParams = new URLSearchParams();
+    for (const q of queries) urlParams.append("query", q);
+    for (const l of locations) urlParams.append("location", l);
+    return urlParams;
+  }
+
   function search() {
     openView({ kind: "new" });
-    const urlParams = new URLSearchParams();
-    if (query) urlParams.set("query", query);
-    if (location) urlParams.set("location", location);
-    goto(`?${urlParams}`);
+    goto(`?${criteriaParams()}`);
     startStream();
   }
 
@@ -634,12 +680,9 @@
     const [lng, lat] = [c.lng, c.lat];
     const newSearchCenter: [number, number] = [lat, lng];
     const place = await reverseGeocode(lat, lng);
-    location = place ?? `Autour de ${lat.toFixed(3)}, ${lng.toFixed(3)}`;
+    locations = [place ?? `Autour de ${lat.toFixed(3)}, ${lng.toFixed(3)}`];
     searchCenter = newSearchCenter;
-    const urlParams = new URLSearchParams();
-    if (query) urlParams.set("query", query);
-    if (location) urlParams.set("location", location);
-    goto(`?${urlParams}`);
+    goto(`?${criteriaParams()}`);
     startStream({ skipGeocode: true });
   }
 
@@ -687,8 +730,8 @@
   style="--bar: {barHeight}px"
 >
   <TopBar
-    bind:query
-    bind:location
+    bind:queries
+    bind:locations
     {view}
     {openView}
     {search}
@@ -779,6 +822,8 @@
       <JobList
         newResultsCount={activeSearch?.newResultsCount ?? 0}
         onShowNewResults={showNewResults}
+        refreshState={activeSearch?.refreshState ?? "idle"}
+        onRequestRefresh={activeSearch ? requestRefresh : undefined}
         loading={savedJobsLoading}
         jobs={filteredJobs}
         {skills}

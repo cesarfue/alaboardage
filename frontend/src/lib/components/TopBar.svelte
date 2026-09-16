@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { Bell, BellOff, Bookmark, ClipboardList, Funnel, Pencil, User, LogOut, Search, X } from "@lucide/svelte";
+  import { ClipboardList, Funnel, Pencil, Plus, User, LogOut, Search } from "@lucide/svelte";
   import FiltersPanel from "$lib/components/FiltersPanel.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
   import SearchEditor from "$lib/components/SearchEditor.svelte";
+  import CriteriaInput from "$lib/components/CriteriaInput.svelte";
   import { toast } from "svelte-sonner";
   import type { SavedSearch, Skill, View } from "$lib/types";
   import { clearToken } from "$lib/auth";
@@ -10,8 +11,8 @@
   import { api } from "$lib/api";
 
   let {
-    query = $bindable(),
-    location = $bindable(),
+    queries = $bindable<string[]>([]),
+    locations = $bindable<string[]>([]),
     view,
     search,
     searching,
@@ -23,8 +24,8 @@
     barHeight = $bindable(0),
     openView,
   }: {
-    query: string;
-    location: string;
+    queries?: string[];
+    locations?: string[];
     view: View;
     search: () => void;
     searching: boolean;
@@ -44,32 +45,27 @@
 
   let showingFilters = $state(false);
   let showingProfile = $state(false);
-  let showingSaved = $state(false);
 
   const user = $derived(userState.user);
-  const isCurrentSearchSaved = $derived(
-    savedSearches.some((s) => s.query === query && s.location === location),
-  );
+  const activeSearch = $derived.by(() => {
+    const current = view;
+    if (current.kind !== "saved") return undefined;
+    return savedSearches.find((s) => s.id === current.id);
+  });
 
   function closeAll() {
     showingFilters = false;
     showingProfile = false;
-    showingSaved = false;
   }
 
   function toggleFilters() {
     showingFilters = !showingFilters;
-    if (showingFilters) { showingProfile = false; showingSaved = false; }
+    if (showingFilters) showingProfile = false;
   }
 
   function toggleProfile() {
     showingProfile = !showingProfile;
-    if (showingProfile) { showingFilters = false; showingSaved = false; }
-  }
-
-  function toggleSaved() {
-    showingSaved = !showingSaved;
-    if (showingSaved) { showingFilters = false; showingProfile = false; }
+    if (showingProfile) showingFilters = false;
   }
 
   function logout() {
@@ -106,9 +102,8 @@
     }
   }
 
-  function loadSearch(s: SavedSearch) {
-    goTo({ kind: "saved", id: s.id });
-  }
+  let queryDraft = $state("");
+  let locationDraft = $state("");
 
   let editing = $state<{ id: string | null } | null>(null);
   let editorName = $state("");
@@ -118,9 +113,15 @@
   function openEditor(s?: SavedSearch) {
     editing = { id: s?.id ?? null };
     editorName = s?.name ?? "";
-    editorQueries = s ? [...s.queries] : query ? [query] : [];
-    editorLocations = s ? [...s.locations] : location ? [location] : [];
-    showingSaved = false;
+    editorQueries = s ? [...s.queries] : [...queries];
+    editorLocations = s ? [...s.locations] : [...locations];
+    closeAll();
+  }
+
+  async function deleteFromEditor(id: string) {
+    editing = null;
+    await deleteSearch(id);
+    goTo({ kind: "new" });
   }
 
   async function submitEditor(v: {
@@ -148,19 +149,12 @@
     }
   }
 
-  function formatCheckedAt(iso: string | null): string {
-    if (!iso) return "Jamais vérifiée";
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return "Jamais vérifiée";
-    return `Dernière vérif : ${d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`;
-  }
-
   function formatBadge(n: number): string {
     return n > 99 ? "99+" : String(n);
   }
 </script>
 
-{#if showingFilters || showingProfile || showingSaved}
+{#if showingFilters || showingProfile}
   <div
     class="fixed inset-0 z-40"
     role="presentation"
@@ -214,6 +208,14 @@
       <ClipboardList size={16} />
       <span class="hidden sm:inline">Suivi</span>
     </button>
+    <button
+      onclick={() => openEditor()}
+      class="shrink-0 border rounded-lg px-3 py-2 hover:bg-muted transition-colors"
+      title="Nouvelle recherche enregistrée"
+      aria-label="Nouvelle recherche enregistrée"
+    >
+      <Plus size={16} />
+    </button>
   </div>
   <div class="relative shrink-0">
     <button
@@ -229,13 +231,16 @@
     {/if}
   </div>
   <div class="relative shrink-0">
-    <button
-      onclick={toggleSaved}
-      class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingSaved ? 'bg-muted' : ''}"
-      title="Recherches sauvegardées"
-    >
-      <Bookmark size={16} class={isCurrentSearchSaved ? "fill-current" : ""} />
-    </button>
+    {#if activeSearch}
+      <button
+        onclick={() => openEditor(activeSearch)}
+        class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {editing ? 'bg-muted' : ''}"
+        title="Modifier cette recherche"
+        aria-label="Modifier cette recherche"
+      >
+        <Pencil size={16} />
+      </button>
+    {/if}
     {#if editing}
       <div class="absolute top-full mt-1 z-50 right-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:right-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
         <SearchEditor
@@ -244,82 +249,16 @@
           bind:locations={editorLocations}
           title={editing.id === null ? "Nouvelle recherche" : "Modifier la recherche"}
           submitLabel={editing.id === null ? "Enregistrer" : "Mettre à jour"}
+          emailAlerts={activeSearch?.emailAlerts ?? true}
+          onToggleAlerts={activeSearch
+            ? () => toggleEmailAlerts(activeSearch)
+            : undefined}
+          onDelete={editing.id === null
+            ? undefined
+            : () => deleteFromEditor(editing!.id!)}
           onSubmit={submitEditor}
           onClose={() => (editing = null)}
         />
-      </div>
-    {/if}
-    {#if showingSaved}
-      <div class="absolute top-full mt-1 z-50 left-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto w-[min(400px,calc(100vw-1.5rem))] flex flex-col rounded-xl bg-background shadow-xl p-3 gap-2">
-        <button
-          onclick={() => openEditor()}
-          class="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg hover:bg-muted text-left w-full"
-        >
-          <Bookmark size={14} />
-          Nouvelle recherche enregistrée
-        </button>
-        {#if savedSearches.length > 0}
-          <hr class="border-border" />
-          <ul class="flex flex-col gap-0.5">
-            {#each savedSearches as s (s.id)}
-              <li class="flex items-stretch gap-1 rounded-lg hover:bg-muted/60">
-                <button
-                  onclick={() => loadSearch(s)}
-                  title={formatCheckedAt(s.lastCheckedAt)}
-                  class="flex flex-col gap-0.5 flex-1 text-sm px-2 py-1.5 rounded-lg text-left min-w-0"
-                >
-                  <span class="flex items-center gap-2 min-w-0">
-                    <Search size={12} class="shrink-0 text-muted-foreground" />
-                    <span class="truncate font-medium">{s.name}</span>
-                    {#if (s.newResultsCount ?? 0) > 0}
-                      <span
-                        class="ml-auto shrink-0 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 leading-none"
-                        aria-label="{s.newResultsCount} nouveaux résultats"
-                      >
-                        {formatBadge(s.newResultsCount ?? 0)}
-                      </span>
-                    {/if}
-                  </span>
-                  <span class="text-xs text-muted-foreground truncate pl-5">
-                    {[s.queries.join(", "), s.locations.join(", ")]
-                      .filter(Boolean)
-                      .join(" · ") || "—"}
-                  </span>
-                </button>
-                <button
-                  onclick={() => openEditor(s)}
-                  class="shrink-0 p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground"
-                  title="Modifier les critères"
-                  aria-label="Modifier {s.name}"
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
-                  onclick={() => toggleEmailAlerts(s)}
-                  class="shrink-0 p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground"
-                  title={s.emailAlerts ? "Notifs email activées" : "Notifs email désactivées"}
-                  aria-pressed={s.emailAlerts}
-                >
-                  {#if s.emailAlerts}
-                    <Bell size={14} class="text-primary" />
-                  {:else}
-                    <BellOff size={14} />
-                  {/if}
-                </button>
-                <button
-                  onclick={() => deleteSearch(s.id)}
-                  class="shrink-0 p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground"
-                  title="Supprimer"
-                  aria-label="Supprimer {s.name}"
-                >
-                  <X size={14} />
-                </button>
-              </li>
-            {/each}
-          </ul>
-        {:else}
-          <p class="text-xs text-muted-foreground px-1">Aucune recherche sauvegardée</p>
-        {/if}
       </div>
     {/if}
   </div>
@@ -361,19 +300,17 @@
 </div>
 {#if view.kind === "new"}
   <div class="flex flex-row items-center gap-1.5 md:gap-2 min-w-0">
-    <input
-      type="text"
+    <CriteriaInput
+      bind:values={queries}
+      bind:draft={queryDraft}
       placeholder="Poste"
-      bind:value={query}
-      class="min-w-0 flex-1 border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-      onkeydown={(e) => e.key === "Enter" && search()}
+      onEnterEmpty={search}
     />
-    <input
-      type="text"
+    <CriteriaInput
+      bind:values={locations}
+      bind:draft={locationDraft}
       placeholder="Lieu"
-      bind:value={location}
-      class="min-w-0 flex-1 border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-      onkeydown={(e) => e.key === "Enter" && search()}
+      onEnterEmpty={search}
     />
     <button
       onclick={search}
