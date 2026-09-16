@@ -33,9 +33,44 @@ describe('SearchRefreshService', () => {
 
   it('deduplicates by (query, location)', async () => {
     prismaMock.savedSearch.findMany.mockResolvedValue([
-      { id: 'a', query: 'ts', location: 'Paris' },
-      { id: 'b', query: 'TS', location: 'paris' }, // same pair, differs by case
-      { id: 'c', query: 'go', location: 'Lyon' },
+      { id: 'a', queries: ['ts'], locations: ['Paris'] },
+      { id: 'b', queries: ['TS'], locations: ['paris'] }, // same pair, differs by case
+      { id: 'c', queries: ['go'], locations: ['Lyon'] },
+    ]);
+    await service.refreshAll();
+    expect(scraperMock.scrapeAllBoards).toHaveBeenCalledTimes(2);
+  });
+
+  it('expands a multi-criteria search into every (query, location) pair', async () => {
+    prismaMock.savedSearch.findMany.mockResolvedValue([
+      {
+        id: 'a',
+        query: 'ts',
+        location: 'Paris',
+        queries: ['ts', 'node', 'go'],
+        locations: ['Paris', 'Lyon'],
+      },
+    ]);
+    await service.refreshAll();
+    expect(scraperMock.scrapeAllBoards).toHaveBeenCalledTimes(6);
+  });
+
+  it('scrapes a pair shared by two searches only once', async () => {
+    prismaMock.savedSearch.findMany.mockResolvedValue([
+      {
+        id: 'a',
+        query: '',
+        location: '',
+        queries: ['ts'],
+        locations: ['Paris'],
+      },
+      {
+        id: 'b',
+        query: '',
+        location: '',
+        queries: ['ts', 'go'],
+        locations: ['Paris'],
+      },
     ]);
     await service.refreshAll();
     expect(scraperMock.scrapeAllBoards).toHaveBeenCalledTimes(2);
@@ -43,8 +78,8 @@ describe('SearchRefreshService', () => {
 
   it('updates lastCheckedAt on every matching search of a dedup group', async () => {
     prismaMock.savedSearch.findMany.mockResolvedValue([
-      { id: 'a', query: 'ts', location: 'Paris' },
-      { id: 'b', query: 'TS', location: 'paris' },
+      { id: 'a', queries: ['ts'], locations: ['Paris'] },
+      { id: 'b', queries: ['TS'], locations: ['paris'] },
     ]);
     await service.refreshAll();
     const call = prismaMock.savedSearch.updateMany.mock.calls[0][0];
@@ -54,7 +89,7 @@ describe('SearchRefreshService', () => {
 
   it('still marks lastCheckedAt when the scrape fails', async () => {
     prismaMock.savedSearch.findMany.mockResolvedValue([
-      { id: 'a', query: 'ts', location: 'Paris' },
+      { id: 'a', queries: ['ts'], locations: ['Paris'] },
     ]);
     scraperMock.scrapeAllBoards.mockRejectedValueOnce(new Error('boom'));
     await service.refreshAll();
@@ -64,7 +99,7 @@ describe('SearchRefreshService', () => {
   it('skips concurrent runs (re-entrancy guard)', async () => {
     let resolveFirst!: (v: { total: number }) => void;
     prismaMock.savedSearch.findMany.mockResolvedValue([
-      { id: 'a', query: 'ts', location: 'Paris' },
+      { id: 'a', queries: ['ts'], locations: ['Paris'] },
     ]);
     scraperMock.scrapeAllBoards.mockReturnValueOnce(
       new Promise((res) => {
@@ -85,13 +120,13 @@ describe('SearchRefreshService', () => {
   });
 
   it('caps the number of pairs per run', async () => {
-    const searches = Array.from({ length: 25 }, (_, i) => ({
+    const searches = Array.from({ length: 45 }, (_, i) => ({
       id: `id-${i}`,
-      query: `q-${i}`,
-      location: `loc-${i}`,
+      queries: [`q-${i}`],
+      locations: [`loc-${i}`],
     }));
     prismaMock.savedSearch.findMany.mockResolvedValue(searches);
     await service.refreshAll();
-    expect(scraperMock.scrapeAllBoards).toHaveBeenCalledTimes(20);
+    expect(scraperMock.scrapeAllBoards).toHaveBeenCalledTimes(40);
   });
 });

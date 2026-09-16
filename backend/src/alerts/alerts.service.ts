@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { SkillsService } from '../skills/skills.service';
 import { JobsService } from '../jobs/jobs.service';
+import { criteriaOf } from '../searches/criteria';
 import type { Job, SavedSearch, Skill } from '../../generated/prisma/client';
 
 @Injectable()
@@ -54,10 +55,8 @@ export class AlertsService {
 
       for (const search of searches) {
         const since = search.lastAlertAt ?? fallbackSince;
-        const matching = await this.jobs.buildQueryLocationWhere(
-          search.query,
-          search.location,
-        );
+        const { queries, locations } = criteriaOf(search);
+        const matching = await this.jobs.buildCriteriaWhere(queries, locations);
         const candidateJobs: Job[] = await this.prisma.job.findMany({
           where: { ...matching, scrapedAt: { gt: since } },
         });

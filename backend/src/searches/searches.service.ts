@@ -4,6 +4,7 @@ import { JobsService } from '../jobs/jobs.service';
 import { CreateSearchDto } from './dto/create-search.dto';
 import { UpdateSearchDto } from './dto/update-search.dto';
 import type { SavedSearch } from '../../generated/prisma/client';
+import { criteriaOf } from './criteria';
 
 export interface SavedSearchWithCount extends SavedSearch {
   newResultsCount: number;
@@ -25,14 +26,17 @@ export class SearchesService {
     // `lastSeenAt === null` → treat all matching jobs as new
     // Bounded by user count × per-user saved searches — an N+1 here is fine
     return Promise.all(
-      searches.map(async (s) => ({
-        ...s,
-        newResultsCount: await this.jobs.countMatchingSince(
-          s.query,
-          s.location,
-          s.lastSeenAt,
-        ),
-      })),
+      searches.map(async (s) => {
+        const { queries, locations } = criteriaOf(s);
+        return {
+          ...s,
+          newResultsCount: await this.jobs.countMatchingSince(
+            queries,
+            locations,
+            s.lastSeenAt,
+          ),
+        };
+      }),
     );
   }
 
@@ -41,8 +45,10 @@ export class SearchesService {
       data: {
         userId,
         name: dto.name,
-        query: dto.query,
-        location: dto.location,
+        queries: dto.queries,
+        locations: dto.locations,
+        query: dto.queries[0],
+        location: dto.locations[0],
       },
     });
   }
@@ -55,7 +61,24 @@ export class SearchesService {
     return this.updateOwnedOr404(userId, id, {
       ...(dto.name !== undefined && { name: dto.name }),
       ...(dto.emailAlerts !== undefined && { emailAlerts: dto.emailAlerts }),
+      ...(dto.queries !== undefined && {
+        queries: dto.queries,
+        query: dto.queries[0],
+      }),
+      ...(dto.locations !== undefined && {
+        locations: dto.locations,
+        location: dto.locations[0],
+      }),
     });
+  }
+
+  async findJobsFor(userId: string, id: string, limit: number, offset: number) {
+    const search = await this.prisma.savedSearch.findFirst({
+      where: { id, userId },
+    });
+    if (!search) throw new NotFoundException('Saved search not found');
+    const { queries, locations } = criteriaOf(search);
+    return this.jobs.findByCriteria(queries, locations, userId, limit, offset);
   }
 
   async markSeen(userId: string, id: string): Promise<SavedSearch> {

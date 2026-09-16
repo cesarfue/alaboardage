@@ -1,4 +1,10 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsBoolean,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class UpdateSearchDto {
   @IsOptional()
@@ -8,4 +14,16 @@ export class UpdateSearchDto {
   @IsOptional()
   @IsBoolean()
   emailAlerts?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  queries?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  locations?: string[];
 }

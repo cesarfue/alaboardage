@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScraperService } from '../scraper/scraper.service';
+import { criteriaOf } from '../searches/criteria';
 
 /**
  * Periodically re-scrapes each saved search so `newResultsCount` and the
@@ -22,7 +23,7 @@ export class SearchRefreshService {
   private isRunning = false;
 
   private static readonly PER_SEARCH_TIMEOUT_MS = 2 * 60 * 1000; // 2 min
-  private static readonly MAX_SEARCHES_PER_RUN = 20;
+  private static readonly MAX_SEARCHES_PER_RUN = 40;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -45,17 +46,20 @@ export class SearchRefreshService {
         return;
       }
 
-      // Dedup by (query, location) - keep the first search of each pair
       const byKey = new Map<
         string,
         { query: string; location: string; ids: string[] }
       >();
       for (const s of searches) {
-        const key = `${s.query.toLowerCase()} ${s.location.toLowerCase()}`;
-        const existing = byKey.get(key);
-        if (existing) existing.ids.push(s.id);
-        else
-          byKey.set(key, { query: s.query, location: s.location, ids: [s.id] });
+        const { queries, locations } = criteriaOf(s);
+        for (const query of queries) {
+          for (const location of locations) {
+            const key = `${query.toLowerCase()} ${location.toLowerCase()}`;
+            const existing = byKey.get(key);
+            if (existing) existing.ids.push(s.id);
+            else byKey.set(key, { query, location, ids: [s.id] });
+          }
+        }
       }
 
       const pairs = Array.from(byKey.values());

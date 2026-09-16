@@ -8,9 +8,11 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { SearchesService } from './searches.service';
+import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
 import { CreateSearchDto } from './dto/create-search.dto';
 import { UpdateSearchDto } from './dto/update-search.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -42,6 +44,20 @@ export class SearchesController {
     @Body() dto: UpdateSearchDto,
   ) {
     return this.searchesService.updateSavedSearch(user.sub, id, dto);
+  }
+
+  @Get('searches/:id/jobs')
+  getJobsFor(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Query() query: FindJobsDto,
+  ) {
+    return this.searchesService.findJobsFor(
+      user.sub,
+      id,
+      query.limit,
+      query.offset,
+    );
   }
 
   @Post('searches/:id/seen')

@@ -18,35 +18,56 @@ export class JobsService {
     query: string | undefined,
     location: string | undefined,
   ): Promise<Prisma.JobWhereInput> {
+    return this.buildCriteriaWhere(
+      query ? [query] : [],
+      location ? [location] : [],
+    );
+  }
+
+  async buildCriteriaWhere(
+    queries: string[],
+    locations: string[],
+  ): Promise<Prisma.JobWhereInput> {
     const where: Prisma.JobWhereInput = {};
-    if (location) where.location = { contains: location, mode: 'insensitive' };
-    if (query) {
-      const words = query.trim().split(/\s+/).filter(Boolean);
-      if (words.length > 0) {
-        // SQL structure built from word count (not user input) — values are parameterized
-        const conditions = words
-          .map((_, i) => `unaccent(title) ILIKE unaccent($${i + 1})`)
-          .join(' AND ');
-        const rows = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
-          `SELECT id FROM "Job" WHERE ${conditions}`,
-          ...words.map((w) => `%${w}%`),
-        );
-        where.id = { in: rows.map((r) => r.id) };
-      }
+
+    const usableLocations = locations.filter((l) => l.trim().length > 0);
+    if (usableLocations.length > 0) {
+      where.OR = usableLocations.map((l) => ({
+        location: { contains: l, mode: 'insensitive' as const },
+      }));
     }
+
+    const wordGroups = queries
+      .map((q) => q.trim().split(/\s+/).filter(Boolean))
+      .filter((words) => words.length > 0);
+
+    if (wordGroups.length > 0) {
+      const values: string[] = [];
+      const groups = wordGroups.map(
+        (words) =>
+          `(${words
+            .map((w) => {
+              values.push(`%${w}%`);
+              return `unaccent(title) ILIKE unaccent($${values.length})`;
+            })
+            .join(' AND ')})`,
+      );
+      const rows = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
+        `SELECT id FROM "Job" WHERE ${groups.join(' OR ')}`,
+        ...values,
+      );
+      where.id = { in: rows.map((r) => r.id) };
+    }
+
     return where;
   }
 
-  /**
-   * Count jobs matching (query, location) scraped strictly after `since`.
-   * Used by SavedSearch to compute `newResultsCount`.
-   */
   async countMatchingSince(
-    query: string | undefined,
-    location: string | undefined,
+    queries: string[],
+    locations: string[],
     since: Date | null,
   ): Promise<number> {
-    const where = await this.buildQueryLocationWhere(query, location);
+    const where = await this.buildCriteriaWhere(queries, locations);
     if (since) where.scrapedAt = { gt: since };
     return this.prisma.job.count({ where });
   }
@@ -65,12 +86,32 @@ export class JobsService {
       where.interactions = { some: { userId } };
     }
 
+    return this.page(where, userId, query.limit, query.offset);
+  }
+
+  async findByCriteria(
+    queries: string[],
+    locations: string[],
+    userId: string,
+    limit: number,
+    offset: number,
+  ) {
+    const where = await this.buildCriteriaWhere(queries, locations);
+    return this.page(where, userId, limit, offset);
+  }
+
+  private async page(
+    where: Prisma.JobWhereInput,
+    userId: string,
+    limit: number,
+    offset: number,
+  ) {
     const [rawItems, total] = await Promise.all([
       this.prisma.job.findMany({
         where,
         orderBy: { datePosted: 'desc' },
-        take: query.limit,
-        skip: query.offset,
+        take: limit,
+        skip: offset,
         include: {
           establishment: true,
           scores: { where: { userId } },
@@ -84,7 +125,7 @@ export class JobsService {
       score: scores[0]?.score ?? 0,
     }));
 
-    return { items, total, limit: query.limit, offset: query.offset };
+    return { items, total, limit, offset };
   }
 
   upsert(dto: CreateJobDto) {

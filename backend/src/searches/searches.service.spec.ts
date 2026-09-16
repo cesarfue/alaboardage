@@ -32,11 +32,20 @@ describe('SearchesService', () => {
   describe('getSavedSearches', () => {
     it('adds newResultsCount for each search', async () => {
       prismaMock.savedSearch.findMany.mockResolvedValue([
-        { id: 's1', query: 'ts', location: 'Paris', lastSeenAt: null },
+        {
+          id: 's1',
+          query: 'ts',
+          location: 'Paris',
+          queries: ['ts', 'node'],
+          locations: ['Paris', 'Lyon'],
+          lastSeenAt: null,
+        },
         {
           id: 's2',
           query: 'go',
           location: 'Lyon',
+          queries: [],
+          locations: [],
           lastSeenAt: new Date('2026-07-01'),
         },
       ]);
@@ -51,14 +60,14 @@ describe('SearchesService', () => {
       expect(result[1].newResultsCount).toBe(0);
       expect(jobsMock.countMatchingSince).toHaveBeenNthCalledWith(
         1,
-        'ts',
-        'Paris',
+        ['ts', 'node'],
+        ['Paris', 'Lyon'],
         null,
       );
       expect(jobsMock.countMatchingSince).toHaveBeenNthCalledWith(
         2,
-        'go',
-        'Lyon',
+        ['go'],
+        ['Lyon'],
         new Date('2026-07-01'),
       );
     });

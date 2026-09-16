@@ -58,6 +58,8 @@ function makeSearch(overrides: Partial<SavedSearch> = {}): SavedSearch {
     name: 'TS jobs',
     query: 'TypeScript',
     location: 'Paris',
+    queries: ['TypeScript'],
+    locations: ['Paris'],
     createdAt: new Date(),
     emailAlerts: true,
     lastAlertAt: null,
@@ -90,7 +92,7 @@ describe('AlertsService.runAlerts', () => {
   let scoringService: ScoringService;
   let skillsService: SkillsService;
   let jobsService: JobsService;
-  let buildQueryLocationWhere: jest.Mock;
+  let buildCriteriaWhere: jest.Mock;
 
   beforeEach(() => {
     prismaMock = {
@@ -108,8 +110,8 @@ describe('AlertsService.runAlerts', () => {
 
     scoringService = new ScoringService(null as never);
     skillsService = { getSkills: jest.fn() } as any;
-    buildQueryLocationWhere = jest.fn().mockResolvedValue({});
-    jobsService = { buildQueryLocationWhere } as any;
+    buildCriteriaWhere = jest.fn().mockResolvedValue({});
+    jobsService = { buildCriteriaWhere } as any;
 
     service = new AlertsService(
       prismaMock,
@@ -214,7 +216,7 @@ describe('AlertsService.runAlerts', () => {
     (skillsService.getSkills as jest.Mock).mockResolvedValue([
       makeSkill('TypeScript', SkillLevel.PRIMARY),
     ]);
-    buildQueryLocationWhere.mockResolvedValue({
+    buildCriteriaWhere.mockResolvedValue({
       id: { in: ['in-scope'] },
     });
 
@@ -237,7 +239,7 @@ describe('AlertsService.runAlerts', () => {
 
     await service.runAlerts();
 
-    expect(buildQueryLocationWhere).toHaveBeenCalledWith('TypeScript', 'Paris');
+    expect(buildCriteriaWhere).toHaveBeenCalledWith(['TypeScript'], ['Paris']);
     const jobLines = loggedLines.filter((l) => l.includes('[score='));
     expect(jobLines).toHaveLength(1);
     expect(jobLines[0]).toContain('in Paris');

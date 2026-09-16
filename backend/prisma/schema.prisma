@@ -125,6 +125,8 @@ model SavedSearch {
   name          String
   query         String
   location      String
+  queries       String[]
+  locations     String[]
   createdAt     DateTime  @default(now())
   emailAlerts   Boolean   @default(true)
   lastAlertAt   DateTime?
