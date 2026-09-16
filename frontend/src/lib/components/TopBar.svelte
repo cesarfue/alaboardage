@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { Bell, BellOff, Bookmark, ClipboardList, Funnel, User, LogOut, Search, X } from "@lucide/svelte";
+  import { Bell, BellOff, Bookmark, ClipboardList, Funnel, Pencil, User, LogOut, Search, X } from "@lucide/svelte";
   import FiltersPanel from "$lib/components/FiltersPanel.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
+  import SearchEditor from "$lib/components/SearchEditor.svelte";
+  import { toast } from "svelte-sonner";
   import type { SavedSearch, Skill, View } from "$lib/types";
   import { clearToken } from "$lib/auth";
   import { userState } from "$lib/user.svelte";
@@ -45,7 +47,6 @@
   let showingSaved = $state(false);
 
   const user = $derived(userState.user);
-  const canSave = $derived(!!(query || location) && !!user);
   const isCurrentSearchSaved = $derived(
     savedSearches.some((s) => s.query === query && s.location === location),
   );
@@ -74,19 +75,6 @@
   function logout() {
     clearToken();
     window.location.href = "/";
-  }
-
-  async function saveSearch() {
-    if (!canSave || isCurrentSearchSaved) return;
-    const name = [query, location].filter(Boolean).join(" · ");
-    const saved = await api.saveSearch(
-      name,
-      query ? [query] : [],
-      location ? [location] : [],
-    );
-    // A brand-new saved search has never been seen — its badge is 0 by
-    // definition. Everything else comes straight from the DB response.
-    savedSearches = [{ ...saved, newResultsCount: 0 }, ...savedSearches];
   }
 
   async function deleteSearch(id: string) {
@@ -120,6 +108,44 @@
 
   function loadSearch(s: SavedSearch) {
     goTo({ kind: "saved", id: s.id });
+  }
+
+  let editing = $state<{ id: string | null } | null>(null);
+  let editorName = $state("");
+  let editorQueries = $state<string[]>([]);
+  let editorLocations = $state<string[]>([]);
+
+  function openEditor(s?: SavedSearch) {
+    editing = { id: s?.id ?? null };
+    editorName = s?.name ?? "";
+    editorQueries = s ? [...s.queries] : query ? [query] : [];
+    editorLocations = s ? [...s.locations] : location ? [location] : [];
+    showingSaved = false;
+  }
+
+  async function submitEditor(v: {
+    name: string;
+    queries: string[];
+    locations: string[];
+  }) {
+    const target = editing;
+    if (!target) return;
+    editing = null;
+    try {
+      if (target.id === null) {
+        const created = await api.saveSearch(v.name, v.queries, v.locations);
+        savedSearches = [{ ...created, newResultsCount: 0 }, ...savedSearches];
+        goTo({ kind: "saved", id: created.id });
+      } else {
+        const updated = await api.updateSavedSearch(target.id, v);
+        savedSearches = savedSearches.map((s) =>
+          s.id === updated.id ? { ...s, ...updated } : s,
+        );
+        goTo({ kind: "saved", id: updated.id });
+      }
+    } catch {
+      toast.error("Impossible d'enregistrer cette recherche");
+    }
   }
 
   function formatCheckedAt(iso: string | null): string {
@@ -210,23 +236,30 @@
     >
       <Bookmark size={16} class={isCurrentSearchSaved ? "fill-current" : ""} />
     </button>
+    {#if editing}
+      <div class="absolute top-full mt-1 z-50 right-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:right-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
+        <SearchEditor
+          bind:name={editorName}
+          bind:queries={editorQueries}
+          bind:locations={editorLocations}
+          title={editing.id === null ? "Nouvelle recherche" : "Modifier la recherche"}
+          submitLabel={editing.id === null ? "Enregistrer" : "Mettre à jour"}
+          onSubmit={submitEditor}
+          onClose={() => (editing = null)}
+        />
+      </div>
+    {/if}
     {#if showingSaved}
       <div class="absolute top-full mt-1 z-50 left-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto w-[min(400px,calc(100vw-1.5rem))] flex flex-col rounded-xl bg-background shadow-xl p-3 gap-2">
-        {#if canSave}
-          {#if isCurrentSearchSaved}
-            <p class="text-xs text-muted-foreground px-1">Déjà sauvegardée</p>
-          {:else}
-            <button
-              onclick={saveSearch}
-              class="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg hover:bg-muted text-left w-full"
-            >
-              <Bookmark size={14} />
-              Sauvegarder cette recherche
-            </button>
-          {/if}
-        {/if}
+        <button
+          onclick={() => openEditor()}
+          class="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg hover:bg-muted text-left w-full"
+        >
+          <Bookmark size={14} />
+          Nouvelle recherche enregistrée
+        </button>
         {#if savedSearches.length > 0}
-          {#if canSave}<hr class="border-border" />{/if}
+          <hr class="border-border" />
           <ul class="flex flex-col gap-0.5">
             {#each savedSearches as s (s.id)}
               <li class="flex items-stretch gap-1 rounded-lg hover:bg-muted/60">
@@ -248,8 +281,18 @@
                     {/if}
                   </span>
                   <span class="text-xs text-muted-foreground truncate pl-5">
-                    {[s.query, s.location].filter(Boolean).join(" · ") || "—"}
+                    {[s.queries.join(", "), s.locations.join(", ")]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
                   </span>
+                </button>
+                <button
+                  onclick={() => openEditor(s)}
+                  class="shrink-0 p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground"
+                  title="Modifier les critères"
+                  aria-label="Modifier {s.name}"
+                >
+                  <Pencil size={14} />
                 </button>
                 <button
                   onclick={() => toggleEmailAlerts(s)}
