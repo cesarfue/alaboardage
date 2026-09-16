@@ -674,7 +674,7 @@
     <button
       onclick={searchThisArea}
       disabled={searching}
-      class="absolute top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-auto
+      class="absolute top-30 md:top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-auto
              flex items-center gap-2 bg-background border rounded-full
              px-4 py-2 text-sm font-medium shadow-lg
              hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -685,7 +685,7 @@
   {/if}
   <div
     class="absolute z-10 flex flex-row gap-4 pointer-events-none
-           inset-x-0 top-16 bottom-0
+           inset-x-0 top-28 bottom-0
            md:inset-x-auto md:left-10 md:top-30 md:bottom-10"
   >
     {#if listVisible}

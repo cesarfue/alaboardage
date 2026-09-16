@@ -150,8 +150,8 @@
 {/if}
 
 <div
-  class="absolute w-full z-50 pointer-events-auto h-16 md:h-auto
-         flex flex-row items-center gap-1.5 md:gap-2 p-3 bg-background"
+  class="absolute w-full z-50 pointer-events-auto h-28 md:h-auto
+         flex flex-row flex-wrap md:flex-nowrap items-center gap-1.5 md:gap-2 p-3 bg-background"
 >
   <input
     type="text"
@@ -175,7 +175,7 @@
       <Funnel size={16} />
     </button>
     {#if showingFilters}
-      <div class="absolute top-full mt-1 z-50 left-0 max-md:left-auto max-md:right-0">
+      <div class="absolute top-full mt-1 z-50 left-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
         <FiltersPanel bind:radiusKm bind:daysFilter bind:hideViewed onClose={() => (showingFilters = false)} />
       </div>
     {/if}
@@ -201,6 +201,7 @@
       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
     </svg>
   {/if}
+  <div class="basis-full md:hidden" aria-hidden="true"></div>
 
   <button
     onclick={toggleView}
@@ -220,7 +221,7 @@
       <Bookmark size={16} class={isCurrentSearchSaved ? "fill-current" : ""} />
     </button>
     {#if showingSaved}
-      <div class="absolute top-full mt-1 z-50 left-0 max-md:left-auto max-md:right-0 w-[min(400px,calc(100vw-1.5rem))] flex flex-col rounded-xl bg-background shadow-xl p-3 gap-2">
+      <div class="absolute top-full mt-1 z-50 left-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto w-[min(400px,calc(100vw-1.5rem))] flex flex-col rounded-xl bg-background shadow-xl p-3 gap-2">
         {#if canSave}
           {#if isCurrentSearchSaved}
             <p class="text-xs text-muted-foreground px-1">Déjà sauvegardée</p>
@@ -298,7 +299,7 @@
       <User size={16} />
     </button>
     {#if showingProfile}
-      <div class="absolute top-full mt-1 z-50 right-0">
+      <div class="absolute top-full mt-1 z-50 right-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:right-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
         <ProfilePanel
           bind:skills
           onClose={() => (showingProfile = false)}
