@@ -466,7 +466,7 @@
         return statusFilter === null || j.interactionStatus === statusFilter;
       }
 
-      if (hideViewed && j.viewed && !j.interactionStatus) return false;
+      if (hideViewed && (j.viewed || j.interactionStatus)) return false;
 
       // Radius filter — use geocoded searchCenter when available, else map center
       if (radiusKm < 500) {
