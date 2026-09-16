@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ClipboardList, Funnel, Pencil, Plus, User, LogOut, Search } from "@lucide/svelte";
+  import { Bookmark, ClipboardList, Funnel, Pencil, User, LogOut, Search } from "@lucide/svelte";
   import FiltersPanel from "$lib/components/FiltersPanel.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
   import SearchEditor from "$lib/components/SearchEditor.svelte";
@@ -112,9 +112,13 @@
 
   function openEditor(s?: SavedSearch) {
     editing = { id: s?.id ?? null };
-    editorName = s?.name ?? "";
     editorQueries = s ? [...s.queries] : [...queries];
     editorLocations = s ? [...s.locations] : [...locations];
+    editorName =
+      s?.name ??
+      [editorQueries.join(", "), editorLocations.join(", ")]
+        .filter(Boolean)
+        .join(" · ");
     closeAll();
   }
 
@@ -208,14 +212,6 @@
       <ClipboardList size={16} />
       <span class="hidden sm:inline">Suivi</span>
     </button>
-    <button
-      onclick={() => openEditor()}
-      class="shrink-0 border rounded-lg px-3 py-2 hover:bg-muted transition-colors"
-      title="Nouvelle recherche enregistrée"
-      aria-label="Nouvelle recherche enregistrée"
-    >
-      <Plus size={16} />
-    </button>
   </div>
   <div class="relative shrink-0">
     <button
@@ -247,7 +243,9 @@
           bind:name={editorName}
           bind:queries={editorQueries}
           bind:locations={editorLocations}
-          title={editing.id === null ? "Nouvelle recherche" : "Modifier la recherche"}
+          title={editing.id === null
+            ? "Enregistrer cette recherche"
+            : "Modifier la recherche"}
           submitLabel={editing.id === null ? "Enregistrer" : "Mettre à jour"}
           emailAlerts={activeSearch?.emailAlerts ?? true}
           onToggleAlerts={activeSearch
@@ -319,6 +317,17 @@
     >
       <Search size={16} class="md:hidden" />
       <span class="hidden md:inline">Rechercher</span>
+    </button>
+    <button
+      onclick={() => openEditor()}
+      disabled={queries.length === 0 && locations.length === 0}
+      aria-label="Enregistrer cette recherche"
+      title="Enregistrer cette recherche"
+      class="shrink-0 flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm font-medium
+             hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <Bookmark size={16} />
+      <span class="hidden md:inline">Enregistrer</span>
     </button>
     {#if searching}
       <svg
