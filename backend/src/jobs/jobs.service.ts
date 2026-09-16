@@ -100,6 +100,33 @@ export class JobsService {
     return this.page(where, userId, limit, offset);
   }
 
+  async findByAnyCriteria(
+    criteria: { queries: string[]; locations: string[] }[],
+    userId: string,
+    limit: number,
+    offset: number,
+  ) {
+    if (criteria.length === 0) return { items: [], total: 0, limit, offset };
+    const wheres = await Promise.all(
+      criteria.map((c) => this.buildCriteriaWhere(c.queries, c.locations)),
+    );
+    return this.page({ OR: wheres }, userId, limit, offset);
+  }
+
+  async newJobIdsSince(
+    queries: string[],
+    locations: string[],
+    since: Date | null,
+  ): Promise<string[]> {
+    const where = await this.buildCriteriaWhere(queries, locations);
+    if (since) where.scrapedAt = { gt: since };
+    const rows = await this.prisma.job.findMany({
+      where,
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
+  }
+
   private async page(
     where: Prisma.JobWhereInput,
     userId: string,

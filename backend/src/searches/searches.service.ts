@@ -100,6 +100,39 @@ export class SearchesService {
     return this.updateOwnedOr404(userId, id, { lastSeenAt: new Date() });
   }
 
+  async feed(userId: string, limit: number, offset: number) {
+    const searches = await this.prisma.savedSearch.findMany({
+      where: { userId },
+    });
+    const criteria = searches.map(criteriaOf);
+    const [page, newIdLists] = await Promise.all([
+      this.jobs.findByAnyCriteria(criteria, userId, limit, offset),
+      Promise.all(
+        searches.map((s) => {
+          const { queries, locations } = criteriaOf(s);
+          return this.jobs.newJobIdsSince(queries, locations, s.lastSeenAt);
+        }),
+      ),
+    ]);
+    const newCount = new Set(newIdLists.flat()).size;
+    return { ...page, newCount };
+  }
+
+  async markAllSeen(userId: string): Promise<void> {
+    await this.prisma.savedSearch.updateMany({
+      where: { userId },
+      data: { lastSeenAt: new Date() },
+    });
+  }
+
+  async requestRefreshAll(userId: string): Promise<RefreshState[]> {
+    const searches = await this.prisma.savedSearch.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+    return searches.map((s) => this.refresh.requestRefresh(s.id));
+  }
+
   /**
    * Update-then-fetch scoped by (id, userId). Throws 404 when no row belongs
    * to the caller so downstream never sees a null. Both the `updateMany` and

@@ -46,6 +46,24 @@ export class SearchesController {
     return this.searchesService.updateSavedSearch(user.sub, id, dto);
   }
 
+  @Get('feed')
+  feed(@CurrentUser() user: JwtPayload, @Query() query: FindJobsDto) {
+    return this.searchesService.feed(user.sub, query.limit, query.offset);
+  }
+
+  @Post('feed/seen')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  markAllSeen(@CurrentUser() user: JwtPayload) {
+    return this.searchesService.markAllSeen(user.sub);
+  }
+
+  @Post('feed/refresh')
+  requestRefreshAll(@CurrentUser() user: JwtPayload) {
+    return this.searchesService
+      .requestRefreshAll(user.sub)
+      .then((states) => ({ states }));
+  }
+
   @Get('searches/:id/jobs')
   getJobsFor(
     @CurrentUser() user: JwtPayload,

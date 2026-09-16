@@ -191,6 +191,22 @@ export const api = {
     });
   },
 
+  getFeed(limit = 200): Promise<ListJobsResponse & { newCount: number }> {
+    return request<ListJobsResponse & { newCount: number }>(
+      `/feed?limit=${limit}`,
+    );
+  },
+
+  markFeedSeen(): Promise<void> {
+    return request<void>("/feed/seen", { method: "POST" });
+  },
+
+  requestFeedRefresh(): Promise<{ states: RefreshState[] }> {
+    return request<{ states: RefreshState[] }>("/feed/refresh", {
+      method: "POST",
+    });
+  },
+
   requestSearchRefresh(id: string): Promise<{ state: RefreshState }> {
     return request<{ state: RefreshState }>(
       `/searches/${encodeURIComponent(id)}/refresh`,

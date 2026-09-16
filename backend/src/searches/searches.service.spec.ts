@@ -8,7 +8,12 @@ import { JobsService } from '../jobs/jobs.service';
 describe('SearchesService', () => {
   let service: SearchesService;
   let prismaMock: any;
-  let jobsMock: jest.Mocked<Pick<JobsService, 'countMatchingSince'>>;
+  let jobsMock: jest.Mocked<
+    Pick<
+      JobsService,
+      'countMatchingSince' | 'findByAnyCriteria' | 'newJobIdsSince'
+    >
+  >;
   let refreshMock: any;
 
   beforeEach(() => {
@@ -23,6 +28,8 @@ describe('SearchesService', () => {
     };
     jobsMock = {
       countMatchingSince: jest.fn().mockResolvedValue(0),
+      findByAnyCriteria: jest.fn(),
+      newJobIdsSince: jest.fn().mockResolvedValue([]),
     };
     refreshMock = {
       stateOf: jest.fn().mockReturnValue('idle'),
@@ -75,6 +82,51 @@ describe('SearchesService', () => {
         ['go'],
         ['Lyon'],
         new Date('2026-07-01'),
+      );
+    });
+  });
+
+  describe('feed', () => {
+    it('counts a new job once even when two searches match it', async () => {
+      prismaMock.savedSearch.findMany.mockResolvedValue([
+        {
+          id: 's1',
+          query: '',
+          location: '',
+          queries: ['dev'],
+          locations: ['Paris'],
+          lastSeenAt: null,
+        },
+        {
+          id: 's2',
+          query: '',
+          location: '',
+          queries: ['dev'],
+          locations: ['Lyon'],
+          lastSeenAt: null,
+        },
+      ]);
+      jobsMock.findByAnyCriteria.mockResolvedValue({
+        items: [],
+        total: 0,
+        limit: 200,
+        offset: 0,
+      });
+      jobsMock.newJobIdsSince
+        .mockResolvedValueOnce(['a', 'b'])
+        .mockResolvedValueOnce(['b', 'c']);
+
+      const result = await service.feed('user-1', 200, 0);
+
+      expect(result.newCount).toBe(3);
+      expect(jobsMock.findByAnyCriteria).toHaveBeenCalledWith(
+        [
+          { queries: ['dev'], locations: ['Paris'] },
+          { queries: ['dev'], locations: ['Lyon'] },
+        ],
+        'user-1',
+        200,
+        0,
       );
     });
   });

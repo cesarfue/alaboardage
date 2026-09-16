@@ -55,6 +55,7 @@ export interface ListJobsResponse {
 export type RefreshState = "idle" | "queued" | "running";
 
 export type View =
+  | { kind: "all" }
   | { kind: "saved"; id: string }
   | { kind: "new" }
   | { kind: "suivi" };
