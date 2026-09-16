@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { Bell, BellOff, Plus, Trash2, X } from "@lucide/svelte";
+  import { Bell, BellOff, Trash2, X } from "@lucide/svelte";
 
   let {
     name = $bindable(""),
-    queries = $bindable<string[]>([]),
-    locations = $bindable<string[]>([]),
+    query = $bindable(""),
+    location = $bindable(""),
     title,
     submitLabel,
     emailAlerts = true,
@@ -14,8 +14,8 @@
     onClose,
   }: {
     name?: string;
-    queries?: string[];
-    locations?: string[];
+    query?: string;
+    location?: string;
     title: string;
     submitLabel: string;
     emailAlerts?: boolean;
@@ -29,28 +29,19 @@
     onClose: () => void;
   } = $props();
 
-  let queryDraft = $state("");
-  let locationDraft = $state("");
-
   const canSubmit = $derived(
-    name.trim().length > 0 && queries.length > 0 && locations.length > 0,
+    name.trim().length > 0 &&
+      query.trim().length > 0 &&
+      location.trim().length > 0,
   );
 
-  function addTo(list: "queries" | "locations", raw: string) {
-    const value = raw.trim();
-    if (value.length === 0) return;
-    if (list === "queries") {
-      if (!queries.includes(value)) queries = [...queries, value];
-      queryDraft = "";
-    } else {
-      if (!locations.includes(value)) locations = [...locations, value];
-      locationDraft = "";
-    }
-  }
-
-  function removeFrom(list: "queries" | "locations", value: string) {
-    if (list === "queries") queries = queries.filter((v) => v !== value);
-    else locations = locations.filter((v) => v !== value);
+  function submit() {
+    if (!canSubmit) return;
+    onSubmit({
+      name: name.trim(),
+      queries: [query.trim()],
+      locations: [location.trim()],
+    });
   }
 </script>
 
@@ -68,94 +59,50 @@
     </button>
   </div>
 
-  <section class="flex flex-col gap-2">
+  {#snippet field(id: string, label: string)}
     <label
-      for="search-name"
+      for={id}
       class="text-xs font-medium text-muted-foreground uppercase tracking-wide"
     >
-      Nom
+      {label}
     </label>
+  {/snippet}
+
+  <section class="flex flex-col gap-2">
+    {@render field("search-name", "Nom")}
     <input
       id="search-name"
       type="text"
       bind:value={name}
-      placeholder="Développeur en Île-de-France"
+      placeholder="Développeur à Paris"
       class="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+      onkeydown={(e) => e.key === "Enter" && submit()}
     />
   </section>
 
-  {#snippet chips(
-    list: "queries" | "locations",
-    values: string[],
-    label: string,
-    placeholder: string,
-    draft: string,
-    setDraft: (v: string) => void,
-  )}
-    <section class="flex flex-col gap-2">
-      <p
-        class="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-      >
-        {label}
-      </p>
-      {#if values.length > 0}
-        <div class="flex flex-wrap gap-1.5">
-          {#each values as value (value)}
-            <span
-              class="flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs"
-            >
-              {value}
-              <button
-                onclick={() => removeFrom(list, value)}
-                aria-label="Retirer {value}"
-                class="text-muted-foreground hover:text-foreground"
-              >
-                <X size={12} />
-              </button>
-            </span>
-          {/each}
-        </div>
-      {/if}
-      <div class="flex items-center gap-1.5">
-        <input
-          type="text"
-          value={draft}
-          oninput={(e) => setDraft(e.currentTarget.value)}
-          {placeholder}
-          class="min-w-0 flex-1 border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-          onkeydown={(e) => {
-            if (e.key !== "Enter") return;
-            e.preventDefault();
-            addTo(list, e.currentTarget.value);
-          }}
-        />
-        <button
-          onclick={() => addTo(list, draft)}
-          aria-label="Ajouter"
-          class="shrink-0 border rounded-lg px-2.5 py-2 hover:bg-muted"
-        >
-          <Plus size={16} />
-        </button>
-      </div>
-    </section>
-  {/snippet}
+  <section class="flex flex-col gap-2">
+    {@render field("search-query", "Intitulé de poste")}
+    <input
+      id="search-query"
+      type="text"
+      bind:value={query}
+      placeholder="développeur"
+      class="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+      onkeydown={(e) => e.key === "Enter" && submit()}
+    />
+  </section>
 
-  {@render chips(
-    "queries",
-    queries,
-    "Intitulés de poste",
-    "développeur",
-    queryDraft,
-    (v) => (queryDraft = v),
-  )}
-  {@render chips(
-    "locations",
-    locations,
-    "Villes",
-    "Paris",
-    locationDraft,
-    (v) => (locationDraft = v),
-  )}
+  <section class="flex flex-col gap-2">
+    {@render field("search-location", "Ville")}
+    <input
+      id="search-location"
+      type="text"
+      bind:value={location}
+      placeholder="Paris"
+      class="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+      onkeydown={(e) => e.key === "Enter" && submit()}
+    />
+  </section>
 
   {#if onToggleAlerts}
     <button
@@ -173,8 +120,7 @@
   {/if}
 
   <button
-    onclick={() =>
-      onSubmit({ name: name.trim(), queries, locations })}
+    onclick={submit}
     disabled={!canSubmit}
     class="rounded-lg bg-primary text-primary-foreground px-3 py-2 text-sm font-medium
            hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

@@ -1,7 +1,14 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { api } from "$lib/api";
-  import type { InteractionStatus, Job, SavedSearch, Skill } from "$lib/types";
+  import type {
+    InteractionStatus,
+    Job,
+    RefreshState,
+    SavedSearch,
+    Skill,
+    View,
+  } from "$lib/types";
   import { scoreJob } from "$lib/scoring";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
@@ -19,10 +26,10 @@
   import { userState } from "$lib/user.svelte";
   import { normalizeText } from "$lib/utils";
 
-  let queries = $state<string[]>(page.url.searchParams.getAll("query"));
-  let locations = $state<string[]>(page.url.searchParams.getAll("location"));
-  const query = $derived(queries[0] ?? "");
-  const location = $derived(locations[0] ?? "");
+  let query = $state(page.url.searchParams.get("query") ?? "");
+  let location = $state(page.url.searchParams.get("location") ?? "");
+  const queries = $derived(query.trim() ? [query.trim()] : []);
+  const locations = $derived(location.trim() ? [location.trim()] : []);
   let jobs = $state<Job[]>([]);
   let searching = $state(false);
   let center = $state<[number, number]>([2.35, 48.85]);
@@ -122,11 +129,6 @@
     });
   }
 
-  type View =
-    | { kind: "saved"; id: string }
-    | { kind: "new" }
-    | { kind: "suivi" };
-
   const VIEW_KEY = "lastView";
 
   let view = $state<View>({ kind: "new" });
@@ -164,13 +166,36 @@
       view = stored;
       return;
     }
-    if (stored?.kind === "suivi") {
+    if (stored?.kind === "suivi" || stored?.kind === "all") {
       view = stored;
       return;
     }
-    view = savedSearches.length > 0
-      ? { kind: "saved", id: savedSearches[0].id }
-      : { kind: "new" };
+    view = savedSearches.length > 0 ? { kind: "all" } : { kind: "new" };
+  }
+
+  const ALL_TAB = "__all__";
+  let feedNewCount = $state<number | null>(null);
+
+  const feedRefreshState = $derived.by((): RefreshState => {
+    if (savedSearches.some((s) => s.refreshState === "running")) return "running";
+    if (savedSearches.some((s) => s.refreshState === "queued")) return "queued";
+    return "idle";
+  });
+
+  const bannerCount = $derived(
+    view.kind === "all"
+      ? (feedNewCount ?? 0)
+      : (activeSearch?.newResultsCount ?? 0),
+  );
+  const bannerRefreshState = $derived(
+    view.kind === "all"
+      ? feedRefreshState
+      : (activeSearch?.refreshState ?? "idle"),
+  );
+
+  function isTabOpen(id: string): boolean {
+    if (id === ALL_TAB) return view.kind === "all";
+    return view.kind === "saved" && view.id === id;
   }
 
   async function loadSavedSearchJobs(id: string) {
@@ -178,10 +203,17 @@
     savedJobs = cached ?? [];
     savedJobsLoading = cached === undefined;
     try {
-      const res = await api.listSavedSearchJobs(id);
-      const fresh = res.items.map(stamp);
+      let fresh: Job[];
+      if (id === ALL_TAB) {
+        const res = await api.getFeed();
+        feedNewCount = res.newCount;
+        fresh = res.items.map(stamp);
+      } else {
+        const res = await api.listSavedSearchJobs(id);
+        fresh = res.items.map(stamp);
+      }
       savedJobsByTab = new Map(savedJobsByTab).set(id, fresh);
-      if (view.kind === "saved" && view.id === id) savedJobs = fresh;
+      if (isTabOpen(id)) savedJobs = fresh;
     } catch {
       if (cached === undefined) toast.error("Impossible de charger cette recherche");
     } finally {
@@ -207,17 +239,30 @@
     }
   }
 
+  function startRefreshPoll() {
+    if (refreshPoll === null) {
+      refreshPoll = setInterval(() => void pollSearches(), 5000);
+    }
+  }
+
   async function requestRefresh() {
-    if (!activeSearch) return;
-    const id = activeSearch.id;
     try {
+      if (view.kind === "all") {
+        const { states } = await api.requestFeedRefresh();
+        savedSearches = savedSearches.map((s, i) => ({
+          ...s,
+          refreshState: states[i] ?? s.refreshState,
+        }));
+        startRefreshPoll();
+        return;
+      }
+      if (!activeSearch) return;
+      const id = activeSearch.id;
       const { state } = await api.requestSearchRefresh(id);
       savedSearches = savedSearches.map((s) =>
         s.id === id ? { ...s, refreshState: state } : s,
       );
-      if (refreshPoll === null) {
-        refreshPoll = setInterval(() => void pollSearches(), 5000);
-      }
+      startRefreshPoll();
     } catch {
       toast.error("Impossible de lancer le rafraîchissement");
     }
@@ -228,6 +273,15 @@
   });
 
   async function showNewResults() {
+    if (view.kind === "all") {
+      await loadSavedSearchJobs(ALL_TAB);
+      feedNewCount = 0;
+      savedSearches = savedSearches.map((s) => ({ ...s, newResultsCount: 0 }));
+      api.markFeedSeen().catch(() => {
+        toast.error("Impossible de marquer les recherches comme vues");
+      });
+      return;
+    }
     if (!activeSearch) return;
     const id = activeSearch.id;
     await loadSavedSearchJobs(id);
@@ -253,6 +307,7 @@
     if (current.kind === "new") return;
     untrack(() => {
       if (current.kind === "suivi") void refreshTracked();
+      else if (current.kind === "all") void loadSavedSearchJobs(ALL_TAB);
       else void loadSavedSearchJobs(current.id);
     });
   });
@@ -358,7 +413,7 @@
   let sourceJobs = $derived(
     view.kind === "suivi"
       ? trackedJobs
-      : view.kind === "saved"
+      : view.kind === "saved" || view.kind === "all"
         ? savedJobs
         : jobs,
   );
@@ -689,7 +744,7 @@
     const [lng, lat] = [c.lng, c.lat];
     const newSearchCenter: [number, number] = [lat, lng];
     const place = await reverseGeocode(lat, lng);
-    locations = [place ?? `Autour de ${lat.toFixed(3)}, ${lng.toFixed(3)}`];
+    location = place ?? `Autour de ${lat.toFixed(3)}, ${lng.toFixed(3)}`;
     searchCenter = newSearchCenter;
     goto(`?${criteriaParams()}`);
     startStream({ skipGeocode: true });
@@ -741,9 +796,10 @@
   style="--bar: {barHeight}px"
 >
   <TopBar
-    bind:queries
-    bind:locations
+    bind:query
+    bind:location
     {view}
+    {feedNewCount}
     {openView}
     {search}
     {searching}
@@ -831,10 +887,12 @@
   >
     {#if listVisible}
       <JobList
-        newResultsCount={activeSearch?.newResultsCount ?? 0}
+        newResultsCount={bannerCount}
         onShowNewResults={showNewResults}
-        refreshState={activeSearch?.refreshState ?? "idle"}
-        onRequestRefresh={activeSearch ? requestRefresh : undefined}
+        refreshState={bannerRefreshState}
+        onRequestRefresh={activeSearch || view.kind === "all"
+          ? requestRefresh
+          : undefined}
         loading={savedJobsLoading}
         jobs={filteredJobs}
         {skills}

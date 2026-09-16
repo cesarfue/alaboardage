@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { Bookmark, ClipboardList, Funnel, Pencil, User, LogOut, Search } from "@lucide/svelte";
+  import { Bookmark, ClipboardList, Funnel, Layers, Pencil, User, LogOut, Search } from "@lucide/svelte";
   import FiltersPanel from "$lib/components/FiltersPanel.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
   import SearchEditor from "$lib/components/SearchEditor.svelte";
-  import CriteriaInput from "$lib/components/CriteriaInput.svelte";
   import { toast } from "svelte-sonner";
   import type { SavedSearch, Skill, View } from "$lib/types";
   import { clearToken } from "$lib/auth";
@@ -11,9 +10,10 @@
   import { api } from "$lib/api";
 
   let {
-    queries = $bindable<string[]>([]),
-    locations = $bindable<string[]>([]),
+    query = $bindable(""),
+    location = $bindable(""),
     view,
+    feedNewCount = null,
     search,
     searching,
     skills = $bindable(),
@@ -24,9 +24,10 @@
     barHeight = $bindable(0),
     openView,
   }: {
-    queries?: string[];
-    locations?: string[];
+    query?: string;
+    location?: string;
     view: View;
+    feedNewCount?: number | null;
     search: () => void;
     searching: boolean;
     skills: Skill[];
@@ -102,23 +103,22 @@
     }
   }
 
-  let queryDraft = $state("");
-  let locationDraft = $state("");
+  const totalNew = $derived(
+    feedNewCount ??
+      savedSearches.reduce((sum, s) => sum + (s.newResultsCount ?? 0), 0),
+  );
 
   let editing = $state<{ id: string | null } | null>(null);
   let editorName = $state("");
-  let editorQueries = $state<string[]>([]);
-  let editorLocations = $state<string[]>([]);
+  let editorQuery = $state("");
+  let editorLocation = $state("");
 
   function openEditor(s?: SavedSearch) {
     editing = { id: s?.id ?? null };
-    editorQueries = s ? [...s.queries] : [...queries];
-    editorLocations = s ? [...s.locations] : [...locations];
+    editorQuery = s?.queries[0] ?? query.trim();
+    editorLocation = s?.locations[0] ?? location.trim();
     editorName =
-      s?.name ??
-      [editorQueries.join(", "), editorLocations.join(", ")]
-        .filter(Boolean)
-        .join(" · ");
+      s?.name ?? [editorQuery, editorLocation].filter(Boolean).join(" · ");
     closeAll();
   }
 
@@ -173,6 +173,26 @@
 >
 <div class="flex flex-row items-center gap-1.5 md:gap-2 min-w-0">
   <div class="flex-1 min-w-0 flex flex-row items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    {#if savedSearches.length > 0}
+      <button
+        onclick={() => goTo({ kind: "all" })}
+        class="shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+          {view.kind === 'all'
+            ? 'bg-primary text-primary-foreground'
+            : 'border hover:bg-muted'}"
+        title="Toutes les recherches"
+      >
+        <Layers size={16} />
+        <span>Tout</span>
+        {#if totalNew > 0}
+          <span
+            class="rounded-full bg-background text-foreground text-[10px] font-semibold px-1.5 py-0.5 leading-none"
+          >
+            {formatBadge(totalNew)}
+          </span>
+        {/if}
+      </button>
+    {/if}
     {#each savedSearches as s (s.id)}
       <button
         onclick={() => goTo({ kind: "saved", id: s.id })}
@@ -241,8 +261,8 @@
       <div class="absolute top-full mt-1 z-50 right-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:right-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
         <SearchEditor
           bind:name={editorName}
-          bind:queries={editorQueries}
-          bind:locations={editorLocations}
+          bind:query={editorQuery}
+          bind:location={editorLocation}
           title={editing.id === null
             ? "Enregistrer cette recherche"
             : "Modifier la recherche"}
@@ -298,17 +318,19 @@
 </div>
 {#if view.kind === "new"}
   <div class="flex flex-row items-center gap-1.5 md:gap-2 min-w-0">
-    <CriteriaInput
-      bind:values={queries}
-      bind:draft={queryDraft}
+    <input
+      type="text"
       placeholder="Poste"
-      onEnterEmpty={search}
+      bind:value={query}
+      class="min-w-0 flex-1 border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+      onkeydown={(e) => e.key === "Enter" && search()}
     />
-    <CriteriaInput
-      bind:values={locations}
-      bind:draft={locationDraft}
+    <input
+      type="text"
       placeholder="Lieu"
-      onEnterEmpty={search}
+      bind:value={location}
+      class="min-w-0 flex-1 border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+      onkeydown={(e) => e.key === "Enter" && search()}
     />
     <button
       onclick={search}
@@ -320,7 +342,7 @@
     </button>
     <button
       onclick={() => openEditor()}
-      disabled={queries.length === 0 && locations.length === 0}
+      disabled={!query.trim() && !location.trim()}
       aria-label="Enregistrer cette recherche"
       title="Enregistrer cette recherche"
       class="shrink-0 flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm font-medium
