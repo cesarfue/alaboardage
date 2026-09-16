@@ -103,6 +103,12 @@
       : { ...j, viewed };
   }
 
+  function patchTabCache(patch: (j: Job) => Job) {
+    savedJobsByTab = new Map(
+      [...savedJobsByTab].map(([id, list]) => [id, list.map(patch)]),
+    );
+  }
+
   function markViewed(job: Job) {
     if (viewedIds.has(job.id)) return;
     viewedIds = new Set(viewedIds).add(job.id);
@@ -110,6 +116,7 @@
     jobs = jobs.map(seen);
     trackedJobs = trackedJobs.map(seen);
     savedJobs = savedJobs.map(seen);
+    patchTabCache(seen);
     api.markViewed(job.id).catch(() => {
       toast.error("Impossible de marquer cette offre comme lue");
     });
@@ -125,6 +132,7 @@
   let view = $state<View>({ kind: "new" });
   let trackedJobs = $state<Job[]>([]);
   let savedJobs = $state<Job[]>([]);
+  let savedJobsByTab = $state<Map<string, Job[]>>(new Map());
   let savedJobsLoading = $state(false);
 
   const activeSearch = $derived.by(() => {
@@ -166,12 +174,16 @@
   }
 
   async function loadSavedSearchJobs(id: string) {
-    savedJobsLoading = true;
+    const cached = savedJobsByTab.get(id);
+    savedJobs = cached ?? [];
+    savedJobsLoading = cached === undefined;
     try {
       const res = await api.listSavedSearchJobs(id);
-      if (view.kind === "saved" && view.id === id) savedJobs = res.items.map(stamp);
+      const fresh = res.items.map(stamp);
+      savedJobsByTab = new Map(savedJobsByTab).set(id, fresh);
+      if (view.kind === "saved" && view.id === id) savedJobs = fresh;
     } catch {
-      toast.error("Impossible de charger cette recherche");
+      if (cached === undefined) toast.error("Impossible de charger cette recherche");
     } finally {
       savedJobsLoading = false;
     }
@@ -240,9 +252,6 @@
     const current = view;
     if (current.kind === "new") return;
     untrack(() => {
-      closeStream?.();
-      closeStream = null;
-      searching = false;
       if (current.kind === "suivi") void refreshTracked();
       else void loadSavedSearchJobs(current.id);
     });
@@ -709,6 +718,8 @@
         : j;
 
     jobs = jobs.map(patch);
+    savedJobs = savedJobs.map(patch);
+    patchTabCache(patch);
 
     if (status === undefined) {
       trackedJobs = trackedJobs.filter((j) => j.id !== jobId);
