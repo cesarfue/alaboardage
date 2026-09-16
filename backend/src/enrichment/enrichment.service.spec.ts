@@ -27,9 +27,11 @@ function makeService(): { svc: EnrichmentService; priv: ServicePrivates } {
     communeToScope: Map<string, { dep: string; reg: string }>;
     regionToCode: Map<string, string>;
     communePop: Map<string, number>;
+    sireneAvailable: boolean;
   };
   priv.communeToScope.set('lyon', { dep: '69', reg: '84' });
   priv.regionToCode.set('auvergne rhone alpes', '84');
+  priv.sireneAvailable = true;
   return { svc, priv };
 }
 
@@ -144,5 +146,19 @@ describe('EnrichmentService.findEstablishment national guard', () => {
       type: 'national',
     });
     expect(result).not.toBeNull();
+  });
+
+  it('returns null without querying when the SIRENE table is absent', async () => {
+    const { priv } = makeService();
+    (priv as unknown as { sireneAvailable: boolean }).sireneAvailable = false;
+    const fts = jest.fn<Promise<unknown>, [string, unknown]>();
+    priv.queryLocalFts = fts;
+    priv.queryLocal = fts;
+
+    const result = await priv.findEstablishment('Jobs that makesense', {
+      type: 'national',
+    });
+    expect(result).toBeNull();
+    expect(fts).not.toHaveBeenCalled();
   });
 });
