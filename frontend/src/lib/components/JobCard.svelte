@@ -29,15 +29,23 @@
 </script>
 
 <article
-  class="px-4 py-3 cursor-pointer border-b last:border-b-0 hover:bg-muted transition-colors {selected ? 'border-l-2 border-primary' : 'border-l-2 border-transparent'} {active ? 'bg-muted' : ''}"
+  class="px-4 py-3 cursor-pointer border-b last:border-b-0 transition-colors {selected
+    ? 'border-l-2 border-primary'
+    : 'border-l-2 border-transparent'} {dimmed
+    ? active
+      ? 'bg-foreground/12'
+      : 'bg-foreground/7 hover:bg-foreground/12'
+    : active
+      ? 'bg-muted'
+      : 'hover:bg-muted'}"
   onmouseenter={() => onHover?.(job)}
   onmouseleave={() => onHover?.(null)}
   onclick={() => onSelect?.(job)}
 >
-  <p class="font-medium truncate {dimmed ? 'text-muted-foreground' : ''}">
+  <p class="font-medium truncate {dimmed ? 'font-normal text-foreground/70' : ''}">
     {job.title}
   </p>
-  <p class="text-sm text-muted-foreground truncate {dimmed ? 'opacity-70' : ''}">
+  <p class="text-sm text-muted-foreground truncate">
     {job.company} · {job.establishment?.city ?? job.location}
   </p>
   {#if job.interactionStatus}
