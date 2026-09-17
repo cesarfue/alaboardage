@@ -67,6 +67,7 @@ export interface SavedSearch {
   location: string;
   queries: string[];
   locations: string[];
+  position: number;
   createdAt: string;
   emailAlerts: boolean;
   lastCheckedAt: string | null;
@@ -76,6 +77,11 @@ export interface SavedSearch {
   // (create/update/markSeen) return the plain DB row without the count —
   // callers assemble the view field client-side.
   newResultsCount?: number;
+}
+
+export interface Preferences {
+  lastView: View | null;
+  listAnchors: Record<string, string>;
 }
 
 export type SkillLevel = 'primary' | 'secondary';

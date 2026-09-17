@@ -25,10 +25,11 @@
   } = $props();
 
   let matched = $derived(matchedSkills(job, skills).slice(0, 4));
-  let dimmed = $derived(!!job.viewed && !job.interactionStatus);
+  let dimmed = $derived(!!job.viewed || !!job.interactionStatus);
 </script>
 
 <article
+  data-job-id={job.id}
   class="px-4 py-3 cursor-pointer border-b last:border-b-0 transition-colors {selected
     ? 'border-l-2 border-primary'
     : 'border-l-2 border-transparent'} {dimmed

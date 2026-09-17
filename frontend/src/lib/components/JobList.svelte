@@ -15,6 +15,9 @@
     onShowNewResults,
     onRequestRefresh,
     statusFilter = $bindable(null),
+    anchorKey = null,
+    anchorJobId = null,
+    onAnchorChange,
     onHover,
     onSelect,
   }: {
@@ -29,9 +32,60 @@
     onShowNewResults?: () => void;
     onRequestRefresh?: () => void;
     statusFilter?: InteractionStatus | null;
+    anchorKey?: string | null;
+    anchorJobId?: string | null;
+    onAnchorChange?: (jobId: string) => void;
     onHover?: (job: Job | null) => void;
     onSelect?: (job: Job) => void;
   } = $props();
+
+  let container = $state<HTMLDivElement | null>(null);
+  let restoredFor: string | null = null;
+  let lastReported: string | null = null;
+  let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function firstVisibleJobId(): string | null {
+    if (!container) return null;
+    const top = container.getBoundingClientRect().top;
+    for (const el of container.querySelectorAll<HTMLElement>("[data-job-id]")) {
+      if (el.getBoundingClientRect().bottom > top + 1) return el.dataset.jobId ?? null;
+    }
+    return null;
+  }
+
+  function handleScroll() {
+    if (restoredFor !== anchorKey) return;
+    if (scrollTimer) clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      const id = firstVisibleJobId();
+      if (!id || id === lastReported) return;
+      lastReported = id;
+      onAnchorChange?.(id);
+    }, 400);
+  }
+
+  $effect(() => {
+    const key = anchorKey;
+    const target = anchorJobId;
+    const count = jobs.length;
+    if (!container || key === null || loading || restoredFor === key) return;
+    lastReported = null;
+    if (!target) {
+      restoredFor = key;
+      container.scrollTop = 0;
+      return;
+    }
+    const el = container.querySelector(`[data-job-id="${CSS.escape(target)}"]`);
+    if (el) {
+      container.scrollTop +=
+        el.getBoundingClientRect().top - container.getBoundingClientRect().top;
+      restoredFor = key;
+      lastReported = target;
+    } else if (count > 0) {
+      restoredFor = key;
+      container.scrollTop = 0;
+    }
+  });
 
   const chips: { label: string; value: InteractionStatus | null }[] = [
     { label: "Tout", value: null },
@@ -95,7 +149,11 @@
       {newResultsCount} nouveau{newResultsCount > 1 ? "x" : ""} résultat{newResultsCount > 1 ? "s" : ""}
     </button>
   {/if}
-  <div class="flex-1 overflow-y-auto pb-20 md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+  <div
+    bind:this={container}
+    onscroll={handleScroll}
+    class="flex-1 overflow-y-auto pb-20 md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+  >
     {#each jobs as job (job.id)}
       <JobCard {job} {skills} active={job.id === activeJob?.id} selected={job.id === selectedJobId} {onHover} {onSelect} />
     {/each}

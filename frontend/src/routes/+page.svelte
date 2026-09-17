@@ -4,6 +4,7 @@
   import type {
     InteractionStatus,
     Job,
+    Preferences,
     RefreshState,
     SavedSearch,
     Skill,
@@ -163,27 +164,68 @@
     } catch {
       view = next;
     }
+    if (getToken()) api.updatePreferences({ lastView: next }).catch(() => {});
   }
 
-  function restoreView() {
-    let stored: View | null = null;
+  function restoreView(preferred: View | null) {
+    let stored: View | null;
     try {
       stored = JSON.parse(localStorage.getItem(VIEW_KEY) ?? "null") as View;
     } catch {
       stored = null;
     }
-    if (
-      stored?.kind === "saved" &&
-      savedSearches.some((s) => s.id === stored.id)
-    ) {
-      view = stored;
-      return;
-    }
-    if (stored?.kind === "suivi" || stored?.kind === "all") {
-      view = stored;
+    for (const candidate of [preferred, stored]) {
+      if (!candidate) continue;
+      if (candidate.kind === "saved") {
+        if (savedSearches.some((s) => s.id === candidate.id)) {
+          view = candidate;
+          return;
+        }
+        continue;
+      }
+      view = candidate;
       return;
     }
     view = savedSearches.length > 0 ? { kind: "all" } : { kind: "new" };
+  }
+
+  const ANCHORS_KEY = "listAnchors";
+  let listAnchors = $state<Record<string, string>>({});
+  let anchorTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function viewKey(v: View): string {
+    return v.kind === "saved" ? `saved:${v.id}` : v.kind;
+  }
+
+  const currentAnchorKey = $derived(viewKey(view));
+  const currentAnchor = $derived(listAnchors[currentAnchorKey] ?? null);
+
+  function localAnchors(): Record<string, string> {
+    try {
+      const parsed: unknown = JSON.parse(localStorage.getItem(ANCHORS_KEY) ?? "{}");
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+      return Object.fromEntries(
+        Object.entries(parsed).filter(([, v]) => typeof v === "string"),
+      ) as Record<string, string>;
+    } catch {
+      return {};
+    }
+  }
+
+  function rememberAnchor(jobId: string) {
+    const tab = viewKey(view);
+    if (listAnchors[tab] === jobId) return;
+    listAnchors = { ...listAnchors, [tab]: jobId };
+    try {
+      localStorage.setItem(ANCHORS_KEY, JSON.stringify(listAnchors));
+    } catch {
+      listAnchors = { ...listAnchors };
+    }
+    if (!getToken()) return;
+    if (anchorTimer) clearTimeout(anchorTimer);
+    anchorTimer = setTimeout(() => {
+      api.updatePreferences({ anchor: { tab, jobId } }).catch(() => {});
+    }, 1000);
   }
 
   const ALL_TAB = "__all__";
@@ -396,7 +438,11 @@
       }
     }
 
-    if (!query && !location) restoreView();
+    let prefs: Preferences | null = null;
+    if (getToken()) prefs = await api.getPreferences().catch(() => null);
+    listAnchors = { ...localAnchors(), ...(prefs?.listAnchors ?? {}) };
+
+    if (!query && !location) restoreView(prefs?.lastView ?? null);
 
     if (query || location) {
       // Geocode on initial page load so radius filter uses the searched city, not the map center
@@ -915,6 +961,9 @@
         {activeJob}
         selectedJobId={selectedJob?.id ?? null}
         showChips={view.kind === "suivi"}
+        anchorKey={currentAnchorKey}
+        anchorJobId={currentAnchor}
+        onAnchorChange={rememberAnchor}
         bind:statusFilter
         onSelect={(job) => {
           selectedJob = job;

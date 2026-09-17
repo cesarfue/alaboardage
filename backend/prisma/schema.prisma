@@ -119,6 +119,13 @@ model User {
   createdAt    DateTime @default(now())
 }
 
+model UserPreference {
+  userId      String   @id
+  lastView    Json?
+  listAnchors Json     @default("{}")
+  updatedAt   DateTime @updatedAt
+}
+
 model SavedSearch {
   id            String    @id @default(cuid())
   userId        String
@@ -127,6 +134,7 @@ model SavedSearch {
   location      String
   queries       String[]
   locations     String[]
+  position      Int       @default(0)
   createdAt     DateTime  @default(now())
   emailAlerts   Boolean   @default(true)
   lastAlertAt   DateTime?

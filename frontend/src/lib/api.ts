@@ -1,4 +1,4 @@
-import type { InteractionStatus, Job, ListJobsResponse, RefreshState, SavedSearch, SearchOrListRequest, Skill } from "./types";
+import type { InteractionStatus, Job, ListJobsResponse, Preferences, RefreshState, SavedSearch, SearchOrListRequest, Skill, View } from "./types";
 import { getToken, clearToken } from "./auth";
 
 const BASE = "/api";
@@ -186,6 +186,27 @@ export const api = {
     },
   ): Promise<SavedSearch> {
     return request<SavedSearch>(`/searches/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+  },
+
+  reorderSearches(ids: string[]): Promise<void> {
+    return request<void>("/searches/order", {
+      method: "PUT",
+      body: JSON.stringify({ ids }),
+    });
+  },
+
+  getPreferences(): Promise<Preferences> {
+    return request<Preferences>("/preferences");
+  },
+
+  updatePreferences(patch: {
+    lastView?: View;
+    anchor?: { tab: string; jobId: string | null };
+  }): Promise<Preferences> {
+    return request<Preferences>("/preferences", {
       method: "PATCH",
       body: JSON.stringify(patch),
     });

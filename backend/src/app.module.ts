@@ -14,6 +14,7 @@ import { UsersModule } from './users/users.module';
 import { SearchesModule } from './searches/searches.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { SearchRefreshModule } from './search-refresh/search-refresh.module';
+import { PreferencesModule } from './preferences/preferences.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { SearchRefreshModule } from './search-refresh/search-refresh.module';
     SearchesModule,
     AlertsModule,
     SearchRefreshModule,
+    PreferencesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
