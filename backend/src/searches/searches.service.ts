@@ -26,7 +26,7 @@ export class SearchesService {
   async getSavedSearches(userId: string): Promise<SavedSearchWithCount[]> {
     const searches = await this.prisma.savedSearch.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ position: 'asc' }, { createdAt: 'desc' }],
     });
 
     // `lastSeenAt === null` → treat all matching jobs as new
@@ -47,7 +47,8 @@ export class SearchesService {
     );
   }
 
-  createSavedSearch(userId: string, dto: CreateSearchDto) {
+  async createSavedSearch(userId: string, dto: CreateSearchDto) {
+    const position = await this.prisma.savedSearch.count({ where: { userId } });
     return this.prisma.savedSearch.create({
       data: {
         userId,
@@ -56,8 +57,20 @@ export class SearchesService {
         locations: dto.locations,
         query: dto.queries[0],
         location: dto.locations[0],
+        position,
       },
     });
+  }
+
+  async reorder(userId: string, ids: string[]): Promise<void> {
+    await this.prisma.$transaction(
+      ids.map((id, position) =>
+        this.prisma.savedSearch.updateMany({
+          where: { id, userId },
+          data: { position },
+        }),
+      ),
+    );
   }
 
   async updateSavedSearch(

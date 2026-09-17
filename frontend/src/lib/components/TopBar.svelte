@@ -139,7 +139,7 @@
     try {
       if (target.id === null) {
         const created = await api.saveSearch(v.name, v.queries, v.locations);
-        savedSearches = [{ ...created, newResultsCount: 0 }, ...savedSearches];
+        savedSearches = [...savedSearches, { ...created, newResultsCount: 0 }];
         goTo({ kind: "saved", id: created.id });
       } else {
         const updated = await api.updateSavedSearch(target.id, v);
@@ -150,6 +150,24 @@
       }
     } catch {
       toast.error("Impossible d'enregistrer cette recherche");
+    }
+  }
+
+  const activeIndex = $derived(
+    activeSearch ? savedSearches.findIndex((s) => s.id === activeSearch.id) : -1,
+  );
+
+  async function moveSearch(id: string, delta: number) {
+    const index = savedSearches.findIndex((s) => s.id === id);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= savedSearches.length) return;
+    const next = [...savedSearches];
+    [next[index], next[target]] = [next[target], next[index]];
+    savedSearches = next.map((s, position) => ({ ...s, position }));
+    try {
+      await api.reorderSearches(next.map((s) => s.id));
+    } catch {
+      toast.error("Impossible de réordonner les onglets");
     }
   }
 
@@ -249,7 +267,7 @@
   <div class="relative shrink-0">
     {#if activeSearch}
       <button
-        onclick={() => openEditor(activeSearch)}
+        onclick={() => (editing ? (editing = null) : openEditor(activeSearch))}
         class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {editing ? 'bg-muted' : ''}"
         title="Modifier cette recherche"
         aria-label="Modifier cette recherche"
@@ -270,6 +288,14 @@
           emailAlerts={activeSearch?.emailAlerts ?? true}
           onToggleAlerts={activeSearch
             ? () => toggleEmailAlerts(activeSearch)
+            : undefined}
+          onMoveLeft={editing.id !== null && activeSearch && activeIndex > 0
+            ? () => moveSearch(activeSearch.id, -1)
+            : undefined}
+          onMoveRight={editing.id !== null &&
+          activeSearch &&
+          activeIndex < savedSearches.length - 1
+            ? () => moveSearch(activeSearch.id, 1)
             : undefined}
           onDelete={editing.id === null
             ? undefined

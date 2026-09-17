@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Bell, BellOff, Trash2, X } from "@lucide/svelte";
+  import { ArrowLeft, ArrowRight, Bell, BellOff, Trash2, X } from "@lucide/svelte";
 
   let {
     name = $bindable(""),
@@ -9,6 +9,8 @@
     submitLabel,
     emailAlerts = true,
     onToggleAlerts,
+    onMoveLeft,
+    onMoveRight,
     onDelete,
     onSubmit,
     onClose,
@@ -20,6 +22,8 @@
     submitLabel: string;
     emailAlerts?: boolean;
     onToggleAlerts?: () => void;
+    onMoveLeft?: () => void;
+    onMoveRight?: () => void;
     onDelete?: () => void;
     onSubmit: (v: {
       name: string;
@@ -117,6 +121,30 @@
         Alertes email désactivées
       {/if}
     </button>
+  {/if}
+
+  {#if onMoveLeft || onMoveRight}
+    <div class="flex items-center gap-2 text-sm">
+      <span class="flex-1 text-muted-foreground">Position de l'onglet</span>
+      <button
+        onclick={() => onMoveLeft?.()}
+        disabled={!onMoveLeft}
+        aria-label="Déplacer l'onglet vers la gauche"
+        title="Déplacer vers la gauche"
+        class="border rounded-lg p-2 hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <ArrowLeft size={14} />
+      </button>
+      <button
+        onclick={() => onMoveRight?.()}
+        disabled={!onMoveRight}
+        aria-label="Déplacer l'onglet vers la droite"
+        title="Déplacer vers la droite"
+        class="border rounded-lg p-2 hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <ArrowRight size={14} />
+      </button>
+    </div>
   {/if}
 
   <button

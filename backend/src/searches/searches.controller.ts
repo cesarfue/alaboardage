@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import { SearchesService } from './searches.service';
 import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
 import { CreateSearchDto } from './dto/create-search.dto';
 import { UpdateSearchDto } from './dto/update-search.dto';
+import { ReorderSearchesDto } from './dto/reorder-searches.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -35,6 +37,12 @@ export class SearchesController {
     @Body() dto: CreateSearchDto,
   ) {
     return this.searchesService.createSavedSearch(user.sub, dto);
+  }
+
+  @Put('searches/order')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  reorder(@CurrentUser() user: JwtPayload, @Body() dto: ReorderSearchesDto) {
+    return this.searchesService.reorder(user.sub, dto.ids);
   }
 
   @Patch('searches/:id')

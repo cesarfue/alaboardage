@@ -22,9 +22,11 @@ describe('SearchesService', () => {
         findMany: jest.fn(),
         findFirst: jest.fn(),
         create: jest.fn(),
+        count: jest.fn(),
         updateMany: jest.fn(),
         deleteMany: jest.fn(),
       },
+      $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     jobsMock = {
       countMatchingSince: jest.fn().mockResolvedValue(0),
@@ -152,6 +154,36 @@ describe('SearchesService', () => {
       await expect(service.markSeen('user-1', 'ghost')).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+  });
+
+  describe('createSavedSearch', () => {
+    it('places the new search last', async () => {
+      prismaMock.savedSearch.count.mockResolvedValue(3);
+      prismaMock.savedSearch.create.mockResolvedValue({ id: 's4' });
+
+      await service.createSavedSearch('user-1', {
+        name: 'n',
+        queries: ['ts'],
+        locations: ['Paris'],
+      });
+
+      const data = prismaMock.savedSearch.create.mock.calls[0][0].data;
+      expect(data.position).toBe(3);
+    });
+  });
+
+  describe('reorder', () => {
+    it('writes one position per id, scoped to the user', async () => {
+      await service.reorder('user-1', ['s2', 's1']);
+
+      const calls = prismaMock.savedSearch.updateMany.mock.calls.map(
+        (c: any[]) => c[0],
+      );
+      expect(calls).toEqual([
+        { where: { id: 's2', userId: 'user-1' }, data: { position: 0 } },
+        { where: { id: 's1', userId: 'user-1' }, data: { position: 1 } },
+      ]);
     });
   });
 
