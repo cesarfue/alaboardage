@@ -40,4 +40,5 @@ jobs:
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
       - run: npm run lint
+      - run: npm run build
       - run: npm test -- --testPathIgnorePatterns=test/scrapers --passWithNoTests

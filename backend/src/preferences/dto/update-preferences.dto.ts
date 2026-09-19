@@ -9,11 +9,11 @@ import {
 
 export class ListAnchorDto {
   @IsString()
-  tab: string;
+  tab!: string;
 
   @ValidateIf((o: ListAnchorDto) => o.jobId !== null)
   @IsString()
-  jobId: string | null;
+  jobId!: string | null;
 }
 
 export class UpdatePreferencesDto {

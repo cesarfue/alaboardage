@@ -4,5 +4,5 @@ export class ReorderSearchesDto {
   @IsArray()
   @ArrayNotEmpty()
   @IsString({ each: true })
-  ids: string[];
+  ids!: string[];
 }
