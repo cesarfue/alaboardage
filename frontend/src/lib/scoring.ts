@@ -34,6 +34,23 @@ export function scoreJob(
 	return total;
 }
 
+const RANK_HALF_LIFE_DAYS = 7;
+const RANK_FRESHNESS_FLOOR = 0.25;
+
+export function rankJob(
+	job: { title: string; description: string; datePosted: string },
+	skills: Skill[],
+	now: number = Date.now()
+): number {
+	const posted = new Date(job.datePosted).getTime();
+	const ageDays = isNaN(posted) ? 0 : Math.max(0, (now - posted) / 86_400_000);
+	const freshness = Math.max(
+		RANK_FRESHNESS_FLOOR,
+		Math.pow(0.5, ageDays / RANK_HALF_LIFE_DAYS)
+	);
+	return (scoreJob(job, skills) + 1) * freshness;
+}
+
 export function matchedSkills(
 	job: { title: string; description: string },
 	skills: Skill[]

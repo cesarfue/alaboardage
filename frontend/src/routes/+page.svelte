@@ -10,7 +10,7 @@
     Skill,
     View,
   } from "$lib/types";
-  import { scoreJob } from "$lib/scoring";
+  import { rankJob } from "$lib/scoring";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
   import { onDestroy, onMount, untrack } from "svelte";
@@ -483,7 +483,7 @@
       ? [...sourceJobs].sort((a, b) =>
           (b.interactionAt ?? "").localeCompare(a.interactionAt ?? ""),
         )
-      : [...sourceJobs].sort((a, b) => scoreJob(b, skills) - scoreJob(a, skills)),
+      : [...sourceJobs].sort((a, b) => rankJob(b, skills) - rankJob(a, skills)),
   );
 
   let mappedJobs = $derived(
