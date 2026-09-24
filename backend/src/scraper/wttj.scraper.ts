@@ -14,6 +14,7 @@
 import type { ScrapeRequestDto } from './dto/scrape-request.dto';
 import type { CreateJobDto } from '../jobs/dto/create-job.dto';
 import { JobSource } from '../../generated/prisma/enums';
+import { htmlToText } from './transforms';
 
 const ALGOLIA_APP_ID = 'CSEKHVMS53';
 const ALGOLIA_API_KEY = '4bd8f6215d0cc52b26430765769e65a0';
@@ -63,15 +64,37 @@ export class WTTJScraper {
       const response = await this.queryAlgolia(page, hitsPerPage);
       if (response.hits.length === 0) break;
 
-      const jobs = response.hits
+      const pairs = response.hits
         .slice(0, this.params.limit - emitted)
-        .map((hit) => this.hitToJob(hit))
-        .filter((j): j is CreateJobDto => j !== null);
+        .map((hit) => ({ hit, job: this.hitToJob(hit) }))
+        .filter(
+          (p): p is { hit: AlgoliaHit; job: CreateJobDto } => p.job !== null,
+        );
 
-      // Emit hits from this page in parallel — Algolia has no per-job detail
-      // fetch, so all jobs are ready at once.
-      await Promise.all(jobs.map((job) => onJob(job)));
-      emitted += jobs.length;
+      const batchSize = 10;
+      for (let i = 0; i < pairs.length; i += batchSize) {
+        if (this.signal?.aborted) break;
+        if (i > 0) {
+          await new Promise((r) => setTimeout(r, 200 + Math.random() * 300));
+        }
+        const batch = pairs.slice(i, i + batchSize);
+        const details = await Promise.all(
+          batch.map((p) =>
+            this.fetchFullDescription(
+              p.hit.organization.slug,
+              p.hit.slug,
+            ).catch(() => ''),
+          ),
+        );
+        await Promise.all(
+          batch.map((p, idx) =>
+            onJob(
+              details[idx] ? { ...p.job, description: details[idx] } : p.job,
+            ),
+          ),
+        );
+        emitted += batch.length;
+      }
 
       if (this.params.singlePage || page >= response.nbPages - 1) break;
       page++;
@@ -141,6 +164,30 @@ export class WTTJScraper {
       url,
       datePosted: hit.published_at ? new Date(hit.published_at) : new Date(),
     };
+  }
+
+  private async fetchFullDescription(
+    orgSlug: string,
+    jobSlug: string,
+  ): Promise<string> {
+    const res = await fetch(
+      `https://api.welcometothejungle.com/api/v1/organizations/${orgSlug}/jobs/${jobSlug}`,
+      {
+        headers: {
+          Referer: WTTJ_BASE + '/',
+          Origin: WTTJ_BASE,
+        },
+        signal: this.signal ?? undefined,
+      },
+    );
+    if (!res.ok) return '';
+    const data = (await res.json()) as {
+      job?: { description?: string | null; profile?: string | null };
+    };
+    const parts = [data.job?.description, data.job?.profile].filter(
+      (p): p is string => !!p,
+    );
+    return parts.map(htmlToText).join('\n\n');
   }
 
   /** Extract the first token before a comma: "Lyon, France" → "Lyon" */

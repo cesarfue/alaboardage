@@ -4,7 +4,7 @@ import { load } from 'cheerio';
  * Convert a Hellowork description HTML snippet to plain text.
  * Block-level tags become newlines; <li> items become bullet lines.
  */
-function htmlToText(html: string): string {
+export function htmlToText(html: string): string {
   const $ = load(html);
   $('br').replaceWith('\n');
   $('li').each((_, el) => {
