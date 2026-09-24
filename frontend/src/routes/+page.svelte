@@ -497,8 +497,8 @@
         byKey.set(key, copy);
         order.push(copy);
       } else if (
-        j.url !== rep.url &&
-        !rep.alternates!.some((a) => a.url === j.url)
+        j.source !== rep.source &&
+        !rep.alternates!.some((a) => a.source === j.source)
       ) {
         rep.alternates!.push({ source: j.source, url: j.url });
       }
