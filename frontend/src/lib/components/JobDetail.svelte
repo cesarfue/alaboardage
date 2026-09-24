@@ -135,14 +135,24 @@
       {interactionFormatted}
     </p>
   {/if}
-  <div class="px-4 pb-4">
+  <div class="px-4 pb-4 flex flex-col gap-2">
     <a
       href={job.url}
       target="_blank"
       rel="noopener noreferrer"
       class="block w-full text-center bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
     >
-      Voir l'offre →
+      Voir l'offre ({READABLE_SOURCES[job.source]}) →
     </a>
+    {#each job.alternates ?? [] as alt (alt.url)}
+      <a
+        href={alt.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="block w-full text-center border rounded-lg px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
+      >
+        Voir sur {READABLE_SOURCES[alt.source]} →
+      </a>
+    {/each}
   </div>
 </div>

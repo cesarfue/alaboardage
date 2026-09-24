@@ -486,8 +486,28 @@
       : [...sourceJobs].sort((a, b) => rankJob(b, skills) - rankJob(a, skills)),
   );
 
+  let groupedJobs = $derived.by(() => {
+    const byKey = new Map<string, Job>();
+    const order: Job[] = [];
+    for (const j of sortedJobs) {
+      const key = normalizeText(j.company) + "|" + normalizeText(j.title);
+      const rep = byKey.get(key);
+      if (!rep) {
+        const copy: Job = { ...j, alternates: [] };
+        byKey.set(key, copy);
+        order.push(copy);
+      } else if (
+        j.url !== rep.url &&
+        !rep.alternates!.some((a) => a.url === j.url)
+      ) {
+        rep.alternates!.push({ source: j.source, url: j.url });
+      }
+    }
+    return order;
+  });
+
   let mappedJobs = $derived(
-    sortedJobs.filter(
+    groupedJobs.filter(
       (j) =>
         j.establishment &&
         j.establishment.lat != null &&

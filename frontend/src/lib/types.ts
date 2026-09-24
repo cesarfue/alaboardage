@@ -26,6 +26,7 @@ export interface Job {
   interactionStatus?: InteractionStatus;
   interactionAt?: string;
   viewed?: boolean;
+  alternates?: { source: JobSource; url: string }[];
 }
 
 export interface SearchOrListRequest {

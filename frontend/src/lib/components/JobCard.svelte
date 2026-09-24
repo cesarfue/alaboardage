@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { InteractionStatus, Job, Skill } from "$lib/types";
+  import { READABLE_SOURCES } from "$lib/types";
   import { matchedSkills } from "$lib/scoring";
 
   const STATUS_LABEL: Record<InteractionStatus, string> = {
@@ -49,6 +50,13 @@
   <p class="text-sm text-muted-foreground truncate">
     {job.company} · {job.establishment?.city ?? job.location}
   </p>
+  {#if (job.alternates ?? []).length > 0}
+    <p class="text-xs text-muted-foreground truncate mt-0.5">
+      {[job.source, ...job.alternates!.map((a) => a.source)]
+        .map((s) => READABLE_SOURCES[s])
+        .join(" · ")}
+    </p>
+  {/if}
   {#if job.interactionStatus}
     <p class="text-xs mt-1">
       <span class="font-medium text-primary">
