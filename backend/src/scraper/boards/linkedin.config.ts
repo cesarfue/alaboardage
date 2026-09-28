@@ -1,5 +1,5 @@
 import type { BoardConfig } from '../types';
-import { linkedinId } from '../transforms';
+import { htmlToText, linkedinId } from '../transforms';
 
 export const LINKEDIN: BoardConfig = {
   name: 'LinkedIn',
@@ -31,7 +31,8 @@ export const LINKEDIN: BoardConfig = {
     },
     description: {
       selects: 'div.show-more-less-html__markup',
-      returns: { kind: 'text' },
+      returns: { kind: 'html' },
+      transforms: htmlToText,
     },
     datePosted: {
       selects: 'time.job-search-card__listdate',

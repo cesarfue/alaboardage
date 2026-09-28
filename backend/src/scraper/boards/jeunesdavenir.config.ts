@@ -1,5 +1,5 @@
 import type { BoardConfig } from '../types';
-import { jeunesdavenirsGtm, jeunesdavenirsId } from '../transforms';
+import { htmlToText, jeunesdavenirsGtm, jeunesdavenirsId } from '../transforms';
 
 export const JEUNESDAVENIR: BoardConfig = {
   name: "Jeunes d'Avenirs",
@@ -49,7 +49,8 @@ export const JEUNESDAVENIR: BoardConfig = {
     // Description is fetched from the job detail page.
     description: {
       selects: 'div.wysiwyg',
-      returns: { kind: 'text' },
+      returns: { kind: 'html' },
+      transforms: htmlToText,
     },
   },
   urlParams: {

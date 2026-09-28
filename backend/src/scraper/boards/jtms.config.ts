@@ -1,4 +1,4 @@
-import { handleSpelledDate } from '../transforms';
+import { handleSpelledDate, htmlToText } from '../transforms';
 import type { BoardConfig } from '../types';
 
 export const JTMS: BoardConfig = {
@@ -42,8 +42,9 @@ export const JTMS: BoardConfig = {
           .trim(),
     },
     description: {
-      selects: 'div.job__content',
-      returns: { kind: 'text' },
+      selects: 'main.job__main-content',
+      returns: { kind: 'html' },
+      transforms: htmlToText,
     },
     datePosted: {
       selects: 'span.job__date',

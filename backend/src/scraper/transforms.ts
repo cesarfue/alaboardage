@@ -1,7 +1,6 @@
 import { load } from 'cheerio';
 
 /**
- * Convert a Hellowork description HTML snippet to plain text.
  * Block-level tags become newlines; <li> items become bullet lines.
  */
 export function htmlToText(html: string): string {
@@ -16,6 +15,9 @@ export function htmlToText(html: string): string {
   });
   return $.root()
     .text()
+    .split('\n')
+    .map((line) => line.trim())
+    .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
