@@ -59,40 +59,50 @@ export class ScraperService {
     this.logger.log(`[${label}] START q="${query}" loc="${location}"`);
     try {
       const sources = Object.values(JobSource);
-      await Promise.all(
-        sources.map((source) =>
-          this.scrapeStreaming(
-            {
-              source,
-              query,
-              location,
-              limit: 150,
-              offset: 1,
-              singlePage: false,
-            },
-            signal,
-            async (dtoJob) => {
-              if (signal.aborted) return;
-              const job = await this.jobsService.upsert(dtoJob);
-              if (emittedJobIds.has(job.id)) return;
-              emittedJobIds.add(job.id);
-              const establishment = await this.enrichmentService.enrichJob({
-                id: job.id,
-                company: job.company,
-                location: job.location,
-              });
-              if (!establishment || signal.aborted) return;
-              total++;
-            },
-            label,
-          ).catch((e: Error) => {
-            if (!signal.aborted)
-              this.logger.error(
-                `[${label}] Failed to scrape ${source}: ${e.stack ?? e.message ?? String(e)}`,
-              );
-          }),
-        ),
-      );
+      const browser = await chromium.launch({
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+      try {
+        await Promise.all(
+          sources.map((source) =>
+            this.scrapeStreaming(
+              {
+                source,
+                query,
+                location,
+                limit: 150,
+                offset: 1,
+                singlePage: false,
+              },
+              browser,
+              signal,
+              async (dtoJob) => {
+                if (signal.aborted) return;
+                const job = await this.jobsService.upsert(dtoJob);
+                if (emittedJobIds.has(job.id)) return;
+                emittedJobIds.add(job.id);
+                const establishment = await this.enrichmentService.enrichJob({
+                  id: job.id,
+                  company: job.company,
+                  location: job.location,
+                });
+                if (!establishment || signal.aborted) return;
+                total++;
+              },
+              label,
+            ).catch((e: Error) => {
+              if (!signal.aborted)
+                this.logger.error(
+                  `[${label}] Failed to scrape ${source}: ${e.stack ?? e.message ?? String(e)}`,
+                );
+            }),
+          ),
+        );
+      } finally {
+        await browser.close().catch((e: Error) => {
+          this.logger.warn(`[${label}] browser.close() failed: ${e.message}`);
+        });
+      }
       this.logger.log(
         `[${label}] END total=${total} durationMs=${Date.now() - start}${signal.aborted ? ' (ABORTED)' : ''}`,
       );
@@ -187,54 +197,65 @@ export class ScraperService {
     },
   ): Promise<void> {
     const { signal, label, skills, userId, emittedJobIds, onJob } = ctx;
-    await Promise.all(
-      Object.values(JobSource).map((source) =>
-        this.scrapeStreaming(
-          {
-            source,
-            query: pair.query,
-            location: pair.location,
-            limit: 150,
-            offset: 1,
-            singlePage: false,
-          },
-          signal,
-          async (dtoJob) => {
-            if (signal.aborted) return;
-            const job = await this.jobsService.upsert(dtoJob);
-            if (emittedJobIds.has(job.id)) return;
-            emittedJobIds.add(job.id);
-            const establishment = await this.enrichmentService.enrichJob({
-              id: job.id,
-              company: job.company,
-              location: job.location,
-            });
-            if (!establishment || signal.aborted) return;
-            const score = this.scoringService.scoreJob(job, skills);
-            void this.scoringService
-              .computeAndSave(job, userId)
-              .catch((e: Error) =>
-                this.logger.error(
-                  `[${label}] computeAndSave failed for ${job.id}: ${e.message}`,
-                ),
+    const browser = await chromium.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+    try {
+      await Promise.all(
+        Object.values(JobSource).map((source) =>
+          this.scrapeStreaming(
+            {
+              source,
+              query: pair.query,
+              location: pair.location,
+              limit: 150,
+              offset: 1,
+              singlePage: false,
+            },
+            browser,
+            signal,
+            async (dtoJob) => {
+              if (signal.aborted) return;
+              const job = await this.jobsService.upsert(dtoJob);
+              if (emittedJobIds.has(job.id)) return;
+              emittedJobIds.add(job.id);
+              const establishment = await this.enrichmentService.enrichJob({
+                id: job.id,
+                company: job.company,
+                location: job.location,
+              });
+              if (!establishment || signal.aborted) return;
+              const score = this.scoringService.scoreJob(job, skills);
+              void this.scoringService
+                .computeAndSave(job, userId)
+                .catch((e: Error) =>
+                  this.logger.error(
+                    `[${label}] computeAndSave failed for ${job.id}: ${e.message}`,
+                  ),
+                );
+              onJob({
+                data: { type: 'job', job: { ...job, establishment, score } },
+              });
+            },
+            label,
+          ).catch((e: Error) => {
+            if (!signal.aborted)
+              this.logger.error(
+                `[${label}] Failed to scrape ${source}: ${e.stack ?? e.message ?? String(e)}`,
               );
-            onJob({
-              data: { type: 'job', job: { ...job, establishment, score } },
-            });
-          },
-          label,
-        ).catch((e: Error) => {
-          if (!signal.aborted)
-            this.logger.error(
-              `[${label}] Failed to scrape ${source}: ${e.stack ?? e.message ?? String(e)}`,
-            );
-        }),
-      ),
-    );
+          }),
+        ),
+      );
+    } finally {
+      await browser.close().catch((e: Error) => {
+        this.logger.warn(`[${label}] browser.close() failed: ${e.message}`);
+      });
+    }
   }
 
   private async scrapeStreaming(
     dto: ScrapeRequestDto,
+    browser: Browser,
     signal: AbortSignal,
     onJob: (dto: CreateJobDto) => Promise<void>,
     label = 'anon',
@@ -271,11 +292,7 @@ export class ScraperService {
       `[${label}] > ${config.name} q="${dto.query}" loc="${dto.location}" limit=${dto.limit}`,
     );
 
-    let browser: Browser | null = null;
     try {
-      browser = await chromium.launch({
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
       const scraper = new BoardScraper(
         browser,
         config,
@@ -295,16 +312,6 @@ export class ScraperService {
         `[${label}] × ${config.name} crashed after ${jobCount} jobs in ${Date.now() - boardStart}ms: ${err.stack ?? err.message ?? String(e)}`,
       );
       throw e;
-    } finally {
-      if (browser) {
-        try {
-          await browser.close();
-        } catch (e) {
-          this.logger.warn(
-            `[${label}] ${config.name} browser.close() failed: ${(e as Error).message}`,
-          );
-        }
-      }
     }
   }
 

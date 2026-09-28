@@ -2,9 +2,12 @@ jest.mock('playwright', () => ({ chromium: { launch: jest.fn() } }));
 jest.mock('../../generated/prisma/client', () => ({}));
 jest.mock('../prisma/prisma.service');
 
+import { chromium as chromiumImport } from 'playwright';
 import { firstValueFrom, toArray } from 'rxjs';
 import { ScraperService } from './scraper.service';
 import type { CreateJobDto } from '../jobs/dto/create-job.dto';
+
+const chromium = chromiumImport as unknown as { launch: jest.Mock };
 
 describe('ScraperService', () => {
   let service: ScraperService;
@@ -35,6 +38,9 @@ describe('ScraperService', () => {
       computeAndSave: jest.fn().mockResolvedValue(undefined),
     };
     prismaMock = { skill: { findMany: jest.fn().mockResolvedValue([]) } };
+    chromium.launch.mockReset().mockResolvedValue({
+      close: jest.fn().mockResolvedValue(undefined),
+    });
     service = new ScraperService(
       jobsMock,
       enrichmentMock,
@@ -47,6 +53,7 @@ describe('ScraperService', () => {
     (service as any).scrapeStreaming = jest.fn(
       async (
         _dto: unknown,
+        _browser: unknown,
         _signal: AbortSignal,
         onJob: (dto: CreateJobDto) => Promise<void>,
       ) => {
@@ -86,5 +93,21 @@ describe('ScraperService', () => {
     );
     expect(total).toBe(1);
     expect(enrichmentMock.enrichJob).toHaveBeenCalledTimes(1);
+  });
+
+  it('launches a single shared browser per cron run, not one per source', async () => {
+    stubBoards(['a', 'b']);
+    await service.scrapeAllBoards('dev', 'Paris', new AbortController().signal);
+
+    expect(chromium.launch).toHaveBeenCalledTimes(1);
+    const browserResult = await chromium.launch.mock.results[0].value;
+    expect(browserResult.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('launches a single shared browser per pair in a streamed search', async () => {
+    stubBoards(['a']);
+    await streamedJobIds();
+
+    expect(chromium.launch).toHaveBeenCalledTimes(1);
   });
 });
