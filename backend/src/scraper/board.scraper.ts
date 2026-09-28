@@ -3,7 +3,10 @@ import type { Browser, BrowserContext, Page } from 'playwright';
 import type { BoardConfig, Rule } from './types';
 import type { ScrapeRequestDto } from './dto/scrape-request.dto';
 import type { CreateJobDto } from '../jobs/dto/create-job.dto';
+import type { KnownJob } from '../jobs/jobs.service';
 import { parseDate } from './transforms';
+
+const FRESHNESS_MS = 14 * 24 * 60 * 60 * 1000;
 
 export class BoardScraper {
   constructor(
@@ -12,6 +15,10 @@ export class BoardScraper {
     private readonly params: ScrapeRequestDto,
     private readonly source: CreateJobDto['source'],
     private readonly signal?: AbortSignal,
+    private readonly findKnown: (
+      externalIds: string[],
+    ) => Promise<Map<string, KnownJob>> = () =>
+      Promise.resolve(new Map<string, KnownJob>()),
   ) {}
 
   async search(onJob: (job: CreateJobDto) => Promise<void>): Promise<void> {
@@ -73,6 +80,9 @@ export class BoardScraper {
             emitted++;
           }
         } else {
+          const known = await this.findKnown(
+            partialJobs.map((j) => j.externalId),
+          );
           const batchSize = 10;
           for (let i = 0; i < partialJobs.length; i += batchSize) {
             if (this.signal?.aborted) break;
@@ -82,9 +92,19 @@ export class BoardScraper {
             }
             const batch = partialJobs.slice(i, i + batchSize);
             const descriptions = await Promise.all(
-              batch.map((j) =>
-                this.fetchDescription(context, this.buildJobUrl(j.externalId)),
-              ),
+              batch.map((j) => {
+                const existing = known.get(j.externalId);
+                const isFresh =
+                  existing &&
+                  existing.description &&
+                  Date.now() - existing.scrapedAt.getTime() < FRESHNESS_MS;
+                return isFresh
+                  ? Promise.resolve(existing.description)
+                  : this.fetchDescription(
+                      context,
+                      this.buildJobUrl(j.externalId),
+                    );
+              }),
             );
             // Emit in parallel: a slow handler on one job doesn't block the
             // others in the batch. onJob is awaited so the caller can throttle.

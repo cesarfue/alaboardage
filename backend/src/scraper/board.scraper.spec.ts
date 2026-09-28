@@ -241,6 +241,80 @@ describe('BoardScraper', () => {
       expect(jobs).toHaveLength(0);
     });
 
+    it('skips the detail-page fetch for a job already known with a recent, non-empty description', async () => {
+      const browser = makeBrowserMock(CARD_HTML);
+      const findKnown = jest
+        .fn()
+        .mockResolvedValue(
+          new Map([
+            [
+              'job-42',
+              { description: 'Already known.', scrapedAt: new Date() },
+            ],
+          ]),
+        );
+      const scraper = new BoardScraper(
+        browser,
+        TEST_CONFIG,
+        BASE_PARAMS,
+        JobSource.HELLOWORK,
+        undefined,
+        findKnown,
+      );
+
+      const jobs = await collect(scraper);
+
+      expect(jobs[0].description).toBe('Already known.');
+      const context = await (browser.newContext as jest.Mock).mock.results[0]
+        .value;
+      expect(context.newPage).toHaveBeenCalledTimes(1);
+    });
+
+    it('refetches when the known job has an empty description', async () => {
+      const browser = makeBrowserMock(CARD_HTML, DETAIL_HTML);
+      const findKnown = jest
+        .fn()
+        .mockResolvedValue(
+          new Map([['job-42', { description: '', scrapedAt: new Date() }]]),
+        );
+      const scraper = new BoardScraper(
+        browser,
+        TEST_CONFIG,
+        BASE_PARAMS,
+        JobSource.HELLOWORK,
+        undefined,
+        findKnown,
+      );
+
+      const jobs = await collect(scraper);
+
+      expect(jobs[0].description).toBe('Full job description goes here.');
+    });
+
+    it('refetches when the known description is older than the freshness window', async () => {
+      const browser = makeBrowserMock(CARD_HTML, DETAIL_HTML);
+      const staleDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const findKnown = jest
+        .fn()
+        .mockResolvedValue(
+          new Map([
+            ['job-42', { description: 'Stale.', scrapedAt: staleDate }],
+          ]),
+        );
+      const scraper = new BoardScraper(
+        browser,
+        TEST_CONFIG,
+        BASE_PARAMS,
+        JobSource.HELLOWORK,
+        undefined,
+        findKnown,
+      );
+
+      const jobs = await collect(scraper);
+
+      expect(jobs[0].description).toBe('Full job description goes here.');
+    });
+
     it('enforces singlePageOnly from config even when params.singlePage is false', async () => {
       const config: BoardConfig = { ...TEST_CONFIG, singlePageOnly: true };
       const browser = makeBrowserMock(CARD_HTML);

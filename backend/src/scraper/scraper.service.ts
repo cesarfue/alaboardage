@@ -282,6 +282,8 @@ export class ScraperService {
         dto,
         dto.source,
         signal,
+        (externalIds) =>
+          this.jobsService.findKnownByExternalIds(dto.source, externalIds),
       );
       await scraper.search(countedOnJob);
       this.logger.log(

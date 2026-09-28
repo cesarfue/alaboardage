@@ -3,6 +3,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { FindJobsDto } from './dto/find-jobs-query.dto';
 import type { Prisma } from '../../generated/prisma/client';
+import type { JobSource } from '../../generated/prisma/enums';
+
+export interface KnownJob {
+  description: string;
+  scrapedAt: Date;
+}
 
 @Injectable()
 export class JobsService {
@@ -153,6 +159,23 @@ export class JobsService {
     }));
 
     return { items, total, limit, offset };
+  }
+
+  async findKnownByExternalIds(
+    source: JobSource,
+    externalIds: string[],
+  ): Promise<Map<string, KnownJob>> {
+    if (externalIds.length === 0) return new Map();
+    const rows = await this.prisma.job.findMany({
+      where: { source, externalId: { in: externalIds } },
+      select: { externalId: true, description: true, scrapedAt: true },
+    });
+    return new Map(
+      rows.map((r) => [
+        r.externalId,
+        { description: r.description, scrapedAt: r.scrapedAt },
+      ]),
+    );
   }
 
   upsert(dto: CreateJobDto) {
