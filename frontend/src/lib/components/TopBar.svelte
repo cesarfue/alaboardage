@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { Bookmark, ClipboardList, Funnel, Layers, Pencil, User, LogOut, Search } from "@lucide/svelte";
+  import { Bookmark, ChevronDown, ClipboardList, Funnel, Layers, Pencil, User, Search } from "@lucide/svelte";
   import FiltersPanel from "$lib/components/FiltersPanel.svelte";
+  import NavMenu from "$lib/components/NavMenu.svelte";
   import ProfilePanel from "$lib/components/ProfilePanel.svelte";
   import SearchEditor from "$lib/components/SearchEditor.svelte";
   import { toast } from "svelte-sonner";
@@ -46,6 +47,7 @@
 
   let showingFilters = $state(false);
   let showingProfile = $state(false);
+  let showingNav = $state(false);
 
   const user = $derived(userState.user);
   const activeSearch = $derived.by(() => {
@@ -54,19 +56,36 @@
     return savedSearches.find((s) => s.id === current.id);
   });
 
+  const currentViewLabel = $derived.by(() => {
+    if (view.kind === "all") return "Toutes les recherches";
+    if (view.kind === "suivi") return "Suivi";
+    if (view.kind === "saved")
+      return activeSearch?.name ?? "Recherche sauvegardée";
+    return "Nouvelle recherche";
+  });
+
   function closeAll() {
     showingFilters = false;
     showingProfile = false;
+    showingNav = false;
   }
 
   function toggleFilters() {
-    showingFilters = !showingFilters;
-    if (showingFilters) showingProfile = false;
+    const next = !showingFilters;
+    closeAll();
+    showingFilters = next;
   }
 
   function toggleProfile() {
-    showingProfile = !showingProfile;
-    if (showingProfile) showingFilters = false;
+    const next = !showingProfile;
+    closeAll();
+    showingProfile = next;
+  }
+
+  function toggleNav() {
+    const next = !showingNav;
+    closeAll();
+    showingNav = next;
   }
 
   function logout() {
@@ -176,7 +195,7 @@
   }
 </script>
 
-{#if showingFilters || showingProfile}
+{#if showingFilters || showingProfile || showingNav}
   <div
     class="fixed inset-0 z-40"
     role="presentation"
@@ -190,7 +209,35 @@
   class="absolute w-full z-50 pointer-events-auto flex flex-col gap-2 p-3 bg-background"
 >
 <div class="flex flex-row items-center gap-1.5 md:gap-2 min-w-0">
-  <div class="flex-1 min-w-0 flex flex-row items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+  <div class="relative flex-1 min-w-0 md:hidden">
+    <button
+      onclick={toggleNav}
+      class="flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted {showingNav ? 'bg-muted' : ''}"
+    >
+      <span class="truncate">{currentViewLabel}</span>
+      <span class="flex items-center gap-1.5 shrink-0">
+        {#if totalNew > 0}
+          <span
+            class="rounded-full bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 leading-none"
+          >
+            {formatBadge(totalNew)}
+          </span>
+        {/if}
+        <ChevronDown size={14} class="text-muted-foreground" />
+      </span>
+    </button>
+    {#if showingNav}
+      <div class="absolute top-full mt-1 z-50 left-0 right-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:right-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
+        <NavMenu
+          {view}
+          {savedSearches}
+          onSelect={(v) => goTo(v)}
+          onClose={() => (showingNav = false)}
+        />
+      </div>
+    {/if}
+  </div>
+  <div class="hidden md:flex flex-1 min-w-0 flex-row items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
     {#if savedSearches.length > 0}
       <button
         onclick={() => goTo({ kind: "all" })}
@@ -318,29 +365,13 @@
       <div class="absolute top-full mt-1 z-50 right-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:right-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
         <ProfilePanel
           bind:skills
+          {user}
           onClose={() => (showingProfile = false)}
+          onLogout={logout}
         />
       </div>
     {/if}
   </div>
-
-  <span class="text-sm text-muted-foreground hidden sm:block">{user?.name ?? ""}</span>
-  {#if user}
-    <button
-      onclick={logout}
-      class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted"
-      title="Déconnexion"
-    >
-      <LogOut size={16} />
-    </button>
-  {:else}
-    <a
-      href="/api/auth/google"
-      class="border rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted whitespace-nowrap"
-    >
-      Se connecter
-    </a>
-  {/if}
 </div>
 {#if view.kind === "new"}
   <div class="flex flex-row items-center gap-1.5 md:gap-2 min-w-0">

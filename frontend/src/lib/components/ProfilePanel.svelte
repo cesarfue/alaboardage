@@ -1,13 +1,18 @@
 <script lang="ts">
-  import { X } from "@lucide/svelte";
+  import { LogOut, X } from "@lucide/svelte";
   import type { Skill, SkillLevel } from "$lib/types";
+  import type { AuthUser } from "$lib/auth";
 
   let {
     skills = $bindable(),
+    user = null,
     onClose,
+    onLogout,
   }: {
     skills: Skill[];
+    user?: AuthUser | null;
     onClose: () => void;
+    onLogout: () => void;
   } = $props();
 
   let primaryInput = $state("");
@@ -69,7 +74,7 @@
 {/snippet}
 
 <div
-  class="pointer-events-auto w-[min(320px,calc(100vw-1.5rem))] flex flex-col gap-4 rounded-xl bg-background shadow-xl p-4"
+  class="pointer-events-auto w-[min(320px,calc(100vw-1.5rem))] flex flex-col gap-4 rounded-xl bg-background shadow-panel p-4"
 >
   <div class="flex items-center justify-between">
     <h2 class="font-semibold text-sm">Compétences</h2>
@@ -95,4 +100,27 @@
     secondaryInput,
     (v) => (secondaryInput = v),
   )}
+
+  <div class="border-t pt-3 flex items-center justify-between gap-2">
+    {#if user}
+      <div class="min-w-0">
+        <p class="text-sm font-medium truncate">{user.name}</p>
+        <p class="text-xs text-muted-foreground truncate">{user.email}</p>
+      </div>
+      <button
+        onclick={onLogout}
+        class="shrink-0 flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+      >
+        <LogOut size={13} />
+        Déconnexion
+      </button>
+    {:else}
+      <a
+        href="/api/auth/google"
+        class="w-full text-center rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
+      >
+        Se connecter
+      </a>
+    {/if}
+  </div>
 </div>
