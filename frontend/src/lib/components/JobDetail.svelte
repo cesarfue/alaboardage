@@ -52,7 +52,7 @@
 </script>
 
 <div
-  class="h-full w-full md:w-[380px] flex flex-col pointer-events-auto bg-background/95 backdrop-blur border rounded-none md:rounded-xl shadow-lg overflow-hidden"
+  class="h-full w-full md:w-[380px] flex flex-col pointer-events-auto bg-background/95 backdrop-blur border rounded-none md:rounded-xl shadow-panel overflow-hidden"
 >
   <div class="flex items-start justify-between gap-2 p-4 border-b">
     <div class="min-w-0">
@@ -99,7 +99,7 @@
       onclick={() => toggleStatus("SAVED")}
       class="flex items-center gap-1.5 flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors
         {job.interactionStatus === 'SAVED'
-          ? 'bg-primary text-primary-foreground'
+          ? 'bg-foreground text-background'
           : 'border hover:bg-muted'}"
       aria-label="Sauvegarder"
     >
@@ -121,7 +121,7 @@
       onclick={() => toggleStatus("REJECTED")}
       class="flex items-center gap-1.5 flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors
         {job.interactionStatus === 'REJECTED'
-          ? 'bg-primary text-primary-foreground'
+          ? 'bg-destructive text-destructive-foreground'
           : 'border hover:bg-muted'}"
       aria-label="Refusé"
     >

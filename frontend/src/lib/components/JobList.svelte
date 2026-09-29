@@ -97,7 +97,7 @@
 
 <div
   class="h-full w-full md:w-[380px] flex flex-col rounded-none md:rounded-xl
-         bg-background shadow-xl pointer-events-auto"
+         bg-background shadow-panel pointer-events-auto"
 >
   <div class="px-4 pt-3 pb-2 border-b shrink-0 flex flex-col gap-2">
     {#if showChips}

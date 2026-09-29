@@ -51,14 +51,24 @@
   }
 </script>
 
-<main class="flex h-screen w-full items-center justify-center bg-background">
-  <div class="flex flex-col items-center gap-6 w-full max-w-sm px-4">
-    <div class="flex flex-col gap-1 text-center">
+<main
+  class="relative flex h-screen w-full items-center justify-center overflow-hidden bg-background"
+>
+  <div
+    class="pointer-events-none absolute -top-1/3 left-1/2 h-[60rem] w-[60rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
+  ></div>
+  <div class="relative flex flex-col items-center gap-6 w-full max-w-sm px-4">
+    <div class="flex flex-col items-center gap-2 text-center">
+      <div
+        class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground text-lg font-bold"
+      >
+        A
+      </div>
       <h1 class="text-2xl font-semibold tracking-tight">Alaboardage</h1>
       <p class="text-sm text-muted-foreground">Agrégateur d'offres d'emploi</p>
     </div>
 
-    <!-- Email / password form -->
+    <div class="w-full rounded-xl border bg-card p-5 shadow-panel flex flex-col gap-4">
     <form
       class="flex flex-col gap-3 w-full"
       onsubmit={(e) => { e.preventDefault(); submit(); }}
@@ -150,5 +160,6 @@
       </svg>
       Se connecter avec Google
     </a>
+    </div>
   </div>
 </main>

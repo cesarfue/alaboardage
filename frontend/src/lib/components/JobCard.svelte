@@ -9,6 +9,12 @@
     REJECTED: "Refusé",
   };
 
+  const STATUS_COLOR: Record<InteractionStatus, string> = {
+    SAVED: "text-foreground",
+    APPLIED: "text-primary",
+    REJECTED: "text-destructive",
+  };
+
   let {
     job,
     skills = [],
@@ -59,7 +65,7 @@
   {/if}
   {#if job.interactionStatus}
     <p class="text-xs mt-1">
-      <span class="font-medium text-primary">
+      <span class="font-medium {STATUS_COLOR[job.interactionStatus]}">
         {STATUS_LABEL[job.interactionStatus]}
       </span>
       {#if job.interactionAt}

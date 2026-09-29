@@ -27,7 +27,7 @@
 </script>
 
 <div
-  class="pointer-events-auto w-[min(300px,calc(100vw-1.5rem))] flex flex-col gap-4 rounded-xl bg-background shadow-xl p-4"
+  class="pointer-events-auto w-[min(300px,calc(100vw-1.5rem))] flex flex-col gap-4 rounded-xl bg-background shadow-panel p-4"
 >
   <div class="flex items-center justify-between">
     <h2 class="font-semibold text-sm">Filtres</h2>
