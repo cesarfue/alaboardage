@@ -259,7 +259,7 @@
       <Funnel size={16} />
     </button>
     {#if showingFilters}
-      <div class="absolute top-full mt-1 z-50 left-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
+      <div class="absolute top-full mt-1 z-50 right-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:right-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
         <FiltersPanel bind:radiusKm bind:daysFilter bind:hideViewed onClose={() => (showingFilters = false)} />
       </div>
     {/if}
