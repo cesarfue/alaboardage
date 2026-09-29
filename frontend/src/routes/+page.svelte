@@ -756,10 +756,17 @@
 
   function focusJob(job: Job) {
     if (!job.establishment) return;
+    const currentZoom = map?.getZoom() ?? zoom;
     map?.easeTo({
       center: [job.establishment.lng, job.establishment.lat],
+      zoom: Math.max(currentZoom, 13),
       padding: { left: wideScreen ? 760 : 0, top: 0, right: 0, bottom: 0 },
     });
+  }
+
+  function closeJobDetail() {
+    selectedJob = null;
+    map?.easeTo({ padding: { left: 0, top: 0, right: 0, bottom: 0 } });
   }
 
   function onPointClick(e: LayerClickInfo) {
@@ -1023,7 +1030,7 @@
       <JobDetail
         job={selectedJob}
         {applyInteraction}
-        onClose={() => (selectedJob = null)}
+        onClose={closeJobDetail}
       />
     {/if}
   </div>
