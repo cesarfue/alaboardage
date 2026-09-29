@@ -80,9 +80,16 @@ export interface SavedSearch {
   newResultsCount?: number;
 }
 
+export interface Filters {
+  radiusKm: number;
+  daysFilter: number | null;
+  hideViewed: boolean;
+}
+
 export interface Preferences {
   lastView: View | null;
   listAnchors: Record<string, string>;
+  filters: Filters | null;
 }
 
 export type SkillLevel = 'primary' | 'secondary';

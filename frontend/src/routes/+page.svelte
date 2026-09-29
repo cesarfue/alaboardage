@@ -2,6 +2,7 @@
   import { page } from "$app/state";
   import { api } from "$lib/api";
   import type {
+    Filters,
     InteractionStatus,
     Job,
     Preferences,
@@ -44,6 +45,7 @@
   // Filter state
   let radiusKm = $state(60);
   let daysFilter = $state<number | null>(30);
+  let filtersReady = $state(false);
   let statusFilter = $state<InteractionStatus | null>(null);
   let searchCenter = $state<[number, number] | null>(null); // [lat, lng]
 
@@ -113,6 +115,13 @@
   $effect(() => {
     if (!hideViewed) return;
     untrack(snapshotHidden);
+  });
+
+  $effect(() => {
+    const filters = { radiusKm, daysFilter, hideViewed };
+    if (!filtersReady) return;
+    localStorage.setItem("filters", JSON.stringify(filters));
+    if (getToken()) api.updatePreferences({ filters }).catch(() => {});
   });
 
   function stamp(j: Job): Job {
@@ -441,6 +450,22 @@
     let prefs: Preferences | null = null;
     if (getToken()) prefs = await api.getPreferences().catch(() => null);
     listAnchors = { ...localAnchors(), ...(prefs?.listAnchors ?? {}) };
+
+    let localFilters: Filters | null;
+    try {
+      localFilters = JSON.parse(
+        localStorage.getItem("filters") ?? "null",
+      ) as Filters | null;
+    } catch {
+      localFilters = null;
+    }
+    const savedFilters = prefs?.filters ?? localFilters;
+    if (savedFilters) {
+      radiusKm = savedFilters.radiusKm;
+      daysFilter = savedFilters.daysFilter;
+      hideViewed = savedFilters.hideViewed;
+    }
+    filtersReady = true;
 
     if (!query && !location) restoreView(prefs?.lastView ?? null);
 

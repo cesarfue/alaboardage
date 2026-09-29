@@ -1,4 +1,4 @@
-import type { InteractionStatus, Job, ListJobsResponse, Preferences, RefreshState, SavedSearch, SearchOrListRequest, Skill, View } from "./types";
+import type { Filters, InteractionStatus, Job, ListJobsResponse, Preferences, RefreshState, SavedSearch, SearchOrListRequest, Skill, View } from "./types";
 import { getToken, clearToken } from "./auth";
 
 const BASE = "/api";
@@ -205,6 +205,7 @@ export const api = {
   updatePreferences(patch: {
     lastView?: View;
     anchor?: { tab: string; jobId: string | null };
+    filters?: Filters;
   }): Promise<Preferences> {
     return request<Preferences>("/preferences", {
       method: "PATCH",

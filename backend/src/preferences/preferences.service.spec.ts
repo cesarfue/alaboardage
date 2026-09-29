@@ -27,6 +27,7 @@ describe('PreferencesService', () => {
     await expect(service.get('u1')).resolves.toEqual({
       lastView: null,
       listAnchors: {},
+      filters: null,
     });
   });
 
@@ -68,6 +69,46 @@ describe('PreferencesService', () => {
     await expect(service.get('u1')).resolves.toEqual({
       lastView: null,
       listAnchors: {},
+      filters: null,
     });
+  });
+
+  it('stores and returns filters', async () => {
+    stored = { userId: 'u1', lastView: null, listAnchors: {} };
+    const res = await service.update('u1', {
+      filters: { radiusKm: 100, daysFilter: null, hideViewed: true },
+    });
+    expect(res.filters).toEqual({
+      radiusKm: 100,
+      daysFilter: null,
+      hideViewed: true,
+    });
+  });
+
+  it('keeps filters untouched when the update omits them', async () => {
+    stored = {
+      userId: 'u1',
+      lastView: null,
+      listAnchors: {},
+      filters: { radiusKm: 60, daysFilter: 30, hideViewed: false },
+    };
+    const res = await service.update('u1', { lastView: { kind: 'all' } });
+    expect(res.filters).toEqual({
+      radiusKm: 60,
+      daysFilter: 30,
+      hideViewed: false,
+    });
+    const update = prismaMock.userPreference.upsert.mock.calls[0][0].update;
+    expect(update).not.toHaveProperty('filters');
+  });
+
+  it('ignores malformed stored filters', async () => {
+    stored = {
+      userId: 'u1',
+      lastView: null,
+      listAnchors: {},
+      filters: { radiusKm: 'not-a-number' },
+    };
+    await expect(service.get('u1')).resolves.toMatchObject({ filters: null });
   });
 });

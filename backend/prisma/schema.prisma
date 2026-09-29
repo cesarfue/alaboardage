@@ -123,6 +123,7 @@ model UserPreference {
   userId      String   @id
   lastView    Json?
   listAnchors Json     @default("{}")
+  filters     Json?
   updatedAt   DateTime @updatedAt
 }
 

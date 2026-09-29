@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
+  IsNumber,
   IsObject,
   IsOptional,
   IsString,
@@ -16,6 +18,18 @@ export class ListAnchorDto {
   jobId!: string | null;
 }
 
+export class FiltersDto {
+  @IsNumber()
+  radiusKm!: number;
+
+  @ValidateIf((o: FiltersDto) => o.daysFilter !== null)
+  @IsNumber()
+  daysFilter!: number | null;
+
+  @IsBoolean()
+  hideViewed!: boolean;
+}
+
 export class UpdatePreferencesDto {
   @IsOptional()
   @IsObject()
@@ -25,4 +39,9 @@ export class UpdatePreferencesDto {
   @ValidateNested()
   @Type(() => ListAnchorDto)
   anchor?: ListAnchorDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FiltersDto)
+  filters?: FiltersDto;
 }
