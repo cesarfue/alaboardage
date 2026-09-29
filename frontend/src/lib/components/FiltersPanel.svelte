@@ -15,6 +15,7 @@
 
   const dateOptions: { label: string; value: number | null }[] = [
     { label: "7 jours", value: 7 },
+    { label: "14 jours", value: 14 },
     { label: "30 jours", value: 30 },
     { label: "3 mois", value: 90 },
     { label: "Tout", value: null },
