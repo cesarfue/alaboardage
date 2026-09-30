@@ -1,13 +1,10 @@
 <script lang="ts">
-  import { Bookmark, ChevronDown, ClipboardList, Funnel, Layers, Pencil, User, Search } from "@lucide/svelte";
-  import FiltersPanel from "$lib/components/FiltersPanel.svelte";
+  import { Bookmark, ChevronDown, ClipboardList, Layers, Pencil, Settings, Search } from "@lucide/svelte";
   import NavMenu from "$lib/components/NavMenu.svelte";
-  import ProfilePanel from "$lib/components/ProfilePanel.svelte";
+  import SettingsPanel from "$lib/components/SettingsPanel.svelte";
   import SearchEditor from "$lib/components/SearchEditor.svelte";
   import { toast } from "svelte-sonner";
   import type { SavedSearch, Skill, View } from "$lib/types";
-  import { clearToken } from "$lib/auth";
-  import { userState } from "$lib/user.svelte";
   import { api } from "$lib/api";
 
   let {
@@ -22,6 +19,8 @@
     radiusKm = $bindable(),
     daysFilter = $bindable(),
     hideViewed = $bindable(false),
+    autoScrapeEnabled = $bindable(true),
+    autoScrapeIntervalMinutes = $bindable(360),
     barHeight = $bindable(0),
     openView,
   }: {
@@ -36,6 +35,8 @@
     radiusKm: number;
     daysFilter: number | null;
     hideViewed?: boolean;
+    autoScrapeEnabled?: boolean;
+    autoScrapeIntervalMinutes?: number;
     barHeight?: number;
     openView: (v: View) => void;
   } = $props();
@@ -45,11 +46,9 @@
     openView(next);
   }
 
-  let showingFilters = $state(false);
-  let showingProfile = $state(false);
+  let showingSettings = $state(false);
   let showingNav = $state(false);
 
-  const user = $derived(userState.user);
   const activeSearch = $derived.by(() => {
     const current = view;
     if (current.kind !== "saved") return undefined;
@@ -65,32 +64,20 @@
   });
 
   function closeAll() {
-    showingFilters = false;
-    showingProfile = false;
+    showingSettings = false;
     showingNav = false;
   }
 
-  function toggleFilters() {
-    const next = !showingFilters;
+  function toggleSettings() {
+    const next = !showingSettings;
     closeAll();
-    showingFilters = next;
-  }
-
-  function toggleProfile() {
-    const next = !showingProfile;
-    closeAll();
-    showingProfile = next;
+    showingSettings = next;
   }
 
   function toggleNav() {
     const next = !showingNav;
     closeAll();
     showingNav = next;
-  }
-
-  function logout() {
-    clearToken();
-    window.location.href = "/";
   }
 
   async function deleteSearch(id: string) {
@@ -102,23 +89,6 @@
     } catch (e) {
       console.error("Failed to delete saved search", e);
       savedSearches = before;
-    }
-  }
-
-  async function toggleEmailAlerts(s: SavedSearch) {
-    const nextValue = !s.emailAlerts;
-    // Optimistic update
-    savedSearches = savedSearches.map((x) =>
-      x.id === s.id ? { ...x, emailAlerts: nextValue } : x,
-    );
-    try {
-      await api.updateSavedSearch(s.id, { emailAlerts: nextValue });
-    } catch (e) {
-      console.error("Failed to update saved search", e);
-      // Revert
-      savedSearches = savedSearches.map((x) =>
-        x.id === s.id ? { ...x, emailAlerts: s.emailAlerts } : x,
-      );
     }
   }
 
@@ -195,7 +165,7 @@
   }
 </script>
 
-{#if showingFilters || showingProfile || showingNav}
+{#if showingSettings || showingNav}
   <div
     class="fixed inset-0 z-40"
     role="presentation"
@@ -299,19 +269,6 @@
     </button>
   </div>
   <div class="relative shrink-0">
-    <button
-      onclick={toggleFilters}
-      class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingFilters ? 'bg-muted' : ''}"
-    >
-      <Funnel size={16} />
-    </button>
-    {#if showingFilters}
-      <div class="absolute top-full mt-1 z-50 right-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:right-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
-        <FiltersPanel bind:radiusKm bind:daysFilter bind:hideViewed onClose={() => (showingFilters = false)} />
-      </div>
-    {/if}
-  </div>
-  <div class="relative shrink-0">
     {#if activeSearch}
       <button
         onclick={() => (editing ? (editing = null) : openEditor(activeSearch))}
@@ -332,10 +289,6 @@
             ? "Enregistrer cette recherche"
             : "Modifier la recherche"}
           submitLabel={editing.id === null ? "Enregistrer" : "Mettre à jour"}
-          emailAlerts={activeSearch?.emailAlerts ?? true}
-          onToggleAlerts={activeSearch
-            ? () => toggleEmailAlerts(activeSearch)
-            : undefined}
           onMoveLeft={editing.id !== null && activeSearch && activeIndex > 0
             ? () => moveSearch(activeSearch.id, -1)
             : undefined}
@@ -356,18 +309,21 @@
 
   <div class="relative shrink-0">
     <button
-      onclick={toggleProfile}
-      class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingProfile ? 'bg-muted' : ''}"
+      onclick={toggleSettings}
+      class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingSettings ? 'bg-muted' : ''}"
     >
-      <User size={16} />
+      <Settings size={16} />
     </button>
-    {#if showingProfile}
+    {#if showingSettings}
       <div class="absolute top-full mt-1 z-50 right-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:right-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
-        <ProfilePanel
+        <SettingsPanel
           bind:skills
-          {user}
-          onClose={() => (showingProfile = false)}
-          onLogout={logout}
+          bind:radiusKm
+          bind:daysFilter
+          bind:hideViewed
+          bind:autoScrapeEnabled
+          bind:autoScrapeIntervalMinutes
+          onClose={() => (showingSettings = false)}
         />
       </div>
     {/if}

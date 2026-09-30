@@ -1,5 +1,4 @@
 import type { Filters, InteractionStatus, Job, ListJobsResponse, Preferences, RefreshState, SavedSearch, SearchOrListRequest, Skill, View } from "./types";
-import { getToken, clearToken } from "./auth";
 
 const BASE = "/api";
 
@@ -13,19 +12,10 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getToken();
-  const authHeaders: Record<string, string> = token
-    ? { Authorization: `Bearer ${token}` }
-    : {};
-
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...authHeaders },
+    headers: { "Content-Type": "application/json" },
     ...init,
   });
-
-  if (res.status === 401) {
-    clearToken();
-  }
 
   if (!res.ok) {
     let detail: unknown;
@@ -67,8 +57,6 @@ export const api = {
     const search = new URLSearchParams();
     for (const q of params.queries) search.append("query", q);
     for (const l of params.locations) search.append("location", l);
-    const token = getToken();
-    if (token) search.set("token", token);
     const eventSource = new EventSource(`${BASE}/scraper/search?${search}`);
 
     eventSource.onmessage = (event) => {
@@ -180,7 +168,6 @@ export const api = {
     id: string,
     patch: {
       name?: string;
-      emailAlerts?: boolean;
       queries?: string[];
       locations?: string[];
     },
@@ -206,6 +193,8 @@ export const api = {
     lastView?: View;
     anchor?: { tab: string; jobId: string | null };
     filters?: Filters;
+    autoScrapeEnabled?: boolean;
+    autoScrapeIntervalMinutes?: number;
   }): Promise<Preferences> {
     return request<Preferences>("/preferences", {
       method: "PATCH",
@@ -241,19 +230,5 @@ export const api = {
       `/searches/${encodeURIComponent(id)}/seen`,
       { method: "POST" },
     );
-  },
-
-  register(email: string, name: string, password: string): Promise<{ access_token: string }> {
-    return request<{ access_token: string }>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ email, name, password }),
-    });
-  },
-
-  loginWithPassword(email: string, password: string): Promise<{ access_token: string }> {
-    return request<{ access_token: string }>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
   },
 };

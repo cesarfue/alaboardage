@@ -70,7 +70,6 @@ export interface SavedSearch {
   locations: string[];
   position: number;
   createdAt: string;
-  emailAlerts: boolean;
   lastCheckedAt: string | null;
   lastSeenAt: string | null;
   refreshState?: RefreshState;
@@ -90,6 +89,8 @@ export interface Preferences {
   lastView: View | null;
   listAnchors: Record<string, string>;
   filters: Filters | null;
+  autoScrapeEnabled: boolean;
+  autoScrapeIntervalMinutes: number;
 }
 
 export type SkillLevel = 'primary' | 'secondary';

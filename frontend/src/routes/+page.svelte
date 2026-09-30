@@ -24,8 +24,6 @@
   import JobList from "$lib/components/JobList.svelte";
   import TopBar from "$lib/components/TopBar.svelte";
   import JobDetail from "$lib/components/JobDetail.svelte";
-  import { getToken, setToken } from "$lib/auth";
-  import { userState } from "$lib/user.svelte";
   import { normalizeText } from "$lib/utils";
 
   let query = $state(page.url.searchParams.get("query") ?? "");
@@ -46,6 +44,8 @@
   let radiusKm = $state(60);
   let daysFilter = $state<number | null>(30);
   let filtersReady = $state(false);
+  let autoScrapeEnabled = $state(true);
+  let autoScrapeIntervalMinutes = $state(360);
   let statusFilter = $state<InteractionStatus | null>(null);
   let searchCenter = $state<[number, number] | null>(null); // [lat, lng]
 
@@ -121,7 +121,14 @@
     const filters = { radiusKm, daysFilter, hideViewed };
     if (!filtersReady) return;
     localStorage.setItem("filters", JSON.stringify(filters));
-    if (getToken()) api.updatePreferences({ filters }).catch(() => {});
+    api.updatePreferences({ filters }).catch(() => {});
+  });
+
+  $effect(() => {
+    if (!filtersReady) return;
+    api
+      .updatePreferences({ autoScrapeEnabled, autoScrapeIntervalMinutes })
+      .catch(() => {});
   });
 
   function stamp(j: Job): Job {
@@ -173,7 +180,7 @@
     } catch {
       view = next;
     }
-    if (getToken()) api.updatePreferences({ lastView: next }).catch(() => {});
+    api.updatePreferences({ lastView: next }).catch(() => {});
   }
 
   function restoreView(preferred: View | null) {
@@ -230,7 +237,6 @@
     } catch {
       listAnchors = { ...listAnchors };
     }
-    if (!getToken()) return;
     if (anchorTimer) clearTimeout(anchorTimer);
     anchorTimer = setTimeout(() => {
       api.updatePreferences({ anchor: { tab, jobId } }).catch(() => {});
@@ -393,22 +399,6 @@
   });
 
   onMount(async () => {
-    // Capture OAuth token first — before any API call
-    // (page onMount fires before layout onMount in Svelte; capturing here ensures
-    // the token is in localStorage before api.getSkills() runs)
-    const tokenParam = new URLSearchParams(window.location.search).get("token");
-    if (tokenParam) {
-      setToken(tokenParam);
-      userState.refresh();
-      // Remove token from URL — preserve SvelteKit's history.state to avoid router conflict
-      const clean =
-        window.location.pathname +
-        window.location.search
-          .replace(/[?&]token=[^&]*/, "")
-          .replace(/^&/, "?");
-      window.history.replaceState(window.history.state, "", clean);
-    }
-
     try {
       const remote = await api.getSkills();
       skills =
@@ -438,17 +428,9 @@
     viewedIds = new Set(await api.getViews().catch(() => []));
     snapshotHidden();
 
-    // Load saved searches (only if authenticated)
-    if (getToken()) {
-      try {
-        savedSearches = await api.getSavedSearches();
-      } catch {
-        /* non-blocking */
-      }
-    }
+    savedSearches = await api.getSavedSearches().catch(() => []);
 
-    let prefs: Preferences | null = null;
-    if (getToken()) prefs = await api.getPreferences().catch(() => null);
+    const prefs = await api.getPreferences().catch(() => null);
     listAnchors = { ...localAnchors(), ...(prefs?.listAnchors ?? {}) };
 
     let localFilters: Filters | null;
@@ -464,6 +446,10 @@
       radiusKm = savedFilters.radiusKm;
       daysFilter = savedFilters.daysFilter;
       hideViewed = savedFilters.hideViewed;
+    }
+    if (prefs) {
+      autoScrapeEnabled = prefs.autoScrapeEnabled;
+      autoScrapeIntervalMinutes = prefs.autoScrapeIntervalMinutes;
     }
     filtersReady = true;
 
@@ -922,6 +908,8 @@
     bind:radiusKm
     bind:daysFilter
     bind:hideViewed
+    bind:autoScrapeEnabled
+    bind:autoScrapeIntervalMinutes
     bind:barHeight
   />
   <MapLibre

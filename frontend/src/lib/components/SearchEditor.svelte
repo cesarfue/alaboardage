@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeft, ArrowRight, Bell, BellOff, Trash2, X } from "@lucide/svelte";
+  import { ArrowLeft, ArrowRight, Trash2, X } from "@lucide/svelte";
 
   let {
     name = $bindable(""),
@@ -7,8 +7,6 @@
     location = $bindable(""),
     title,
     submitLabel,
-    emailAlerts = true,
-    onToggleAlerts,
     onMoveLeft,
     onMoveRight,
     onDelete,
@@ -20,8 +18,6 @@
     location?: string;
     title: string;
     submitLabel: string;
-    emailAlerts?: boolean;
-    onToggleAlerts?: () => void;
     onMoveLeft?: () => void;
     onMoveRight?: () => void;
     onDelete?: () => void;
@@ -107,21 +103,6 @@
       onkeydown={(e) => e.key === "Enter" && submit()}
     />
   </section>
-
-  {#if onToggleAlerts}
-    <button
-      onclick={() => onToggleAlerts?.()}
-      class="flex items-center gap-2 text-sm text-left rounded-lg px-2 py-1.5 hover:bg-muted"
-    >
-      {#if emailAlerts}
-        <Bell size={14} class="text-primary" />
-        Alertes email activées
-      {:else}
-        <BellOff size={14} class="text-muted-foreground" />
-        Alertes email désactivées
-      {/if}
-    </button>
-  {/if}
 
   {#if onMoveLeft || onMoveRight}
     <div class="flex items-center gap-2 text-sm">
