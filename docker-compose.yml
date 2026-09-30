@@ -22,17 +22,6 @@ services:
       - backend_generated:/app/generated
     environment:
       DATABASE_URL: postgresql://alaboardage:alaboardage@postgres:5432/alaboardage
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3000/auth/google/callback}
-      JWT_SECRET: ${JWT_SECRET}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      ALERT_FROM_EMAIL: ${ALERT_FROM_EMAIL:-alerts@alaboardage.local}
-      ALERT_CRON: ${ALERT_CRON:-0 8 * * *}
     ports:
       - "3000:3000"
     depends_on:

@@ -1,6 +1,8 @@
 # Alaboardage
 
-Agrégateur d'offres d'emploi : scrape plusieurs boards (Hellowork, LinkedIn, JobsThatMakeSense, Jeunes d'Avenirs, Glassdoor, Welcome to the Jungle), centralise les résultats en base, les score selon les préférences de l'utilisateur, et les affiche sur une carte.
+Agrégateur d'offres d'emploi : scrape plusieurs boards (Hellowork, LinkedIn, JobsThatMakeSense, Jeunes d'Avenirs, Glassdoor, Welcome to the Jungle), centralise les résultats en base, les score selon des compétences déclarées, et les affiche sur une carte.
+
+Application mono-utilisateur, pensée pour l'auto-hébergement (VPS perso ou machine locale) : pas de compte, pas de connexion, une seule instance sert une seule personne.
 
 ## Stack
 
@@ -20,12 +22,7 @@ Agrégateur d'offres d'emploi : scrape plusieurs boards (Hellowork, LinkedIn, Jo
    ```bash
    cp .env.example .env
    ```
-3. Renseigner `JWT_SECRET` dans `.env` — obligatoire, le backend refuse de démarrer sans (`getOrThrow` sur cette variable). Générer une valeur avec :
-   ```bash
-   openssl rand -base64 32
-   ```
-4. Les identifiants Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) sont optionnels : laissés vides, le bouton de connexion Google disparaît simplement de l'écran de login, et l'inscription/connexion par email + mot de passe reste utilisable telle quelle.
-5. Les variables SMTP (`SMTP_HOST`, ...) sont optionnelles aussi : si `SMTP_HOST` est vide, les alertes email des recherches sauvegardées sont loggées en console au lieu d'être envoyées.
+   Les valeurs par défaut suffisent pour un premier lancement — il n'y a ni compte à créer ni clé à obtenir auprès d'un service tiers.
 
 ## Lancer le projet
 
@@ -47,10 +44,14 @@ Une fois les conteneurs démarrés :
 | Backend (API)  | http://localhost:3000   |
 | Prisma Studio  | http://localhost:5555   |
 
+## Scraping automatique
+
+Le rafraîchissement périodique des recherches sauvegardées (fréquence et activation) se règle depuis l'onglet Paramètres de l'application, pas par variable d'environnement — le réglage est stocké en base et prend effet sans redémarrage. Pour une instance qu'on ne laisse pas tourner en continu (usage ponctuel sur un poste personnel), il se désactive et chaque recherche se rafraîchit alors à la demande, via le bouton de rafraîchissement de son onglet.
+
 ## Commandes utiles
 
 | Commande             | Effet                                                   |
-|----------------------|----------------------------------------------------------|
+|----------------------|------------------------------------------------------------|
 | `make up`            | Démarre tous les services (en arrière-plan)              |
 | `make up-build`      | Démarre en reconstruisant les images                     |
 | `make down`          | Arrête les services                                       |
