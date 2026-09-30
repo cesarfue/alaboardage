@@ -36,7 +36,7 @@ model Job {
   updatedAt       DateTime         @updatedAt
   establishment   Establishment?   @relation(fields: [establishmentId], references: [siret])
   establishmentId String?
-  scores          JobScore[]
+  score           JobScore?
   interactions    JobInteraction[]
   views           JobView[]
 
@@ -63,22 +63,17 @@ enum SkillLevel {
 
 model Skill {
   id        String     @id @default(cuid())
-  userId    String
   name      String
   level     SkillLevel
   createdAt DateTime   @default(now())
 }
 
 model JobScore {
-  id        String   @id @default(cuid())
-  jobId     String
-  userId    String
+  jobId     String   @id
   score     Float    @default(0)
   updatedAt DateTime @updatedAt
 
   job       Job      @relation(fields: [jobId], references: [id])
-
-  @@unique([jobId, userId])
 }
 
 enum InteractionStatus {
@@ -89,47 +84,36 @@ enum InteractionStatus {
 
 model JobInteraction {
   id        String            @id @default(cuid())
-  userId    String
   jobId     String
   status    InteractionStatus
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   job       Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, jobId])
+  @@unique([jobId])
 }
 
 model JobView {
   id       String   @id @default(cuid())
-  userId   String
   jobId    String
   viewedAt DateTime @default(now())
   job      Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, jobId])
-}
-
-model User {
-  id           String   @id @default(cuid())
-  googleId     String?  @unique
-  email        String   @unique
-  name         String
-  picture      String?
-  passwordHash String?
-  createdAt    DateTime @default(now())
+  @@unique([jobId])
 }
 
 model UserPreference {
-  userId      String   @id
-  lastView    Json?
-  listAnchors Json     @default("{}")
-  filters     Json?
-  updatedAt   DateTime @updatedAt
+  id                        Int      @id @default(1)
+  lastView                  Json?
+  listAnchors               Json     @default("{}")
+  filters                   Json?
+  autoScrapeEnabled         Boolean  @default(true)
+  autoScrapeIntervalMinutes Int      @default(360)
+  updatedAt                 DateTime @updatedAt
 }
 
 model SavedSearch {
   id            String    @id @default(cuid())
-  userId        String
   name          String
   query         String
   location      String
@@ -137,8 +121,6 @@ model SavedSearch {
   locations     String[]
   position      Int       @default(0)
   createdAt     DateTime  @default(now())
-  emailAlerts   Boolean   @default(true)
-  lastAlertAt   DateTime?
   lastCheckedAt DateTime?
   lastSeenAt    DateTime?
 }

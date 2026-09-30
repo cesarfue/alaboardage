@@ -7,20 +7,17 @@ import { SkillLevel } from '../../generated/prisma/enums';
 export class SkillsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  getSkills(userId: string): Promise<Skill[]> {
-    return this.prisma.skill.findMany({ where: { userId } });
+  getSkills(): Promise<Skill[]> {
+    return this.prisma.skill.findMany();
   }
 
   async setSkills(
-    userId: string,
     skills: { name: string; level: SkillLevel }[],
   ): Promise<Skill[]> {
     await this.prisma.$transaction([
-      this.prisma.skill.deleteMany({ where: { userId } }),
-      this.prisma.skill.createMany({
-        data: skills.map((s) => ({ ...s, userId })),
-      }),
+      this.prisma.skill.deleteMany(),
+      this.prisma.skill.createMany({ data: skills }),
     ]);
-    return this.prisma.skill.findMany({ where: { userId } });
+    return this.prisma.skill.findMany();
   }
 }

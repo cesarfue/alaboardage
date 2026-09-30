@@ -112,10 +112,7 @@ export class ScraperService {
     }
   }
 
-  scrapeAllBoardsStream(
-    dto: StreamSearchDto,
-    userId: string,
-  ): Observable<MessageEvent> {
+  scrapeAllBoardsStream(dto: StreamSearchDto): Observable<MessageEvent> {
     return new Observable((observer) => {
       const label = `stream:${Math.random().toString(36).slice(2, 8)}`;
       const controller = new AbortController();
@@ -132,13 +129,13 @@ export class ScraperService {
       );
 
       this.logger.log(
-        `[${label}] START user=${userId} pairs=${pairs.length} q="${queries.join('|')}" loc="${locations.join('|')}"`,
+        `[${label}] START pairs=${pairs.length} q="${queries.join('|')}" loc="${locations.join('|')}"`,
       );
 
       // Skills are loaded once at stream start; the score is then computed
       // inline for each job so the client receives a fully scored payload.
       void this.prisma.skill
-        .findMany({ where: { userId } })
+        .findMany()
         .then(async (skills) => {
           for (const pair of pairs) {
             if (signal.aborted) break;
@@ -146,7 +143,6 @@ export class ScraperService {
               signal,
               label,
               skills,
-              userId,
               emittedJobIds,
               onJob: (event) => {
                 total++;
@@ -191,12 +187,11 @@ export class ScraperService {
       signal: AbortSignal;
       label: string;
       skills: Skill[];
-      userId: string;
       emittedJobIds: Set<string>;
       onJob: (event: MessageEvent) => void;
     },
   ): Promise<void> {
-    const { signal, label, skills, userId, emittedJobIds, onJob } = ctx;
+    const { signal, label, skills, emittedJobIds, onJob } = ctx;
     const browser = await chromium.launch({
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
@@ -227,7 +222,7 @@ export class ScraperService {
               if (!establishment || signal.aborted) return;
               const score = this.scoringService.scoreJob(job, skills);
               void this.scoringService
-                .computeAndSave(job, userId)
+                .computeAndSave(job)
                 .catch((e: Error) =>
                   this.logger.error(
                     `[${label}] computeAndSave failed for ${job.id}: ${e.message}`,

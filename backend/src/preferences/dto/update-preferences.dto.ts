@@ -1,9 +1,11 @@
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsInt,
   IsNumber,
   IsObject,
   IsOptional,
+  IsPositive,
   IsString,
   ValidateIf,
   ValidateNested,
@@ -44,4 +46,13 @@ export class UpdatePreferencesDto {
   @ValidateNested()
   @Type(() => FiltersDto)
   filters?: FiltersDto;
+
+  @IsOptional()
+  @IsBoolean()
+  autoScrapeEnabled?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  autoScrapeIntervalMinutes?: number;
 }

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Interval } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScraperService } from '../scraper/scraper.service';
 import { criteriaOf } from '../searches/criteria';
@@ -7,9 +7,6 @@ import { criteriaOf } from '../searches/criteria';
 export type RefreshState = 'idle' | 'queued' | 'running';
 
 /**
- * Periodically re-scrapes each saved search so `newResultsCount` and the
- * daily alert email stay fresh even for users who don't manually search.
- *
  * Guarantees:
  *  - a single run at a time (re-entrancy guard) — long runs simply skip the
  *    next scheduled tick;
@@ -25,7 +22,9 @@ export class SearchRefreshService {
   private isRunning = false;
   private readonly queue: string[] = [];
   private runningSearchId: string | null = null;
+  private lastRunAt: number | null = null;
 
+  private static readonly TICK_MS = 60 * 1000; // poll cadence
   private static readonly PER_SEARCH_TIMEOUT_MS = 2 * 60 * 1000; // 2 min
   private static readonly MAX_SEARCHES_PER_RUN = 40;
 
@@ -75,7 +74,20 @@ export class SearchRefreshService {
     }
   }
 
-  @Cron(process.env.SEARCH_REFRESH_CRON ?? '0 */6 * * *')
+  @Interval(SearchRefreshService.TICK_MS)
+  async tick(): Promise<void> {
+    const prefs = await this.prisma.userPreference.findUnique({
+      where: { id: 1 },
+    });
+    if (prefs && !prefs.autoScrapeEnabled) return;
+    const intervalMs = (prefs?.autoScrapeIntervalMinutes ?? 360) * 60 * 1000;
+    if (this.lastRunAt !== null && Date.now() - this.lastRunAt < intervalMs) {
+      return;
+    }
+    this.lastRunAt = Date.now();
+    await this.refreshAll();
+  }
+
   async refreshAll(): Promise<void> {
     if (this.isRunning) {
       this.logger.warn('Previous refresh still running - skipping this tick');

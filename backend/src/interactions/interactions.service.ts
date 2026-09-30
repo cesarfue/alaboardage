@@ -6,38 +6,36 @@ import { InteractionStatus } from '../../generated/prisma/enums';
 export class InteractionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  getInteractions(userId: string) {
+  getInteractions() {
     return this.prisma.jobInteraction.findMany({
-      where: { userId },
       select: { jobId: true, status: true, updatedAt: true },
     });
   }
 
-  upsertInteraction(userId: string, jobId: string, status: InteractionStatus) {
+  upsertInteraction(jobId: string, status: InteractionStatus) {
     return this.prisma.jobInteraction.upsert({
-      where: { userId_jobId: { userId, jobId } },
-      create: { userId, jobId, status },
+      where: { jobId },
+      create: { jobId, status },
       update: { status },
     });
   }
 
-  deleteInteraction(userId: string, jobId: string) {
+  deleteInteraction(jobId: string) {
     return this.prisma.jobInteraction.deleteMany({
-      where: { userId, jobId },
+      where: { jobId },
     });
   }
 
-  markViewed(userId: string, jobId: string) {
+  markViewed(jobId: string) {
     return this.prisma.jobView.upsert({
-      where: { userId_jobId: { userId, jobId } },
-      create: { userId, jobId },
+      where: { jobId },
+      create: { jobId },
       update: {},
     });
   }
 
-  async getViewedJobIds(userId: string): Promise<string[]> {
+  async getViewedJobIds(): Promise<string[]> {
     const rows = await this.prisma.jobView.findMany({
-      where: { userId },
       select: { jobId: true },
     });
     return rows.map((r) => r.jobId);

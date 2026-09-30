@@ -23,21 +23,23 @@ describe('PreferencesService', () => {
     service = new PreferencesService(prismaMock);
   });
 
-  it('returns empty preferences when nothing is stored', async () => {
-    await expect(service.get('u1')).resolves.toEqual({
+  it('returns default preferences when nothing is stored', async () => {
+    await expect(service.get()).resolves.toEqual({
       lastView: null,
       listAnchors: {},
       filters: null,
+      autoScrapeEnabled: true,
+      autoScrapeIntervalMinutes: 360,
     });
   });
 
   it('merges a new anchor into the stored ones', async () => {
     stored = {
-      userId: 'u1',
+      id: 1,
       lastView: { kind: 'all' },
       listAnchors: { all: 'a' },
     };
-    const res = await service.update('u1', {
+    const res = await service.update({
       anchor: { tab: 'saved:s1', jobId: 'b' },
     });
     expect(res.listAnchors).toEqual({ all: 'a', 'saved:s1': 'b' });
@@ -48,11 +50,11 @@ describe('PreferencesService', () => {
 
   it('drops an anchor when jobId is null and keeps lastView otherwise', async () => {
     stored = {
-      userId: 'u1',
+      id: 1,
       lastView: { kind: 'all' },
       listAnchors: { all: 'a', new: 'z' },
     };
-    const res = await service.update('u1', {
+    const res = await service.update({
       lastView: { kind: 'suivi' },
       anchor: { tab: 'new', jobId: null },
     });
@@ -62,20 +64,22 @@ describe('PreferencesService', () => {
 
   it('ignores malformed stored anchors', async () => {
     stored = {
-      userId: 'u1',
+      id: 1,
       lastView: null,
       listAnchors: ['not', 'an', 'object'],
     };
-    await expect(service.get('u1')).resolves.toEqual({
+    await expect(service.get()).resolves.toEqual({
       lastView: null,
       listAnchors: {},
       filters: null,
+      autoScrapeEnabled: true,
+      autoScrapeIntervalMinutes: 360,
     });
   });
 
   it('stores and returns filters', async () => {
-    stored = { userId: 'u1', lastView: null, listAnchors: {} };
-    const res = await service.update('u1', {
+    stored = { id: 1, lastView: null, listAnchors: {} };
+    const res = await service.update({
       filters: { radiusKm: 100, daysFilter: null, hideViewed: true },
     });
     expect(res.filters).toEqual({
@@ -87,12 +91,12 @@ describe('PreferencesService', () => {
 
   it('keeps filters untouched when the update omits them', async () => {
     stored = {
-      userId: 'u1',
+      id: 1,
       lastView: null,
       listAnchors: {},
       filters: { radiusKm: 60, daysFilter: 30, hideViewed: false },
     };
-    const res = await service.update('u1', { lastView: { kind: 'all' } });
+    const res = await service.update({ lastView: { kind: 'all' } });
     expect(res.filters).toEqual({
       radiusKm: 60,
       daysFilter: 30,
@@ -104,11 +108,37 @@ describe('PreferencesService', () => {
 
   it('ignores malformed stored filters', async () => {
     stored = {
-      userId: 'u1',
+      id: 1,
       lastView: null,
       listAnchors: {},
       filters: { radiusKm: 'not-a-number' },
     };
-    await expect(service.get('u1')).resolves.toMatchObject({ filters: null });
+    await expect(service.get()).resolves.toMatchObject({ filters: null });
+  });
+
+  it('stores and returns auto-scrape settings', async () => {
+    stored = { id: 1, lastView: null, listAnchors: {} };
+    const res = await service.update({
+      autoScrapeEnabled: false,
+      autoScrapeIntervalMinutes: 90,
+    });
+    expect(res.autoScrapeEnabled).toBe(false);
+    expect(res.autoScrapeIntervalMinutes).toBe(90);
+  });
+
+  it('keeps auto-scrape settings untouched when the update omits them', async () => {
+    stored = {
+      id: 1,
+      lastView: null,
+      listAnchors: {},
+      autoScrapeEnabled: false,
+      autoScrapeIntervalMinutes: 90,
+    };
+    const res = await service.update({ lastView: { kind: 'all' } });
+    expect(res.autoScrapeEnabled).toBe(false);
+    expect(res.autoScrapeIntervalMinutes).toBe(90);
+    const update = prismaMock.userPreference.upsert.mock.calls[0][0].update;
+    expect(update).not.toHaveProperty('autoScrapeEnabled');
+    expect(update).not.toHaveProperty('autoScrapeIntervalMinutes');
   });
 });

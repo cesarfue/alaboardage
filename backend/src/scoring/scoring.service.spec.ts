@@ -8,7 +8,6 @@ import { SkillLevel } from '../../generated/prisma/enums';
 // Minimal Skill shape for tests — mirrors the Prisma type
 interface Skill {
   id: string;
-  userId: string;
   name: string;
   level: SkillLevel;
   createdAt: Date;
@@ -17,7 +16,6 @@ interface Skill {
 function makeSkill(name: string, level: SkillLevel): Skill {
   return {
     id: name,
-    userId: 'default',
     name,
     level,
     createdAt: new Date(),

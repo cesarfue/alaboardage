@@ -1,5 +1,5 @@
 jest.mock('@nestjs/schedule', () => ({
-  Cron: () => () => undefined,
+  Interval: () => () => undefined,
 }));
 jest.mock('../../generated/prisma/client', () => ({}));
 jest.mock('../prisma/prisma.service');
@@ -17,6 +17,9 @@ describe('SearchRefreshService', () => {
         findMany: jest.fn(),
         findUnique: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      userPreference: {
+        findUnique: jest.fn().mockResolvedValue(null),
       },
     };
     scraperMock = {
@@ -189,5 +192,47 @@ describe('SearchRefreshService', () => {
     prismaMock.savedSearch.findMany.mockResolvedValue(searches);
     await service.refreshAll();
     expect(scraperMock.scrapeAllBoards).toHaveBeenCalledTimes(40);
+  });
+
+  describe('tick', () => {
+    beforeEach(() => {
+      prismaMock.savedSearch.findMany.mockResolvedValue([
+        { id: 'a', queries: ['ts'], locations: ['Paris'] },
+      ]);
+    });
+
+    it('does not refresh when auto-scrape is disabled', async () => {
+      prismaMock.userPreference.findUnique.mockResolvedValue({
+        autoScrapeEnabled: false,
+        autoScrapeIntervalMinutes: 360,
+      });
+      await service.tick();
+      expect(scraperMock.scrapeAllBoards).not.toHaveBeenCalled();
+    });
+
+    it('refreshes on the first tick when no run has happened yet', async () => {
+      prismaMock.userPreference.findUnique.mockResolvedValue({
+        autoScrapeEnabled: true,
+        autoScrapeIntervalMinutes: 360,
+      });
+      await service.tick();
+      expect(scraperMock.scrapeAllBoards).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not refresh again before the configured interval elapses', async () => {
+      prismaMock.userPreference.findUnique.mockResolvedValue({
+        autoScrapeEnabled: true,
+        autoScrapeIntervalMinutes: 360,
+      });
+      await service.tick();
+      await service.tick();
+      expect(scraperMock.scrapeAllBoards).toHaveBeenCalledTimes(1);
+    });
+
+    it('defaults to enabled with a 360 minute interval when no row exists', async () => {
+      prismaMock.userPreference.findUnique.mockResolvedValue(null);
+      await service.tick();
+      expect(scraperMock.scrapeAllBoards).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -68,7 +68,7 @@ describe('SearchesService', () => {
         .mockResolvedValueOnce(7)
         .mockResolvedValueOnce(0);
 
-      const result = await service.getSavedSearches('user-1');
+      const result = await service.getSavedSearches();
 
       expect(result).toHaveLength(2);
       expect(result[0].newResultsCount).toBe(7);
@@ -118,7 +118,7 @@ describe('SearchesService', () => {
         .mockResolvedValueOnce(['a', 'b'])
         .mockResolvedValueOnce(['b', 'c']);
 
-      const result = await service.feed('user-1', 200, 0);
+      const result = await service.feed(200, 0);
 
       expect(result.newCount).toBe(3);
       expect(jobsMock.findByAnyCriteria).toHaveBeenCalledWith(
@@ -126,7 +126,6 @@ describe('SearchesService', () => {
           { queries: ['dev'], locations: ['Paris'] },
           { queries: ['dev'], locations: ['Lyon'] },
         ],
-        'user-1',
         200,
         0,
       );
@@ -141,17 +140,17 @@ describe('SearchesService', () => {
         lastSeenAt: new Date(),
       });
 
-      const result = await service.markSeen('user-1', 's1');
+      const result = await service.markSeen('s1');
 
       const args = prismaMock.savedSearch.updateMany.mock.calls[0][0];
-      expect(args.where).toEqual({ id: 's1', userId: 'user-1' });
+      expect(args.where).toEqual({ id: 's1' });
       expect(args.data.lastSeenAt).toBeInstanceOf(Date);
       expect(result.id).toBe('s1');
     });
 
     it('throws NotFoundException when no row matched', async () => {
       prismaMock.savedSearch.updateMany.mockResolvedValue({ count: 0 });
-      await expect(service.markSeen('user-1', 'ghost')).rejects.toBeInstanceOf(
+      await expect(service.markSeen('ghost')).rejects.toBeInstanceOf(
         NotFoundException,
       );
     });
@@ -162,7 +161,7 @@ describe('SearchesService', () => {
       prismaMock.savedSearch.count.mockResolvedValue(3);
       prismaMock.savedSearch.create.mockResolvedValue({ id: 's4' });
 
-      await service.createSavedSearch('user-1', {
+      await service.createSavedSearch({
         name: 'n',
         queries: ['ts'],
         locations: ['Paris'],
@@ -174,15 +173,15 @@ describe('SearchesService', () => {
   });
 
   describe('reorder', () => {
-    it('writes one position per id, scoped to the user', async () => {
-      await service.reorder('user-1', ['s2', 's1']);
+    it('writes one position per id', async () => {
+      await service.reorder(['s2', 's1']);
 
       const calls = prismaMock.savedSearch.updateMany.mock.calls.map(
         (c: any[]) => c[0],
       );
       expect(calls).toEqual([
-        { where: { id: 's2', userId: 'user-1' }, data: { position: 0 } },
-        { where: { id: 's1', userId: 'user-1' }, data: { position: 1 } },
+        { where: { id: 's2' }, data: { position: 0 } },
+        { where: { id: 's1' }, data: { position: 1 } },
       ]);
     });
   });
@@ -192,26 +191,16 @@ describe('SearchesService', () => {
       prismaMock.savedSearch.updateMany.mockResolvedValue({ count: 1 });
       prismaMock.savedSearch.findFirst.mockResolvedValue({ id: 's1' });
 
-      await service.updateSavedSearch('user-1', 's1', { emailAlerts: false });
-
-      const data = prismaMock.savedSearch.updateMany.mock.calls[0][0].data;
-      expect(data).toEqual({ emailAlerts: false });
-    });
-
-    it('supports renaming a search', async () => {
-      prismaMock.savedSearch.updateMany.mockResolvedValue({ count: 1 });
-      prismaMock.savedSearch.findFirst.mockResolvedValue({ id: 's1' });
-
-      await service.updateSavedSearch('user-1', 's1', { name: 'New name' });
+      await service.updateSavedSearch('s1', { name: 'New name' });
 
       const data = prismaMock.savedSearch.updateMany.mock.calls[0][0].data;
       expect(data).toEqual({ name: 'New name' });
     });
 
-    it('throws NotFoundException when the search does not belong to the user', async () => {
+    it('throws NotFoundException when the search does not exist', async () => {
       prismaMock.savedSearch.updateMany.mockResolvedValue({ count: 0 });
       await expect(
-        service.updateSavedSearch('user-1', 's1', { name: 'x' }),
+        service.updateSavedSearch('s1', { name: 'x' }),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
@@ -219,18 +208,16 @@ describe('SearchesService', () => {
   describe('deleteSavedSearch', () => {
     it('throws NotFoundException when nothing was deleted', async () => {
       prismaMock.savedSearch.deleteMany.mockResolvedValue({ count: 0 });
-      await expect(
-        service.deleteSavedSearch('user-1', 's1'),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.deleteSavedSearch('s1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
-    it('deletes when the search belongs to the user', async () => {
+    it('deletes the matching search', async () => {
       prismaMock.savedSearch.deleteMany.mockResolvedValue({ count: 1 });
-      await expect(
-        service.deleteSavedSearch('user-1', 's1'),
-      ).resolves.toBeUndefined();
+      await expect(service.deleteSavedSearch('s1')).resolves.toBeUndefined();
       expect(prismaMock.savedSearch.deleteMany).toHaveBeenCalledWith({
-        where: { id: 's1', userId: 'user-1' },
+        where: { id: 's1' },
       });
     });
   });

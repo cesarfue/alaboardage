@@ -23,14 +23,11 @@ export class SearchesService {
     private readonly refresh: SearchRefreshService,
   ) {}
 
-  async getSavedSearches(userId: string): Promise<SavedSearchWithCount[]> {
+  async getSavedSearches(): Promise<SavedSearchWithCount[]> {
     const searches = await this.prisma.savedSearch.findMany({
-      where: { userId },
       orderBy: [{ position: 'asc' }, { createdAt: 'desc' }],
     });
 
-    // `lastSeenAt === null` → treat all matching jobs as new
-    // Bounded by user count × per-user saved searches — an N+1 here is fine
     return Promise.all(
       searches.map(async (s) => {
         const { queries, locations } = criteriaOf(s);
@@ -47,11 +44,10 @@ export class SearchesService {
     );
   }
 
-  async createSavedSearch(userId: string, dto: CreateSearchDto) {
-    const position = await this.prisma.savedSearch.count({ where: { userId } });
+  async createSavedSearch(dto: CreateSearchDto) {
+    const position = await this.prisma.savedSearch.count();
     return this.prisma.savedSearch.create({
       data: {
-        userId,
         name: dto.name,
         queries: dto.queries,
         locations: dto.locations,
@@ -62,11 +58,11 @@ export class SearchesService {
     });
   }
 
-  async reorder(userId: string, ids: string[]): Promise<void> {
+  async reorder(ids: string[]): Promise<void> {
     await this.prisma.$transaction(
       ids.map((id, position) =>
         this.prisma.savedSearch.updateMany({
-          where: { id, userId },
+          where: { id },
           data: { position },
         }),
       ),
@@ -74,13 +70,11 @@ export class SearchesService {
   }
 
   async updateSavedSearch(
-    userId: string,
     id: string,
     dto: UpdateSearchDto,
   ): Promise<SavedSearch> {
-    return this.updateOwnedOr404(userId, id, {
+    return this.updateOr404(id, {
       ...(dto.name !== undefined && { name: dto.name }),
-      ...(dto.emailAlerts !== undefined && { emailAlerts: dto.emailAlerts }),
       ...(dto.queries !== undefined && {
         queries: dto.queries,
         query: dto.queries[0],
@@ -92,34 +86,28 @@ export class SearchesService {
     });
   }
 
-  async requestRefresh(userId: string, id: string): Promise<RefreshState> {
-    const search = await this.prisma.savedSearch.findFirst({
-      where: { id, userId },
-    });
+  async requestRefresh(id: string): Promise<RefreshState> {
+    const search = await this.prisma.savedSearch.findFirst({ where: { id } });
     if (!search) throw new NotFoundException('Saved search not found');
     return this.refresh.requestRefresh(id);
   }
 
-  async findJobsFor(userId: string, id: string, limit: number, offset: number) {
-    const search = await this.prisma.savedSearch.findFirst({
-      where: { id, userId },
-    });
+  async findJobsFor(id: string, limit: number, offset: number) {
+    const search = await this.prisma.savedSearch.findFirst({ where: { id } });
     if (!search) throw new NotFoundException('Saved search not found');
     const { queries, locations } = criteriaOf(search);
-    return this.jobs.findByCriteria(queries, locations, userId, limit, offset);
+    return this.jobs.findByCriteria(queries, locations, limit, offset);
   }
 
-  async markSeen(userId: string, id: string): Promise<SavedSearch> {
-    return this.updateOwnedOr404(userId, id, { lastSeenAt: new Date() });
+  async markSeen(id: string): Promise<SavedSearch> {
+    return this.updateOr404(id, { lastSeenAt: new Date() });
   }
 
-  async feed(userId: string, limit: number, offset: number) {
-    const searches = await this.prisma.savedSearch.findMany({
-      where: { userId },
-    });
+  async feed(limit: number, offset: number) {
+    const searches = await this.prisma.savedSearch.findMany();
     const criteria = searches.map(criteriaOf);
     const [page, newIdLists] = await Promise.all([
-      this.jobs.findByAnyCriteria(criteria, userId, limit, offset),
+      this.jobs.findByAnyCriteria(criteria, limit, offset),
       Promise.all(
         searches.map((s) => {
           const { queries, locations } = criteriaOf(s);
@@ -131,49 +119,37 @@ export class SearchesService {
     return { ...page, newCount };
   }
 
-  async markAllSeen(userId: string): Promise<void> {
+  async markAllSeen(): Promise<void> {
     await this.prisma.savedSearch.updateMany({
-      where: { userId },
       data: { lastSeenAt: new Date() },
     });
   }
 
-  async requestRefreshAll(userId: string): Promise<RefreshState[]> {
+  async requestRefreshAll(): Promise<RefreshState[]> {
     const searches = await this.prisma.savedSearch.findMany({
-      where: { userId },
       select: { id: true },
     });
     return searches.map((s) => this.refresh.requestRefresh(s.id));
   }
 
-  /**
-   * Update-then-fetch scoped by (id, userId). Throws 404 when no row belongs
-   * to the caller so downstream never sees a null. Both the `updateMany` and
-   * the `findUnique` are ownership-scoped to defeat any interleaved delete.
-   */
-  private async updateOwnedOr404(
-    userId: string,
+  private async updateOr404(
     id: string,
     data: UpdateSearchDto & { lastSeenAt?: Date },
   ): Promise<SavedSearch> {
     const result = await this.prisma.savedSearch.updateMany({
-      where: { id, userId },
+      where: { id },
       data,
     });
     if (result.count === 0) {
       throw new NotFoundException('Saved search not found');
     }
-    const updated = await this.prisma.savedSearch.findFirst({
-      where: { id, userId },
-    });
+    const updated = await this.prisma.savedSearch.findFirst({ where: { id } });
     if (!updated) throw new NotFoundException('Saved search not found');
     return updated;
   }
 
-  async deleteSavedSearch(userId: string, id: string) {
-    const result = await this.prisma.savedSearch.deleteMany({
-      where: { id, userId },
-    });
+  async deleteSavedSearch(id: string) {
+    const result = await this.prisma.savedSearch.deleteMany({ where: { id } });
     if (result.count === 0) {
       throw new NotFoundException('Saved search not found');
     }

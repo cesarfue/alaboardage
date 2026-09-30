@@ -10,97 +10,74 @@ import {
   Post,
   Put,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { SearchesService } from './searches.service';
 import { FindJobsDto } from '../jobs/dto/find-jobs-query.dto';
 import { CreateSearchDto } from './dto/create-search.dto';
 import { UpdateSearchDto } from './dto/update-search.dto';
 import { ReorderSearchesDto } from './dto/reorder-searches.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Controller()
-@UseGuards(JwtAuthGuard)
 export class SearchesController {
   constructor(private readonly searchesService: SearchesService) {}
 
   @Get('searches')
-  getSavedSearches(@CurrentUser() user: JwtPayload) {
-    return this.searchesService.getSavedSearches(user.sub);
+  getSavedSearches() {
+    return this.searchesService.getSavedSearches();
   }
 
   @Post('searches')
-  createSavedSearch(
-    @CurrentUser() user: JwtPayload,
-    @Body() dto: CreateSearchDto,
-  ) {
-    return this.searchesService.createSavedSearch(user.sub, dto);
+  createSavedSearch(@Body() dto: CreateSearchDto) {
+    return this.searchesService.createSavedSearch(dto);
   }
 
   @Put('searches/order')
   @HttpCode(HttpStatus.NO_CONTENT)
-  reorder(@CurrentUser() user: JwtPayload, @Body() dto: ReorderSearchesDto) {
-    return this.searchesService.reorder(user.sub, dto.ids);
+  reorder(@Body() dto: ReorderSearchesDto) {
+    return this.searchesService.reorder(dto.ids);
   }
 
   @Patch('searches/:id')
-  updateSavedSearch(
-    @CurrentUser() user: JwtPayload,
-    @Param('id') id: string,
-    @Body() dto: UpdateSearchDto,
-  ) {
-    return this.searchesService.updateSavedSearch(user.sub, id, dto);
+  updateSavedSearch(@Param('id') id: string, @Body() dto: UpdateSearchDto) {
+    return this.searchesService.updateSavedSearch(id, dto);
   }
 
   @Get('feed')
-  feed(@CurrentUser() user: JwtPayload, @Query() query: FindJobsDto) {
-    return this.searchesService.feed(user.sub, query.limit, query.offset);
+  feed(@Query() query: FindJobsDto) {
+    return this.searchesService.feed(query.limit, query.offset);
   }
 
   @Post('feed/seen')
   @HttpCode(HttpStatus.NO_CONTENT)
-  markAllSeen(@CurrentUser() user: JwtPayload) {
-    return this.searchesService.markAllSeen(user.sub);
+  markAllSeen() {
+    return this.searchesService.markAllSeen();
   }
 
   @Post('feed/refresh')
-  requestRefreshAll(@CurrentUser() user: JwtPayload) {
+  requestRefreshAll() {
     return this.searchesService
-      .requestRefreshAll(user.sub)
+      .requestRefreshAll()
       .then((states) => ({ states }));
   }
 
   @Get('searches/:id/jobs')
-  getJobsFor(
-    @CurrentUser() user: JwtPayload,
-    @Param('id') id: string,
-    @Query() query: FindJobsDto,
-  ) {
-    return this.searchesService.findJobsFor(
-      user.sub,
-      id,
-      query.limit,
-      query.offset,
-    );
+  getJobsFor(@Param('id') id: string, @Query() query: FindJobsDto) {
+    return this.searchesService.findJobsFor(id, query.limit, query.offset);
   }
 
   @Post('searches/:id/refresh')
-  requestRefresh(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.searchesService
-      .requestRefresh(user.sub, id)
-      .then((state) => ({ state }));
+  requestRefresh(@Param('id') id: string) {
+    return this.searchesService.requestRefresh(id).then((state) => ({ state }));
   }
 
   @Post('searches/:id/seen')
-  markSeen(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.searchesService.markSeen(user.sub, id);
+  markSeen(@Param('id') id: string) {
+    return this.searchesService.markSeen(id);
   }
 
   @Delete('searches/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteSavedSearch(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.searchesService.deleteSavedSearch(user.sub, id);
+  deleteSavedSearch(@Param('id') id: string) {
+    return this.searchesService.deleteSavedSearch(id);
   }
 }

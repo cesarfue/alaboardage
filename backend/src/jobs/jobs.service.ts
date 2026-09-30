@@ -78,7 +78,7 @@ export class JobsService {
     return this.prisma.job.count({ where });
   }
 
-  async findAll(query: FindJobsDto, userId: string) {
+  async findAll(query: FindJobsDto) {
     const where = await this.buildQueryLocationWhere(
       query.query,
       query.location,
@@ -87,28 +87,26 @@ export class JobsService {
     if (query.company)
       where.company = { contains: query.company, mode: 'insensitive' };
     if (query.status) {
-      where.interactions = { some: { userId, status: query.status } };
+      where.interactions = { some: { status: query.status } };
     } else if (query.tracked) {
-      where.interactions = { some: { userId } };
+      where.interactions = { some: {} };
     }
 
-    return this.page(where, userId, query.limit, query.offset);
+    return this.page(where, query.limit, query.offset);
   }
 
   async findByCriteria(
     queries: string[],
     locations: string[],
-    userId: string,
     limit: number,
     offset: number,
   ) {
     const where = await this.buildCriteriaWhere(queries, locations);
-    return this.page(where, userId, limit, offset);
+    return this.page(where, limit, offset);
   }
 
   async findByAnyCriteria(
     criteria: { queries: string[]; locations: string[] }[],
-    userId: string,
     limit: number,
     offset: number,
   ) {
@@ -116,7 +114,7 @@ export class JobsService {
     const wheres = await Promise.all(
       criteria.map((c) => this.buildCriteriaWhere(c.queries, c.locations)),
     );
-    return this.page({ OR: wheres }, userId, limit, offset);
+    return this.page({ OR: wheres }, limit, offset);
   }
 
   async newJobIdsSince(
@@ -135,7 +133,6 @@ export class JobsService {
 
   private async page(
     where: Prisma.JobWhereInput,
-    userId: string,
     limit: number,
     offset: number,
   ) {
@@ -147,15 +144,15 @@ export class JobsService {
         skip: offset,
         include: {
           establishment: true,
-          scores: { where: { userId } },
+          score: true,
         },
       }),
       this.prisma.job.count({ where }),
     ]);
 
-    const items = rawItems.map(({ scores, ...job }) => ({
+    const items = rawItems.map(({ score, ...job }) => ({
       ...job,
-      score: scores[0]?.score ?? 0,
+      score: score?.score ?? 0,
     }));
 
     return { items, total, limit, offset };

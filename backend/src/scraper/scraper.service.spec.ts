@@ -65,7 +65,7 @@ describe('ScraperService', () => {
   async function streamedJobIds(): Promise<string[]> {
     const events = await firstValueFrom(
       service
-        .scrapeAllBoardsStream({ query: [], location: [] }, 'user-1')
+        .scrapeAllBoardsStream({ query: [], location: [] })
         .pipe(toArray()),
     );
     return events
