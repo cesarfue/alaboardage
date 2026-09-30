@@ -72,9 +72,11 @@ export class JobsService {
     queries: string[],
     locations: string[],
     since: Date | null,
+    postedSince: Date | null = null,
   ): Promise<number> {
     const where = await this.buildCriteriaWhere(queries, locations);
     if (since) where.scrapedAt = { gt: since };
+    if (postedSince) where.datePosted = { gte: postedSince };
     return this.prisma.job.count({ where });
   }
 
@@ -121,9 +123,11 @@ export class JobsService {
     queries: string[],
     locations: string[],
     since: Date | null,
+    postedSince: Date | null = null,
   ): Promise<string[]> {
     const where = await this.buildCriteriaWhere(queries, locations);
     if (since) where.scrapedAt = { gt: since };
+    if (postedSince) where.datePosted = { gte: postedSince };
     const rows = await this.prisma.job.findMany({
       where,
       select: { id: true },

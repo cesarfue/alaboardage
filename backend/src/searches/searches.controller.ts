@@ -22,8 +22,8 @@ export class SearchesController {
   constructor(private readonly searchesService: SearchesService) {}
 
   @Get('searches')
-  getSavedSearches() {
-    return this.searchesService.getSavedSearches();
+  getSavedSearches(@Query() query: FindJobsDto) {
+    return this.searchesService.getSavedSearches(query.daysFilter ?? null);
   }
 
   @Post('searches')
@@ -44,7 +44,11 @@ export class SearchesController {
 
   @Get('feed')
   feed(@Query() query: FindJobsDto) {
-    return this.searchesService.feed(query.limit, query.offset);
+    return this.searchesService.feed(
+      query.limit,
+      query.offset,
+      query.daysFilter ?? null,
+    );
   }
 
   @Post('feed/seen')

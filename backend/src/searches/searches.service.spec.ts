@@ -78,13 +78,36 @@ describe('SearchesService', () => {
         ['ts', 'node'],
         ['Paris', 'Lyon'],
         null,
+        null,
       );
       expect(jobsMock.countMatchingSince).toHaveBeenNthCalledWith(
         2,
         ['go'],
         ['Lyon'],
         new Date('2026-07-01'),
+        null,
       );
+    });
+
+    it('passes a datePosted cutoff derived from daysFilter', async () => {
+      prismaMock.savedSearch.findMany.mockResolvedValue([
+        {
+          id: 's1',
+          query: 'ts',
+          location: 'Paris',
+          queries: ['ts'],
+          locations: ['Paris'],
+          lastSeenAt: null,
+        },
+      ]);
+
+      await service.getSavedSearches(14);
+
+      const [, , , postedSince] = jobsMock.countMatchingSince.mock.calls[0];
+      expect(postedSince).toBeInstanceOf(Date);
+      const ageMs = Date.now() - (postedSince as Date).getTime();
+      expect(ageMs).toBeGreaterThan(13 * 24 * 60 * 60 * 1000);
+      expect(ageMs).toBeLessThan(15 * 24 * 60 * 60 * 1000);
     });
   });
 

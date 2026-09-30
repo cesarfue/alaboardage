@@ -15,6 +15,12 @@ export interface SavedSearchWithCount extends SavedSearch {
   refreshState: RefreshState;
 }
 
+function cutoffFrom(daysFilter: number | null): Date | null {
+  return daysFilter !== null
+    ? new Date(Date.now() - daysFilter * 24 * 60 * 60 * 1000)
+    : null;
+}
+
 @Injectable()
 export class SearchesService {
   constructor(
@@ -23,10 +29,13 @@ export class SearchesService {
     private readonly refresh: SearchRefreshService,
   ) {}
 
-  async getSavedSearches(): Promise<SavedSearchWithCount[]> {
+  async getSavedSearches(
+    daysFilter: number | null = null,
+  ): Promise<SavedSearchWithCount[]> {
     const searches = await this.prisma.savedSearch.findMany({
       orderBy: [{ position: 'asc' }, { createdAt: 'desc' }],
     });
+    const postedSince = cutoffFrom(daysFilter);
 
     return Promise.all(
       searches.map(async (s) => {
@@ -38,6 +47,7 @@ export class SearchesService {
             queries,
             locations,
             s.lastSeenAt,
+            postedSince,
           ),
         };
       }),
@@ -103,15 +113,21 @@ export class SearchesService {
     return this.updateOr404(id, { lastSeenAt: new Date() });
   }
 
-  async feed(limit: number, offset: number) {
+  async feed(limit: number, offset: number, daysFilter: number | null = null) {
     const searches = await this.prisma.savedSearch.findMany();
     const criteria = searches.map(criteriaOf);
+    const postedSince = cutoffFrom(daysFilter);
     const [page, newIdLists] = await Promise.all([
       this.jobs.findByAnyCriteria(criteria, limit, offset),
       Promise.all(
         searches.map((s) => {
           const { queries, locations } = criteriaOf(s);
-          return this.jobs.newJobIdsSince(queries, locations, s.lastSeenAt);
+          return this.jobs.newJobIdsSince(
+            queries,
+            locations,
+            s.lastSeenAt,
+            postedSince,
+          );
         }),
       ),
     ]);

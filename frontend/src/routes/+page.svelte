@@ -131,6 +131,23 @@
       .catch(() => {});
   });
 
+  $effect(() => {
+    if (!filtersReady) return;
+    const currentDaysFilter = daysFilter;
+    untrack(() => {
+      api
+        .getSavedSearches(currentDaysFilter)
+        .then((fresh) => (savedSearches = fresh))
+        .catch(() => {});
+      if (feedNewCount !== null) {
+        api
+          .getFeed(200, currentDaysFilter)
+          .then((res) => (feedNewCount = res.newCount))
+          .catch(() => {});
+      }
+    });
+  });
+
   function stamp(j: Job): Job {
     const it = interactionsMap.get(j.id);
     const viewed = viewedIds.has(j.id);
@@ -295,7 +312,7 @@
 
   async function pollSearches() {
     try {
-      savedSearches = await api.getSavedSearches();
+      savedSearches = await api.getSavedSearches(daysFilter);
     } catch {
       return;
     }
@@ -428,7 +445,7 @@
     viewedIds = new Set(await api.getViews().catch(() => []));
     snapshotHidden();
 
-    savedSearches = await api.getSavedSearches().catch(() => []);
+    savedSearches = await api.getSavedSearches(daysFilter).catch(() => []);
 
     const prefs = await api.getPreferences().catch(() => null);
     listAnchors = { ...localAnchors(), ...(prefs?.listAnchors ?? {}) };

@@ -137,8 +137,9 @@ export const api = {
     });
   },
 
-  getSavedSearches(): Promise<SavedSearch[]> {
-    return request<SavedSearch[]>("/searches");
+  getSavedSearches(daysFilter?: number | null): Promise<SavedSearch[]> {
+    const qs = daysFilter != null ? `?daysFilter=${daysFilter}` : "";
+    return request<SavedSearch[]>(`/searches${qs}`);
   },
 
   saveSearch(
@@ -202,9 +203,13 @@ export const api = {
     });
   },
 
-  getFeed(limit = 200): Promise<ListJobsResponse & { newCount: number }> {
+  getFeed(
+    limit = 200,
+    daysFilter?: number | null,
+  ): Promise<ListJobsResponse & { newCount: number }> {
+    const qs = daysFilter != null ? `&daysFilter=${daysFilter}` : "";
     return request<ListJobsResponse & { newCount: number }>(
-      `/feed?limit=${limit}`,
+      `/feed?limit=${limit}${qs}`,
     );
   },
 
