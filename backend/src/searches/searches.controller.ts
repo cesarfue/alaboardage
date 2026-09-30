@@ -66,7 +66,12 @@ export class SearchesController {
 
   @Get('searches/:id/jobs')
   getJobsFor(@Param('id') id: string, @Query() query: FindJobsDto) {
-    return this.searchesService.findJobsFor(id, query.limit, query.offset);
+    return this.searchesService.findJobsFor(
+      id,
+      query.limit,
+      query.offset,
+      query.daysFilter ?? null,
+    );
   }
 
   @Post('searches/:id/refresh')

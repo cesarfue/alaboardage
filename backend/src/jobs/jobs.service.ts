@@ -102,8 +102,10 @@ export class JobsService {
     locations: string[],
     limit: number,
     offset: number,
+    postedSince: Date | null = null,
   ) {
     const where = await this.buildCriteriaWhere(queries, locations);
+    if (postedSince) where.datePosted = { gte: postedSince };
     return this.page(where, limit, offset);
   }
 
@@ -111,12 +113,17 @@ export class JobsService {
     criteria: { queries: string[]; locations: string[] }[],
     limit: number,
     offset: number,
+    postedSince: Date | null = null,
   ) {
     if (criteria.length === 0) return { items: [], total: 0, limit, offset };
     const wheres = await Promise.all(
       criteria.map((c) => this.buildCriteriaWhere(c.queries, c.locations)),
     );
-    return this.page({ OR: wheres }, limit, offset);
+    return this.page(
+      { OR: wheres, ...(postedSince && { datePosted: { gte: postedSince } }) },
+      limit,
+      offset,
+    );
   }
 
   async newJobIdsSince(

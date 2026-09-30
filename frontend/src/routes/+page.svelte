@@ -292,11 +292,11 @@
     try {
       let fresh: Job[];
       if (id === ALL_TAB) {
-        const res = await api.getFeed();
+        const res = await api.getFeed(200, daysFilter);
         feedNewCount = res.newCount;
         fresh = res.items.map(stamp);
       } else {
-        const res = await api.listSavedSearchJobs(id);
+        const res = await api.listSavedSearchJobs(id, 200, daysFilter);
         fresh = res.items.map(stamp);
       }
       savedJobsByTab = new Map(savedJobsByTab).set(id, fresh);

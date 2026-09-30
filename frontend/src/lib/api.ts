@@ -153,9 +153,14 @@ export const api = {
     });
   },
 
-  listSavedSearchJobs(id: string, limit = 200): Promise<ListJobsResponse> {
+  listSavedSearchJobs(
+    id: string,
+    limit = 200,
+    daysFilter?: number | null,
+  ): Promise<ListJobsResponse> {
+    const qs = daysFilter != null ? `&daysFilter=${daysFilter}` : "";
     return request<ListJobsResponse>(
-      `/searches/${encodeURIComponent(id)}/jobs?limit=${limit}`,
+      `/searches/${encodeURIComponent(id)}/jobs?limit=${limit}${qs}`,
     );
   },
 

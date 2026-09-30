@@ -11,7 +11,10 @@ describe('SearchesService', () => {
   let jobsMock: jest.Mocked<
     Pick<
       JobsService,
-      'countMatchingSince' | 'findByAnyCriteria' | 'newJobIdsSince'
+      | 'countMatchingSince'
+      | 'findByAnyCriteria'
+      | 'findByCriteria'
+      | 'newJobIdsSince'
     >
   >;
   let refreshMock: any;
@@ -31,6 +34,7 @@ describe('SearchesService', () => {
     jobsMock = {
       countMatchingSince: jest.fn().mockResolvedValue(0),
       findByAnyCriteria: jest.fn(),
+      findByCriteria: jest.fn(),
       newJobIdsSince: jest.fn().mockResolvedValue([]),
     };
     refreshMock = {
@@ -151,6 +155,62 @@ describe('SearchesService', () => {
         ],
         200,
         0,
+        null,
+      );
+    });
+  });
+
+  describe('findJobsFor', () => {
+    it('passes no cutoff when daysFilter is omitted', async () => {
+      prismaMock.savedSearch.findFirst.mockResolvedValue({
+        id: 's1',
+        queries: ['ts'],
+        locations: ['Paris'],
+      });
+      jobsMock.findByCriteria.mockResolvedValue({
+        items: [],
+        total: 0,
+        limit: 200,
+        offset: 0,
+      });
+
+      await service.findJobsFor('s1', 200, 0);
+
+      expect(jobsMock.findByCriteria).toHaveBeenCalledWith(
+        ['ts'],
+        ['Paris'],
+        200,
+        0,
+        null,
+      );
+    });
+
+    it('derives a datePosted cutoff from daysFilter', async () => {
+      prismaMock.savedSearch.findFirst.mockResolvedValue({
+        id: 's1',
+        queries: ['ts'],
+        locations: ['Paris'],
+      });
+      jobsMock.findByCriteria.mockResolvedValue({
+        items: [],
+        total: 0,
+        limit: 200,
+        offset: 0,
+      });
+
+      await service.findJobsFor('s1', 200, 0, 14);
+
+      const [, , , , postedSince] = jobsMock.findByCriteria.mock.calls[0];
+      expect(postedSince).toBeInstanceOf(Date);
+      const ageMs = Date.now() - (postedSince as Date).getTime();
+      expect(ageMs).toBeGreaterThan(13 * 24 * 60 * 60 * 1000);
+      expect(ageMs).toBeLessThan(15 * 24 * 60 * 60 * 1000);
+    });
+
+    it('throws NotFoundException when the search does not exist', async () => {
+      prismaMock.savedSearch.findFirst.mockResolvedValue(null);
+      await expect(service.findJobsFor('ghost', 200, 0)).rejects.toBeInstanceOf(
+        NotFoundException,
       );
     });
   });

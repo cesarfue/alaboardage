@@ -102,11 +102,22 @@ export class SearchesService {
     return this.refresh.requestRefresh(id);
   }
 
-  async findJobsFor(id: string, limit: number, offset: number) {
+  async findJobsFor(
+    id: string,
+    limit: number,
+    offset: number,
+    daysFilter: number | null = null,
+  ) {
     const search = await this.prisma.savedSearch.findFirst({ where: { id } });
     if (!search) throw new NotFoundException('Saved search not found');
     const { queries, locations } = criteriaOf(search);
-    return this.jobs.findByCriteria(queries, locations, limit, offset);
+    return this.jobs.findByCriteria(
+      queries,
+      locations,
+      limit,
+      offset,
+      cutoffFrom(daysFilter),
+    );
   }
 
   async markSeen(id: string): Promise<SavedSearch> {
@@ -118,7 +129,7 @@ export class SearchesService {
     const criteria = searches.map(criteriaOf);
     const postedSince = cutoffFrom(daysFilter);
     const [page, newIdLists] = await Promise.all([
-      this.jobs.findByAnyCriteria(criteria, limit, offset),
+      this.jobs.findByAnyCriteria(criteria, limit, offset, postedSince),
       Promise.all(
         searches.map((s) => {
           const { queries, locations } = criteriaOf(s);
