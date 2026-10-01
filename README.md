@@ -44,9 +44,9 @@ Une fois les conteneurs démarrés :
 | Backend (API)  | http://localhost:3000   |
 | Prisma Studio  | http://localhost:5555   |
 
-## Scraping automatique
+## Mise à jour du flux
 
-Le rafraîchissement périodique des recherches sauvegardées (fréquence et activation) se règle depuis l'onglet Paramètres de l'application, pas par variable d'environnement — le réglage est stocké en base et prend effet sans redémarrage. Pour une instance qu'on ne laisse pas tourner en continu (usage ponctuel sur un poste personnel), il se désactive et chaque recherche se rafraîchit alors à la demande, via le bouton de rafraîchissement de son onglet.
+Le rafraîchissement périodique des recherches sauvegardées (fréquence et activation, appelé « mise à jour du flux » dans l'interface) se règle depuis l'onglet Paramètres de l'application, pas par variable d'environnement — le réglage est stocké en base et prend effet sans redémarrage. Pour une instance qu'on ne laisse pas tourner en continu (usage ponctuel sur un poste personnel), il se désactive et chaque recherche se rafraîchit alors à la demande, via le bouton de rafraîchissement de son onglet.
 
 ## Commandes utiles
 

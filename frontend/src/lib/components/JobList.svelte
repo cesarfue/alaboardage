@@ -10,6 +10,7 @@
     selectedJobId = null,
     showChips = false,
     newResultsCount = 0,
+    lastCheckedAt = null,
     loading = false,
     refreshState = "idle",
     onShowNewResults,
@@ -27,6 +28,7 @@
     selectedJobId?: string | null;
     showChips?: boolean;
     newResultsCount?: number;
+    lastCheckedAt?: string | null;
     loading?: boolean;
     refreshState?: RefreshState;
     onShowNewResults?: () => void;
@@ -93,6 +95,23 @@
     { label: "Postulé", value: "APPLIED" },
     { label: "Refusé", value: "REJECTED" },
   ];
+
+  function formatLastChecked(iso: string): string {
+    return new Date(iso).toLocaleString("fr-FR", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  const refreshLabel = $derived(
+    refreshState === "running"
+      ? "Mise à jour du flux en cours…"
+      : refreshState === "queued"
+        ? "En file d'attente"
+        : "Relancer la mise à jour du flux",
+  );
 </script>
 
 <div
@@ -123,18 +142,15 @@
         <button
           onclick={() => onRequestRefresh?.()}
           disabled={refreshState !== "idle"}
-          class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground
+          aria-label={refreshLabel}
+          title={refreshLabel}
+          class="flex items-center text-muted-foreground hover:text-foreground
                  disabled:cursor-not-allowed disabled:opacity-100"
         >
           <RefreshCw
             size={13}
             class={refreshState === "running" ? "animate-spin" : ""}
           />
-          {refreshState === "running"
-            ? "Scraping en cours…"
-            : refreshState === "queued"
-              ? "En file d'attente"
-              : "Relancer le scraping"}
         </button>
       {/if}
     </div>
@@ -148,6 +164,13 @@
       <RefreshCw size={14} />
       {newResultsCount} nouveau{newResultsCount > 1 ? "x" : ""} résultat{newResultsCount > 1 ? "s" : ""}
     </button>
+  {:else if lastCheckedAt}
+    <div
+      class="shrink-0 flex items-center justify-center gap-2 px-4 py-2 border-b
+             text-xs text-muted-foreground"
+    >
+      Dernière mise à jour du flux : {formatLastChecked(lastCheckedAt)}
+    </div>
   {/if}
   <div
     bind:this={container}

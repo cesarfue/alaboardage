@@ -66,6 +66,7 @@
   function closeAll() {
     showingSettings = false;
     showingNav = false;
+    editing = null;
   }
 
   function toggleSettings() {
@@ -165,7 +166,7 @@
   }
 </script>
 
-{#if showingSettings || showingNav}
+{#if showingSettings || showingNav || editing}
   <div
     class="fixed inset-0 z-40"
     role="presentation"

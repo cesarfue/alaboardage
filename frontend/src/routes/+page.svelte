@@ -279,6 +279,17 @@
       ? feedRefreshState
       : (activeSearch?.refreshState ?? "idle"),
   );
+  const bannerLastCheckedAt = $derived.by(() => {
+    if (view.kind === "all") {
+      const dates = savedSearches
+        .map((s) => s.lastCheckedAt)
+        .filter((d): d is string => d !== null);
+      return dates.length > 0
+        ? dates.reduce((latest, d) => (d > latest ? d : latest))
+        : null;
+    }
+    return activeSearch?.lastCheckedAt ?? null;
+  });
 
   function isTabOpen(id: string): boolean {
     if (id === ALL_TAB) return view.kind === "all";
@@ -1007,6 +1018,7 @@
     {#if listVisible}
       <JobList
         newResultsCount={bannerCount}
+        lastCheckedAt={bannerLastCheckedAt}
         onShowNewResults={showNewResults}
         refreshState={bannerRefreshState}
         onRequestRefresh={activeSearch || view.kind === "all"

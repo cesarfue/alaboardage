@@ -194,17 +194,17 @@
   <section class="border-t pt-3 flex flex-col gap-2">
     <div class="flex items-center justify-between">
       <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        Scraping automatique
+        Mise à jour du flux
       </p>
       <button
         onclick={() => (autoScrapeEnabled = !autoScrapeEnabled)}
         role="switch"
-        aria-label="Activer le scraping automatique"
+        aria-label="Activer la mise à jour automatique du flux"
         aria-checked={autoScrapeEnabled}
         class="relative h-5 w-9 rounded-full transition-colors {autoScrapeEnabled ? 'bg-primary' : 'bg-muted'}"
       >
         <span
-          class="absolute top-0.5 h-4 w-4 rounded-full bg-background transition-transform {autoScrapeEnabled ? 'translate-x-[18px]' : 'translate-x-0.5'}"
+          class="absolute left-0 top-0.5 h-4 w-4 rounded-full bg-background transition-transform {autoScrapeEnabled ? 'translate-x-[18px]' : 'translate-x-0.5'}"
         ></span>
       </button>
     </div>
