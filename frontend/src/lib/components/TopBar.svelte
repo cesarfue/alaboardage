@@ -198,7 +198,7 @@
       </span>
     </button>
     {#if showingNav}
-      <div class="absolute top-full mt-1 z-50 left-0 right-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:right-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
+      <div class="fixed z-50 top-[calc(var(--bar)+0.5rem)] left-3 right-3 max-h-[calc(100dvh-var(--bar)-1rem)] overflow-y-auto">
         <NavMenu
           {view}
           {savedSearches}
@@ -281,7 +281,7 @@
       </button>
     {/if}
     {#if editing}
-      <div class="absolute top-full mt-1 z-50 right-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:right-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
+      <div class="fixed z-50 top-[calc(var(--bar)+0.5rem)] right-3 max-h-[calc(100dvh-var(--bar)-1rem)] overflow-y-auto">
         <SearchEditor
           bind:name={editorName}
           bind:query={editorQuery}
@@ -316,7 +316,7 @@
       <Settings size={16} />
     </button>
     {#if showingSettings}
-      <div class="absolute top-full mt-1 z-50 right-0 max-md:fixed max-md:top-28 max-md:left-3 max-md:right-3 max-md:max-h-[calc(100dvh-8rem)] max-md:overflow-y-auto">
+      <div class="fixed z-50 top-[calc(var(--bar)+0.5rem)] right-3 max-h-[calc(100dvh-var(--bar)-1rem)] overflow-y-auto">
         <SettingsPanel
           bind:skills
           bind:radiusKm
