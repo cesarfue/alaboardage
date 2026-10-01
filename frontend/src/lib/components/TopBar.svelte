@@ -104,12 +104,12 @@
   let editorLocation = $state("");
 
   function openEditor(s?: SavedSearch) {
+    closeAll();
     editing = { id: s?.id ?? null };
     editorQuery = s?.queries[0] ?? query.trim();
     editorLocation = s?.locations[0] ?? location.trim();
     editorName =
       s?.name ?? [editorQuery, editorLocation].filter(Boolean).join(" · ");
-    closeAll();
   }
 
   async function deleteFromEditor(id: string) {
