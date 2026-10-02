@@ -535,11 +535,14 @@
         const copy: Job = { ...j, alternates: [] };
         byKey.set(key, copy);
         order.push(copy);
-      } else if (
-        j.source !== rep.source &&
-        !rep.alternates!.some((a) => a.source === j.source)
-      ) {
-        rep.alternates!.push({ source: j.source, url: j.url });
+      } else if (j.source !== rep.source) {
+        if (!rep.alternates!.some((a) => a.source === j.source)) {
+          rep.alternates!.push({ source: j.source, url: j.url });
+        }
+      } else if (new Date(j.scrapedAt) > new Date(rep.scrapedAt)) {
+        const updated: Job = { ...j, alternates: rep.alternates };
+        byKey.set(key, updated);
+        order[order.indexOf(rep)] = updated;
       }
     }
     return order;
