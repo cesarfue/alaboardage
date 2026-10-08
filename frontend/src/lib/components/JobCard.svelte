@@ -42,8 +42,8 @@
 <article
   data-job-id={job.id}
   class="px-4 py-3 cursor-pointer border-b last:border-b-0 transition-colors {selected
-    ? 'border-l-2 border-primary'
-    : 'border-l-2 border-transparent'} {dimmed
+    ? 'ring-2 ring-inset ring-primary'
+    : ''} {dimmed
     ? active
       ? 'bg-foreground/12'
       : 'bg-foreground/7 hover:bg-foreground/12'
@@ -55,6 +55,14 @@
   onclick={() => onSelect?.(job)}
 >
   <div class="flex items-start gap-2">
+    <div class="min-w-0 flex-1">
+      <p class="font-medium truncate {dimmed ? 'font-normal text-foreground/70' : ''}">
+        {job.title}
+      </p>
+      <p class="text-sm text-muted-foreground truncate">
+        {job.company} · {job.establishment?.city ?? job.location}
+      </p>
+    </div>
     {#if onToggleChecked}
       <input
         type="checkbox"
@@ -67,22 +75,12 @@
         class="mt-1 shrink-0 accent-primary"
       />
     {/if}
-    <div class="min-w-0 flex-1">
-      <p class="font-medium truncate {dimmed ? 'font-normal text-foreground/70' : ''}">
-        {job.title}
-      </p>
-      <p class="text-sm text-muted-foreground truncate">
-        {job.company} · {job.establishment?.city ?? job.location}
-      </p>
-    </div>
   </div>
-  {#if (job.alternates ?? []).length > 0}
-    <p class="text-xs text-muted-foreground truncate mt-0.5">
-      {[job.source, ...job.alternates!.map((a) => a.source)]
-        .map((s) => READABLE_SOURCES[s])
-        .join(" · ")}
-    </p>
-  {/if}
+  <p class="text-xs text-muted-foreground truncate mt-0.5">
+    {[job.source, ...(job.alternates ?? []).map((a) => a.source)]
+      .map((s) => READABLE_SOURCES[s])
+      .join(" · ")}
+  </p>
   {#if job.interactionStatus}
     <p class="text-xs mt-1">
       <span class="font-medium {STATUS_COLOR[job.interactionStatus]}">

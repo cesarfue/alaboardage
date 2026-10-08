@@ -18,7 +18,7 @@
   import { goto } from "$app/navigation";
   import { onDestroy, onMount, untrack } from "svelte";
   import { MapLibre, GeoJSON, CircleLayer, SymbolLayer } from "svelte-maplibre";
-  import { List, Map as MapIcon, Search } from "@lucide/svelte";
+  import { Info, List, Map as MapIcon, Search } from "@lucide/svelte";
   import type { LayerClickInfo } from "svelte-maplibre";
   import type { GeoJSONSource } from "maplibre-gl";
   import type maplibregl from "maplibre-gl";
@@ -57,7 +57,7 @@
 
   const WIDE_SCREEN = "(min-width: 768px)";
   let wideScreen = $state(true);
-  let mobileView = $state<"map" | "list">("map");
+  let mobileView = $state<"map" | "list" | "detail">("map");
 
   onMount(() => {
     const mql = window.matchMedia(WIDE_SCREEN);
@@ -392,10 +392,15 @@
 
   async function showNewResults() {
     snapshotHidden();
+    const now = new Date().toISOString();
     if (view.kind === "all") {
       await loadSavedSearchJobs(ALL_TAB);
       feedNewCount = 0;
-      savedSearches = savedSearches.map((s) => ({ ...s, newResultsCount: 0 }));
+      savedSearches = savedSearches.map((s) => ({
+        ...s,
+        newResultsCount: 0,
+        lastSeenAt: now,
+      }));
       api.markFeedSeen().catch(() => {
         toast.error("Impossible de marquer les recherches comme vues");
       });
@@ -405,7 +410,7 @@
     const id = activeSearch.id;
     await loadSavedSearchJobs(id);
     savedSearches = savedSearches.map((s) =>
-      s.id === id ? { ...s, newResultsCount: 0 } : s,
+      s.id === id ? { ...s, newResultsCount: 0, lastSeenAt: now } : s,
     );
     api.markSavedSearchSeen(id).catch(() => {
       toast.error("Impossible de marquer cette recherche comme vue");
@@ -591,9 +596,31 @@
       .filter((words) => words.length > 0),
   );
 
+  const revealBoundary = $derived.by(() => {
+    if (view.kind === "saved") return activeSearch?.lastSeenAt ?? null;
+    if (view.kind === "all") {
+      const dates = savedSearches
+        .map((s) => s.lastSeenAt)
+        .filter((d): d is string => d !== null);
+      return dates.length > 0
+        ? dates.reduce((min, d) => (d < min ? d : min))
+        : null;
+    }
+    return null;
+  });
+
   let filteredJobs = $derived(
     mappedJobs.filter((j) => {
       if (hideViewed && hiddenIds.has(j.id)) return false;
+
+      if (revealBoundary !== null) {
+        const scraped = new Date(j.scrapedAt);
+        if (
+          !isNaN(scraped.getTime()) &&
+          scraped.getTime() > new Date(revealBoundary).getTime()
+        )
+          return false;
+      }
 
       if (view.kind !== "new") {
         if (status !== null && j.interactionStatus !== status) return false;
@@ -639,8 +666,9 @@
 
   let activeJob = $state<Job | null>(null);
   let selectedJob = $state<Job | null>(null);
-  const listVisible = $derived(
-    wideScreen || (mobileView === "list" && selectedJob === null),
+  const listVisible = $derived(wideScreen || mobileView === "list");
+  const detailVisible = $derived(
+    selectedJob !== null && (wideScreen || mobileView === "detail"),
   );
   let map = $state<maplibregl.Map | undefined>(undefined);
 
@@ -797,7 +825,12 @@
 
   function closeJobDetail() {
     selectedJob = null;
+    if (!wideScreen) mobileView = "list";
     map?.easeTo({ padding: { left: 0, top: 0, right: 0, bottom: 0 } });
+  }
+
+  function toggleMobileView() {
+    mobileView = mobileView === "map" ? (selectedJob ? "detail" : "list") : "map";
   }
 
   function onPointClick(e: LayerClickInfo) {
@@ -1104,13 +1137,14 @@
         onSelect={(job) => {
           selectedJob = job;
           activeJob = job;
+          if (!wideScreen) mobileView = "detail";
           markViewed(job);
           focusJob(job);
         }}
         onHover={(job) => (activeJob = job)}
       />
     {/if}
-    {#if selectedJob !== null}
+    {#if selectedJob !== null && detailVisible}
       <JobDetail
         job={selectedJob}
         {applyInteraction}
@@ -1120,20 +1154,23 @@
       />
     {/if}
   </div>
-  {#if selectedJob === null}
-    <button
-      onclick={() => (mobileView = mobileView === "map" ? "list" : "map")}
-      class="md:hidden absolute bottom-6 left-1/2 -translate-x-1/2 z-20
-             flex items-center gap-2 bg-background border rounded-full
-             px-5 py-2.5 text-sm font-medium shadow-lg"
-    >
-      {#if mobileView === "map"}
+  <button
+    onclick={toggleMobileView}
+    class="md:hidden absolute bottom-6 left-1/2 -translate-x-1/2 z-20
+           flex items-center gap-2 bg-background border rounded-full
+           px-5 py-2.5 text-sm font-medium shadow-lg"
+  >
+    {#if mobileView === "map"}
+      {#if selectedJob}
+        <Info size={16} />
+        Détail
+      {:else}
         <List size={16} />
         Liste
-      {:else}
-        <MapIcon size={16} />
-        Carte
       {/if}
-    </button>
-  {/if}
+    {:else}
+      <MapIcon size={16} />
+      Carte
+    {/if}
+  </button>
 </main>
