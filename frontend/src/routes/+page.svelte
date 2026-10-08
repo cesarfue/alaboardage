@@ -624,7 +624,12 @@
 
       if (view.kind !== "new") {
         if (status !== null && j.interactionStatus !== status) return false;
-        if (source !== null && j.source !== source) return false;
+        if (
+          source !== null &&
+          j.source !== source &&
+          !(j.alternates ?? []).some((a) => a.source === source)
+        )
+          return false;
         if (
           company.trim() &&
           !normalizeText(j.company).includes(normalizeText(company.trim()))
