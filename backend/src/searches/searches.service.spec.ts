@@ -29,6 +29,10 @@ describe('SearchesService', () => {
         updateMany: jest.fn(),
         deleteMany: jest.fn(),
       },
+      jobInteraction: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     jobsMock = {
@@ -113,6 +117,33 @@ describe('SearchesService', () => {
       expect(ageMs).toBeGreaterThan(13 * 24 * 60 * 60 * 1000);
       expect(ageMs).toBeLessThan(15 * 24 * 60 * 60 * 1000);
     });
+
+    it('appends archived entries for foundSearchId values with no live search', async () => {
+      prismaMock.savedSearch.findMany.mockResolvedValue([
+        { id: 's1', queries: ['ts'], locations: ['Paris'], lastSeenAt: null },
+      ]);
+      prismaMock.jobInteraction.findMany.mockResolvedValue([
+        { foundSearchId: 's1', foundSearchName: 'Still live' },
+        { foundSearchId: 'deleted-1', foundSearchName: 'Ancienne recherche' },
+        { foundSearchId: 'deleted-2', foundSearchName: null },
+      ]);
+
+      const result = await service.getSavedSearches();
+
+      expect(result).toHaveLength(3);
+      expect(result[0].archived).toBe(false);
+      expect(result[1]).toMatchObject({
+        id: 'deleted-1',
+        name: 'Ancienne recherche',
+        archived: true,
+        newResultsCount: 0,
+      });
+      expect(result[2]).toMatchObject({
+        id: 'deleted-2',
+        name: 'Recherche supprimée',
+        archived: true,
+      });
+    });
   });
 
   describe('feed', () => {
@@ -156,6 +187,7 @@ describe('SearchesService', () => {
         200,
         0,
         null,
+        {},
       );
     });
   });
@@ -182,6 +214,7 @@ describe('SearchesService', () => {
         200,
         0,
         null,
+        { foundSearchId: 's1' },
       );
     });
 
@@ -207,10 +240,33 @@ describe('SearchesService', () => {
       expect(ageMs).toBeLessThan(15 * 24 * 60 * 60 * 1000);
     });
 
-    it('throws NotFoundException when the search does not exist', async () => {
+    it('throws NotFoundException when the search does not exist and no job references it', async () => {
       prismaMock.savedSearch.findFirst.mockResolvedValue(null);
+      prismaMock.jobInteraction.count.mockResolvedValue(0);
       await expect(service.findJobsFor('ghost', 200, 0)).rejects.toBeInstanceOf(
         NotFoundException,
+      );
+    });
+
+    it('serves jobs by foundSearchId alone when the search is archived', async () => {
+      prismaMock.savedSearch.findFirst.mockResolvedValue(null);
+      prismaMock.jobInteraction.count.mockResolvedValue(1);
+      jobsMock.findByCriteria.mockResolvedValue({
+        items: [],
+        total: 0,
+        limit: 200,
+        offset: 0,
+      });
+
+      await service.findJobsFor('deleted-1', 200, 0);
+
+      expect(jobsMock.findByCriteria).toHaveBeenCalledWith(
+        [],
+        [],
+        200,
+        0,
+        null,
+        { foundSearchId: 'deleted-1' },
       );
     });
   });

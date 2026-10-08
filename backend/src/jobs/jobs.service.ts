@@ -3,11 +3,21 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { FindJobsDto } from './dto/find-jobs-query.dto';
 import type { Prisma } from '../../generated/prisma/client';
-import type { JobSource } from '../../generated/prisma/enums';
+import type {
+  InteractionStatus,
+  JobSource,
+} from '../../generated/prisma/enums';
 
 export interface KnownJob {
   description: string;
   scrapedAt: Date;
+}
+
+export interface CriteriaFilterOptions {
+  source?: JobSource;
+  company?: string;
+  status?: InteractionStatus;
+  foundSearchId?: string;
 }
 
 @Injectable()
@@ -68,6 +78,34 @@ export class JobsService {
     return where;
   }
 
+  private applyFilterOptions(
+    where: Prisma.JobWhereInput,
+    opts: CriteriaFilterOptions,
+    postedSince: Date | null,
+  ): void {
+    if (postedSince) where.datePosted = { gte: postedSince };
+    if (opts.source) where.source = opts.source;
+    if (opts.company)
+      where.company = { contains: opts.company, mode: 'insensitive' };
+    if (opts.status) where.interactions = { some: { status: opts.status } };
+  }
+
+  private async scopedCriteriaWhere(
+    queries: string[],
+    locations: string[],
+    foundSearchId: string | undefined,
+    postedSince: Date | null,
+  ): Promise<Prisma.JobWhereInput> {
+    const criteriaWhere = await this.buildCriteriaWhere(queries, locations);
+    if (postedSince) criteriaWhere.datePosted = { gte: postedSince };
+    if (!foundSearchId) return criteriaWhere;
+    const searchLink: Prisma.JobWhereInput = {
+      interactions: { some: { foundSearchId } },
+    };
+    const hasCriteria = queries.length > 0 || locations.length > 0;
+    return hasCriteria ? { OR: [criteriaWhere, searchLink] } : searchLink;
+  }
+
   async countMatchingSince(
     queries: string[],
     locations: string[],
@@ -90,8 +128,6 @@ export class JobsService {
       where.company = { contains: query.company, mode: 'insensitive' };
     if (query.status) {
       where.interactions = { some: { status: query.status } };
-    } else if (query.tracked) {
-      where.interactions = { some: {} };
     }
 
     return this.page(where, query.limit, query.offset);
@@ -103,9 +139,15 @@ export class JobsService {
     limit: number,
     offset: number,
     postedSince: Date | null = null,
+    opts: CriteriaFilterOptions = {},
   ) {
-    const where = await this.buildCriteriaWhere(queries, locations);
-    if (postedSince) where.datePosted = { gte: postedSince };
+    const where = await this.scopedCriteriaWhere(
+      queries,
+      locations,
+      opts.foundSearchId,
+      postedSince,
+    );
+    this.applyFilterOptions(where, opts, null);
     return this.page(where, limit, offset);
   }
 
@@ -114,16 +156,15 @@ export class JobsService {
     limit: number,
     offset: number,
     postedSince: Date | null = null,
+    opts: Omit<CriteriaFilterOptions, 'foundSearchId'> = {},
   ) {
     if (criteria.length === 0) return { items: [], total: 0, limit, offset };
     const wheres = await Promise.all(
       criteria.map((c) => this.buildCriteriaWhere(c.queries, c.locations)),
     );
-    return this.page(
-      { OR: wheres, ...(postedSince && { datePosted: { gte: postedSince } }) },
-      limit,
-      offset,
-    );
+    const where: Prisma.JobWhereInput = { OR: wheres };
+    this.applyFilterOptions(where, opts, postedSince);
+    return this.page(where, limit, offset);
   }
 
   async newJobIdsSince(

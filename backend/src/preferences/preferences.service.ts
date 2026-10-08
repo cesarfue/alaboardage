@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Prisma, UserPreference } from '../../generated/prisma/client';
+import type {
+  InteractionStatus,
+  JobSource,
+} from '../../generated/prisma/enums';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 
 const SINGLETON_ID = 1;
@@ -9,6 +13,10 @@ export interface Filters {
   radiusKm: number;
   daysFilter: number | null;
   hideViewed: boolean;
+  source: JobSource | null;
+  company: string;
+  status: InteractionStatus | null;
+  sortMode: 'date' | 'score';
 }
 
 export interface Preferences {
@@ -37,6 +45,11 @@ function filtersOf(row: UserPreference | null): Filters | null {
     radiusKm: r.radiusKm,
     daysFilter: typeof r.daysFilter === 'number' ? r.daysFilter : null,
     hideViewed: r.hideViewed,
+    source: typeof r.source === 'string' ? (r.source as JobSource) : null,
+    company: typeof r.company === 'string' ? r.company : '',
+    status:
+      typeof r.status === 'string' ? (r.status as InteractionStatus) : null,
+    sortMode: r.sortMode === 'score' ? 'score' : 'date',
   };
 }
 

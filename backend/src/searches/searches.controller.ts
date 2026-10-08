@@ -48,6 +48,7 @@ export class SearchesController {
       query.limit,
       query.offset,
       query.daysFilter ?? null,
+      { source: query.source, company: query.company, status: query.status },
     );
   }
 
@@ -71,6 +72,7 @@ export class SearchesController {
       query.limit,
       query.offset,
       query.daysFilter ?? null,
+      { source: query.source, company: query.company, status: query.status },
     );
   }
 

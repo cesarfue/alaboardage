@@ -80,12 +80,24 @@ describe('PreferencesService', () => {
   it('stores and returns filters', async () => {
     stored = { id: 1, lastView: null, listAnchors: {} };
     const res = await service.update({
-      filters: { radiusKm: 100, daysFilter: null, hideViewed: true },
+      filters: {
+        radiusKm: 100,
+        daysFilter: null,
+        hideViewed: true,
+        source: 'HELLOWORK',
+        company: 'Acme',
+        status: 'APPLIED',
+        sortMode: 'score',
+      },
     });
     expect(res.filters).toEqual({
       radiusKm: 100,
       daysFilter: null,
       hideViewed: true,
+      source: 'HELLOWORK',
+      company: 'Acme',
+      status: 'APPLIED',
+      sortMode: 'score',
     });
   });
 
@@ -94,16 +106,48 @@ describe('PreferencesService', () => {
       id: 1,
       lastView: null,
       listAnchors: {},
-      filters: { radiusKm: 60, daysFilter: 30, hideViewed: false },
+      filters: {
+        radiusKm: 60,
+        daysFilter: 30,
+        hideViewed: false,
+        source: null,
+        company: '',
+        status: null,
+        sortMode: 'date',
+      },
     };
     const res = await service.update({ lastView: { kind: 'all' } });
     expect(res.filters).toEqual({
       radiusKm: 60,
       daysFilter: 30,
       hideViewed: false,
+      source: null,
+      company: '',
+      status: null,
+      sortMode: 'date',
     });
     const update = prismaMock.userPreference.upsert.mock.calls[0][0].update;
     expect(update).not.toHaveProperty('filters');
+  });
+
+  it('defaults source/company/status/sortMode when the stored blob predates them', async () => {
+    stored = {
+      id: 1,
+      lastView: null,
+      listAnchors: {},
+      filters: { radiusKm: 60, daysFilter: 30, hideViewed: false },
+    };
+    await expect(service.get()).resolves.toMatchObject({
+      filters: {
+        radiusKm: 60,
+        daysFilter: 30,
+        hideViewed: false,
+        source: null,
+        company: '',
+        status: null,
+        sortMode: 'date',
+      },
+    });
   });
 
   it('ignores malformed stored filters', async () => {

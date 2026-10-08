@@ -12,10 +12,20 @@ export class InteractionsService {
     });
   }
 
-  upsertInteraction(jobId: string, status: InteractionStatus) {
+  upsertInteraction(
+    jobId: string,
+    status: InteractionStatus,
+    searchId?: string,
+    searchName?: string,
+  ) {
     return this.prisma.jobInteraction.upsert({
       where: { jobId },
-      create: { jobId, status },
+      create: {
+        jobId,
+        status,
+        foundSearchId: searchId,
+        foundSearchName: searchName,
+      },
       update: { status },
     });
   }
@@ -26,12 +36,56 @@ export class InteractionsService {
     });
   }
 
+  async bulkSetInteractions(
+    ids: string[],
+    status: InteractionStatus | null,
+    searchId?: string,
+    searchName?: string,
+  ): Promise<void> {
+    if (status === null) {
+      await this.prisma.jobInteraction.deleteMany({
+        where: { jobId: { in: ids } },
+      });
+      return;
+    }
+    await this.prisma.$transaction(
+      ids.map((jobId) =>
+        this.prisma.jobInteraction.upsert({
+          where: { jobId },
+          create: {
+            jobId,
+            status,
+            foundSearchId: searchId,
+            foundSearchName: searchName,
+          },
+          update: { status },
+        }),
+      ),
+    );
+  }
+
   markViewed(jobId: string) {
     return this.prisma.jobView.upsert({
       where: { jobId },
       create: { jobId },
       update: {},
     });
+  }
+
+  async bulkSetViewed(ids: string[], viewed: boolean): Promise<void> {
+    if (!viewed) {
+      await this.prisma.jobView.deleteMany({ where: { jobId: { in: ids } } });
+      return;
+    }
+    await this.prisma.$transaction(
+      ids.map((jobId) =>
+        this.prisma.jobView.upsert({
+          where: { jobId },
+          create: { jobId },
+          update: {},
+        }),
+      ),
+    );
   }
 
   async getViewedJobIds(): Promise<string[]> {

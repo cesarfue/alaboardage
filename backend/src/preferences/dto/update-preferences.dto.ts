@@ -1,6 +1,8 @@
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsObject,
@@ -10,6 +12,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { InteractionStatus, JobSource } from '../../../generated/prisma/enums';
 
 export class ListAnchorDto {
   @IsString()
@@ -30,6 +33,20 @@ export class FiltersDto {
 
   @IsBoolean()
   hideViewed!: boolean;
+
+  @ValidateIf((o: FiltersDto) => o.source !== null)
+  @IsEnum(JobSource)
+  source!: JobSource | null;
+
+  @IsString()
+  company!: string;
+
+  @ValidateIf((o: FiltersDto) => o.status !== null)
+  @IsEnum(InteractionStatus)
+  status!: InteractionStatus | null;
+
+  @IsIn(['date', 'score'])
+  sortMode!: 'date' | 'score';
 }
 
 export class UpdatePreferencesDto {

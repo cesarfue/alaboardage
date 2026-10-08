@@ -1,13 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsEnum,
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { InteractionStatus, JobSource } from '../../../generated/prisma/enums';
 
 export class FindJobsDto {
@@ -18,10 +10,6 @@ export class FindJobsDto {
   @IsOptional()
   @IsEnum(InteractionStatus)
   status?: InteractionStatus;
-
-  @IsOptional()
-  @IsIn(['true'])
-  tracked?: string;
 
   @IsOptional()
   @IsString()

@@ -4,6 +4,10 @@ import { JobsService } from '../jobs/jobs.service';
 import { CreateSearchDto } from './dto/create-search.dto';
 import { UpdateSearchDto } from './dto/update-search.dto';
 import type { SavedSearch } from '../../generated/prisma/client';
+import type {
+  InteractionStatus,
+  JobSource,
+} from '../../generated/prisma/enums';
 import { criteriaOf } from './criteria';
 import {
   RefreshState,
@@ -13,6 +17,13 @@ import {
 export interface SavedSearchWithCount extends SavedSearch {
   newResultsCount: number;
   refreshState: RefreshState;
+  archived: boolean;
+}
+
+export interface JobFilterOptions {
+  source?: JobSource;
+  company?: string;
+  status?: InteractionStatus;
 }
 
 function cutoffFrom(daysFilter: number | null): Date | null {
@@ -37,11 +48,12 @@ export class SearchesService {
     });
     const postedSince = cutoffFrom(daysFilter);
 
-    return Promise.all(
+    const live = await Promise.all(
       searches.map(async (s) => {
         const { queries, locations } = criteriaOf(s);
         return {
           ...s,
+          archived: false,
           refreshState: this.refresh.stateOf(s.id),
           newResultsCount: await this.jobs.countMatchingSince(
             queries,
@@ -52,6 +64,39 @@ export class SearchesService {
         };
       }),
     );
+
+    const archived = await this.getArchivedSearches(searches.map((s) => s.id));
+    return [...live, ...archived];
+  }
+
+  private async getArchivedSearches(
+    liveIds: string[],
+  ): Promise<SavedSearchWithCount[]> {
+    const rows = await this.prisma.jobInteraction.findMany({
+      where: { foundSearchId: { not: null } },
+      distinct: ['foundSearchId'],
+      select: { foundSearchId: true, foundSearchName: true },
+    });
+    return rows
+      .filter(
+        (r): r is { foundSearchId: string; foundSearchName: string | null } =>
+          r.foundSearchId !== null && !liveIds.includes(r.foundSearchId),
+      )
+      .map((r) => ({
+        id: r.foundSearchId,
+        name: r.foundSearchName ?? 'Recherche supprimée',
+        query: '',
+        location: '',
+        queries: [],
+        locations: [],
+        position: 0,
+        createdAt: new Date(0),
+        lastCheckedAt: null,
+        lastSeenAt: null,
+        archived: true,
+        refreshState: 'idle' as const,
+        newResultsCount: 0,
+      }));
   }
 
   async createSavedSearch(dto: CreateSearchDto) {
@@ -107,16 +152,35 @@ export class SearchesService {
     limit: number,
     offset: number,
     daysFilter: number | null = null,
+    filters: JobFilterOptions = {},
   ) {
     const search = await this.prisma.savedSearch.findFirst({ where: { id } });
-    if (!search) throw new NotFoundException('Saved search not found');
+    const postedSince = cutoffFrom(daysFilter);
+
+    if (!search) {
+      const hasArchivedLink = await this.prisma.jobInteraction.count({
+        where: { foundSearchId: id },
+      });
+      if (hasArchivedLink === 0) {
+        throw new NotFoundException('Saved search not found');
+      }
+      return this.jobs.findByCriteria([], [], limit, offset, postedSince, {
+        ...filters,
+        foundSearchId: id,
+      });
+    }
+
     const { queries, locations } = criteriaOf(search);
     return this.jobs.findByCriteria(
       queries,
       locations,
       limit,
       offset,
-      cutoffFrom(daysFilter),
+      postedSince,
+      {
+        ...filters,
+        foundSearchId: id,
+      },
     );
   }
 
@@ -124,12 +188,23 @@ export class SearchesService {
     return this.updateOr404(id, { lastSeenAt: new Date() });
   }
 
-  async feed(limit: number, offset: number, daysFilter: number | null = null) {
+  async feed(
+    limit: number,
+    offset: number,
+    daysFilter: number | null = null,
+    filters: JobFilterOptions = {},
+  ) {
     const searches = await this.prisma.savedSearch.findMany();
     const criteria = searches.map(criteriaOf);
     const postedSince = cutoffFrom(daysFilter);
     const [page, newIdLists] = await Promise.all([
-      this.jobs.findByAnyCriteria(criteria, limit, offset, postedSince),
+      this.jobs.findByAnyCriteria(
+        criteria,
+        limit,
+        offset,
+        postedSince,
+        filters,
+      ),
       Promise.all(
         searches.map((s) => {
           const { queries, locations } = criteriaOf(s);

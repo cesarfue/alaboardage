@@ -83,12 +83,14 @@ enum InteractionStatus {
 }
 
 model JobInteraction {
-  id        String            @id @default(cuid())
-  jobId     String
-  status    InteractionStatus
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  job       Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  id              String            @id @default(cuid())
+  jobId           String
+  status          InteractionStatus
+  foundSearchId   String?
+  foundSearchName String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  job             Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@unique([jobId])
 }

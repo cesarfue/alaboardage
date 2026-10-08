@@ -62,6 +62,65 @@ describe('JobsService.buildCriteriaWhere', () => {
   });
 });
 
+describe('JobsService.findByCriteria', () => {
+  function mockPrisma() {
+    return {
+      job: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+    } as any;
+  }
+
+  it('does not apply the date cutoff to jobs reached only via foundSearchId', async () => {
+    const prismaMock = mockPrisma();
+    const service = new JobsService(prismaMock);
+    const postedSince = new Date('2026-01-01');
+
+    await service.findByCriteria([], [], 50, 0, postedSince, {
+      foundSearchId: 'search-1',
+    });
+
+    expect(prismaMock.job.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { interactions: { some: { foundSearchId: 'search-1' } } },
+      }),
+    );
+  });
+
+  it('bypasses the date cutoff only on the foundSearchId branch when criteria are also given', async () => {
+    const prismaMock = mockPrisma();
+    const service = new JobsService(prismaMock);
+    const postedSince = new Date('2026-01-01');
+
+    await service.findByCriteria([], ['Paris'], 50, 0, postedSince, {
+      foundSearchId: 'search-1',
+    });
+
+    const where = prismaMock.job.findMany.mock.calls[0][0].where;
+    expect(where.OR).toEqual([
+      {
+        OR: [{ location: { contains: 'Paris', mode: 'insensitive' } }],
+        datePosted: { gte: postedSince },
+      },
+      { interactions: { some: { foundSearchId: 'search-1' } } },
+    ]);
+    expect(where.datePosted).toBeUndefined();
+  });
+
+  it('applies the date cutoff normally when there is no foundSearchId', async () => {
+    const prismaMock = mockPrisma();
+    const service = new JobsService(prismaMock);
+    const postedSince = new Date('2026-01-01');
+
+    await service.findByCriteria([], [], 50, 0, postedSince, {});
+
+    expect(prismaMock.job.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { datePosted: { gte: postedSince } } }),
+    );
+  });
+});
+
 describe('JobsService.findKnownByExternalIds', () => {
   it('returns an empty map without querying when given no ids', async () => {
     const prismaMock: any = { job: { findMany: jest.fn() } };
