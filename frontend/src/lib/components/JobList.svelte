@@ -1,57 +1,24 @@
 <script lang="ts">
-  import type {
-    InteractionStatus,
-    Job,
-    JobSource,
-    RefreshState,
-    SavedSearch,
-    Skill,
-    SortMode,
-    View,
-  } from "$lib/types";
+  import type { Job, Skill } from "$lib/types";
   import { RefreshCw } from "@lucide/svelte";
   import JobCard from "./JobCard.svelte";
-  import TopBar from "./TopBar.svelte";
 
   let {
     jobs,
-    skills = $bindable([]),
+    skills = [],
     activeJob,
     selectedJobId = null,
     newResultsCount = 0,
     lastCheckedAt = null,
     loading = false,
-    refreshState = "idle",
     onShowNewResults,
-    onRequestRefresh,
     anchorKey = null,
     anchorJobId = null,
     onAnchorChange,
     onHover,
     onSelect,
-    query = $bindable(""),
-    location = $bindable(""),
-    view,
-    feedNewCount = null,
-    search,
-    searching,
-    savedSearches = $bindable(),
-    radiusKm = $bindable(),
-    daysFilter = $bindable(null),
-    hideViewed = $bindable(false),
-    source = $bindable(null),
-    company = $bindable(""),
-    status = $bindable(null),
-    sortMode = $bindable("date"),
-    autoScrapeEnabled = $bindable(true),
-    autoScrapeIntervalMinutes = $bindable(360),
-    barHeight = $bindable(0),
-    openView,
     selectedJobIds,
     onToggleChecked,
-    onBulkStatus,
-    onBulkViewed,
-    onClearSelection,
   }: {
     jobs: Job[];
     skills?: Skill[];
@@ -60,37 +27,14 @@
     newResultsCount?: number;
     lastCheckedAt?: string | null;
     loading?: boolean;
-    refreshState?: RefreshState;
     onShowNewResults?: () => void;
-    onRequestRefresh?: () => void;
     anchorKey?: string | null;
     anchorJobId?: string | null;
     onAnchorChange?: (jobId: string) => void;
     onHover?: (job: Job | null) => void;
     onSelect?: (job: Job) => void;
-    query?: string;
-    location?: string;
-    view: View;
-    feedNewCount?: number | null;
-    search: () => void;
-    searching: boolean;
-    savedSearches: SavedSearch[];
-    radiusKm: number;
-    daysFilter: number | null;
-    hideViewed?: boolean;
-    source?: JobSource | null;
-    company?: string;
-    status?: InteractionStatus | null;
-    sortMode?: SortMode;
-    autoScrapeEnabled?: boolean;
-    autoScrapeIntervalMinutes?: number;
-    barHeight?: number;
-    openView: (v: View) => void;
     selectedJobIds: Set<string>;
     onToggleChecked?: (jobId: string) => void;
-    onBulkStatus?: (status: InteractionStatus | null) => void;
-    onBulkViewed?: (viewed: boolean) => void;
-    onClearSelection?: () => void;
   } = $props();
 
   let container = $state<HTMLDivElement | null>(null);
@@ -152,39 +96,9 @@
 </script>
 
 <div
-  class="relative h-full w-full md:w-[380px] flex flex-col rounded-none md:rounded-xl
+  class="h-full w-full md:w-[480px] flex flex-col rounded-none md:rounded-xl
          bg-background shadow-panel pointer-events-auto"
-  style="--bar: {barHeight}px"
 >
-  <TopBar
-    bind:query
-    bind:location
-    {view}
-    {feedNewCount}
-    {openView}
-    {search}
-    {searching}
-    jobCount={jobs.length}
-    {loading}
-    {refreshState}
-    {onRequestRefresh}
-    bind:skills
-    bind:savedSearches
-    bind:radiusKm
-    bind:daysFilter
-    bind:hideViewed
-    bind:source
-    bind:company
-    bind:status
-    bind:sortMode
-    bind:autoScrapeEnabled
-    bind:autoScrapeIntervalMinutes
-    bind:barHeight
-    selectedCount={selectedJobIds.size}
-    {onBulkStatus}
-    {onBulkViewed}
-    {onClearSelection}
-  />
   {#if newResultsCount > 0}
     <button
       onclick={() => onShowNewResults?.()}

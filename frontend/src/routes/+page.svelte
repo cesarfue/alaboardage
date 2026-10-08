@@ -24,6 +24,7 @@
   import type maplibregl from "maplibre-gl";
   import type { FeatureCollection, Feature, Point } from "geojson";
   import JobList from "$lib/components/JobList.svelte";
+  import TopBar from "$lib/components/TopBar.svelte";
   import JobDetail from "$lib/components/JobDetail.svelte";
   import { normalizeText } from "$lib/utils";
 
@@ -975,7 +976,41 @@
   }
 </script>
 
-<main class="relative w-full h-dvh overflow-hidden">
+<main
+  class="relative w-full h-dvh overflow-hidden"
+  style="--bar: {barHeight}px"
+>
+  <TopBar
+    bind:query
+    bind:location
+    {view}
+    {feedNewCount}
+    {openView}
+    {search}
+    {searching}
+    jobCount={filteredJobs.length}
+    loading={savedJobsLoading}
+    refreshState={bannerRefreshState}
+    onRequestRefresh={activeSearch && !activeSearch.archived
+      ? requestRefresh
+      : undefined}
+    bind:skills
+    bind:savedSearches
+    bind:radiusKm
+    bind:daysFilter
+    bind:hideViewed
+    bind:source
+    bind:company
+    bind:status
+    bind:sortMode
+    bind:autoScrapeEnabled
+    bind:autoScrapeIntervalMinutes
+    bind:barHeight
+    selectedCount={selectedJobIds.size}
+    onBulkStatus={bulkApplyStatus}
+    onBulkViewed={bulkSetViewed}
+    onClearSelection={clearJobSelection}
+  />
   <MapLibre
     style="https://tiles.openfreemap.org/styles/liberty"
     class="w-full h-full"
@@ -1037,7 +1072,7 @@
     <button
       onclick={searchThisArea}
       disabled={searching}
-      class="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-auto
+      class="absolute top-[calc(var(--bar)+0.5rem)] md:top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-auto
              flex items-center gap-2 bg-background border rounded-full
              px-4 py-2 text-sm font-medium shadow-lg
              hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1048,7 +1083,7 @@
   {/if}
   <div
     class="absolute z-10 flex flex-row gap-4 pointer-events-none
-           inset-0
+           inset-x-0 top-[var(--bar)] bottom-0
            md:inset-x-auto md:left-10 md:top-30 md:bottom-10"
   >
     {#if listVisible}
@@ -1056,41 +1091,16 @@
         newResultsCount={bannerCount}
         lastCheckedAt={bannerLastCheckedAt}
         onShowNewResults={showNewResults}
-        refreshState={bannerRefreshState}
-        onRequestRefresh={activeSearch && !activeSearch.archived
-          ? requestRefresh
-          : undefined}
         loading={savedJobsLoading}
         jobs={filteredJobs}
+        {skills}
         {activeJob}
         selectedJobId={selectedJob?.id ?? null}
         anchorKey={currentAnchorKey}
         anchorJobId={currentAnchor}
         onAnchorChange={rememberAnchor}
-        bind:query
-        bind:location
-        {view}
-        {feedNewCount}
-        {openView}
-        {search}
-        {searching}
-        bind:skills
-        bind:savedSearches
-        bind:radiusKm
-        bind:daysFilter
-        bind:hideViewed
-        bind:source
-        bind:company
-        bind:status
-        bind:sortMode
-        bind:autoScrapeEnabled
-        bind:autoScrapeIntervalMinutes
-        bind:barHeight
         {selectedJobIds}
         onToggleChecked={toggleJobChecked}
-        onBulkStatus={bulkApplyStatus}
-        onBulkViewed={bulkSetViewed}
-        onClearSelection={clearJobSelection}
         onSelect={(job) => {
           selectedJob = job;
           activeJob = job;

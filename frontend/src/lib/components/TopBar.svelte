@@ -264,7 +264,7 @@
 
 <div
   bind:clientHeight={barHeight}
-  class="shrink-0 flex flex-col gap-2 p-3 border-b bg-background"
+  class="absolute w-full z-50 pointer-events-auto flex flex-col gap-2 p-3 bg-background"
 >
   {#if selectedCount > 0}
     <div class="flex items-center gap-1.5 md:gap-2 flex-wrap">
@@ -328,31 +328,108 @@
         <X size={16} />
       </button>
     </div>
-  {:else}
+  {:else if view.kind === "new"}
     <div class="flex flex-row items-center gap-1.5 md:gap-2 min-w-0">
-      <div class="flex-1 min-w-0">
+      <input
+        type="text"
+        placeholder="Poste"
+        bind:value={query}
+        class="min-w-0 flex-1 border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+        onkeydown={(e) => e.key === "Enter" && search()}
+      />
+      <input
+        type="text"
+        placeholder="Lieu"
+        bind:value={location}
+        class="min-w-0 flex-1 border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+        onkeydown={(e) => e.key === "Enter" && search()}
+      />
+      <button
+        onclick={search}
+        aria-label="Rechercher"
+        class="shrink-0 bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
+      >
+        <Search size={16} class="md:hidden" />
+        <span class="hidden md:inline">Rechercher</span>
+      </button>
+      <button
+        onclick={() => openEditor()}
+        disabled={!query.trim() && !location.trim()}
+        aria-label="Enregistrer cette recherche"
+        title="Enregistrer cette recherche"
+        class="shrink-0 flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm font-medium
+               hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Star size={16} />
+        <span class="hidden md:inline">Enregistrer</span>
+      </button>
+      {#if searching}
+        <svg
+          class="animate-spin h-4 w-4 text-primary shrink-0"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          role="status"
+          aria-label="Recherche en cours"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      {/if}
+      <div class="relative shrink-0">
+        <button
+          onclick={toggleSettings}
+          class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingSettings ? 'bg-muted' : ''}"
+        >
+          <Settings size={16} />
+        </button>
+        {#if showingSettings}
+          <div class="fixed z-50 top-[calc(var(--bar)+0.5rem)] right-3 max-h-[calc(100dvh-var(--bar)-1rem)] overflow-y-auto">
+            <SettingsPanel
+              bind:skills
+              bind:radiusKm
+              bind:autoScrapeEnabled
+              bind:autoScrapeIntervalMinutes
+              onClose={() => (showingSettings = false)}
+            />
+          </div>
+        {/if}
+      </div>
+      {#if editing}
+        <div class="fixed z-50 top-[calc(var(--bar)+0.5rem)] right-3 max-h-[calc(100dvh-var(--bar)-1rem)] overflow-y-auto">
+          <SearchEditor
+            bind:name={editorName}
+            bind:query={editorQuery}
+            bind:location={editorLocation}
+            title="Enregistrer cette recherche"
+            submitLabel="Enregistrer"
+            onSubmit={submitEditor}
+            onClose={() => (editing = null)}
+          />
+        </div>
+      {/if}
+    </div>
+  {:else}
+    <div class="flex flex-row flex-wrap items-center gap-1.5 md:gap-2 min-w-0">
+      <div class="relative shrink-0">
         <button
           onclick={toggleScope}
-          class="flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted {showingScope ? 'bg-muted' : ''}"
+          class="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted {showingScope ? 'bg-muted' : ''}"
         >
-          <span class="truncate">{currentViewLabel}</span>
-          <span class="flex items-center gap-1.5 shrink-0 text-muted-foreground">
-            <span class="text-xs font-normal whitespace-nowrap">
-              {loading ? "Chargement…" : `${jobCount} offre${jobCount !== 1 ? "s" : ""}`}
+          <span class="max-w-[12rem] truncate">{currentViewLabel}</span>
+          {#if totalNew > 0}
+            <span
+              class="rounded-full bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 leading-none"
+            >
+              {formatBadge(totalNew)}
             </span>
-            {#if totalNew > 0}
-              <span
-                class="rounded-full bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 leading-none"
-              >
-                {formatBadge(totalNew)}
-              </span>
-            {/if}
-            <ChevronDown size={14} />
-          </span>
+          {/if}
+          <ChevronDown size={14} class="text-muted-foreground" />
         </button>
         {#if showingScope}
           <div
-            class="absolute z-50 top-[calc(var(--bar)+0.5rem)] left-0 right-0 max-h-[calc(100%-var(--bar)-1rem)] overflow-y-auto
+            class="fixed z-50 top-[calc(var(--bar)+0.5rem)] left-3 w-[min(320px,calc(100vw-1.5rem))]
+                   max-h-[calc(100dvh-var(--bar)-1rem)] overflow-y-auto
                    pointer-events-auto flex flex-col gap-1 rounded-xl bg-background shadow-panel p-2"
           >
             {#if savedSearches.length > 0}
@@ -387,8 +464,7 @@
             {/each}
             <button
               onclick={() => goTo({ kind: "new" })}
-              class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors
-                {view.kind === 'new' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
+              class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors hover:bg-muted"
             >
               <Search size={15} />
               Nouvelle recherche
@@ -396,186 +472,140 @@
           </div>
         {/if}
       </div>
-      {#if onRequestRefresh}
+
+      <span class="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
+        {loading ? "Chargement…" : `${jobCount} offre${jobCount !== 1 ? "s" : ""}`}
+      </span>
+
+      {#each statusChips as chip (chip.value)}
         <button
-          onclick={() => onRequestRefresh?.()}
-          disabled={refreshState !== "idle"}
-          aria-label={refreshLabel}
-          title={refreshLabel}
-          class="shrink-0 border rounded-lg px-3 py-2 transition-colors hover:bg-muted
-                 disabled:cursor-not-allowed disabled:opacity-100"
+          class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors shrink-0
+            {status === chip.value
+              ? 'bg-primary text-primary-foreground'
+              : 'border hover:bg-muted text-muted-foreground'}"
+          onclick={() => (status = chip.value)}
         >
-          <RefreshCw size={16} class={refreshState === "running" ? "animate-spin" : ""} />
+          {chip.label}
+        </button>
+      {/each}
+      <button
+        class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors border shrink-0
+          {hideViewed ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}"
+        onclick={() => (hideViewed = !hideViewed)}
+      >
+        Non lues uniquement
+      </button>
+      <select
+        bind:value={daysFilter}
+        class="border rounded-full px-2.5 py-1 text-xs bg-background text-muted-foreground outline-none shrink-0"
+      >
+        {#each dateOptions as opt (opt.label)}
+          <option value={opt.value}>{opt.label}</option>
+        {/each}
+      </select>
+      <select
+        bind:value={source}
+        class="border rounded-full px-2.5 py-1 text-xs bg-background text-muted-foreground outline-none shrink-0"
+      >
+        <option value={null}>Tous les boards</option>
+        {#each sources as s (s)}
+          <option value={s}>{READABLE_SOURCES[s]}</option>
+        {/each}
+      </select>
+      <input
+        type="text"
+        placeholder="Entreprise"
+        bind:value={company}
+        class="min-w-0 w-28 border rounded-full px-2.5 py-1 text-xs outline-none focus:ring-2 focus:ring-ring shrink-0"
+      />
+      <select
+        bind:value={sortMode}
+        class="border rounded-full px-2.5 py-1 text-xs bg-background text-muted-foreground outline-none shrink-0"
+      >
+        <option value="date">Tri : Date</option>
+        <option value="score">Tri : Pertinence</option>
+      </select>
+      {#if hasActiveFilters}
+        <button
+          onclick={clearFilters}
+          class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0"
+        >
+          Effacer les filtres
         </button>
       {/if}
-      <div class="shrink-0">
-        {#if activeSearch && !activeSearch.archived}
+
+      <div class="flex items-center gap-1.5 shrink-0 ml-auto">
+        {#if onRequestRefresh}
           <button
-            onclick={() => (editing ? (editing = null) : openEditor(activeSearch))}
-            class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {editing ? 'bg-muted' : ''}"
-            title="Modifier cette recherche"
-            aria-label="Modifier cette recherche"
+            onclick={() => onRequestRefresh?.()}
+            disabled={refreshState !== "idle"}
+            aria-label={refreshLabel}
+            title={refreshLabel}
+            class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted
+                   disabled:cursor-not-allowed disabled:opacity-100"
           >
-            <Pencil size={16} />
+            <RefreshCw size={16} class={refreshState === "running" ? "animate-spin" : ""} />
           </button>
         {/if}
-        {#if editing}
-          <div class="absolute z-50 top-[calc(var(--bar)+0.5rem)] right-0 max-h-[calc(100%-var(--bar)-1rem)] overflow-y-auto">
-            <SearchEditor
-              bind:name={editorName}
-              bind:query={editorQuery}
-              bind:location={editorLocation}
-              title={editing.id === null
-                ? "Enregistrer cette recherche"
-                : "Modifier la recherche"}
-              submitLabel={editing.id === null ? "Enregistrer" : "Mettre à jour"}
-              onMoveLeft={editing.id !== null && activeSearch && activeIndex > 0
-                ? () => moveSearch(activeSearch.id, -1)
-                : undefined}
-              onMoveRight={editing.id !== null &&
-              activeSearch &&
-              activeIndex < savedSearches.length - 1
-                ? () => moveSearch(activeSearch.id, 1)
-                : undefined}
-              onDelete={editing.id === null
-                ? undefined
-                : () => deleteFromEditor(editing!.id!)}
-              onSubmit={submitEditor}
-              onClose={() => (editing = null)}
-            />
-          </div>
-        {/if}
-      </div>
+        <div class="relative">
+          {#if activeSearch && !activeSearch.archived}
+            <button
+              onclick={() => (editing ? (editing = null) : openEditor(activeSearch))}
+              class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {editing ? 'bg-muted' : ''}"
+              title="Modifier cette recherche"
+              aria-label="Modifier cette recherche"
+            >
+              <Pencil size={16} />
+            </button>
+          {/if}
+          {#if editing}
+            <div class="fixed z-50 top-[calc(var(--bar)+0.5rem)] right-3 max-h-[calc(100dvh-var(--bar)-1rem)] overflow-y-auto">
+              <SearchEditor
+                bind:name={editorName}
+                bind:query={editorQuery}
+                bind:location={editorLocation}
+                title={editing.id === null
+                  ? "Enregistrer cette recherche"
+                  : "Modifier la recherche"}
+                submitLabel={editing.id === null ? "Enregistrer" : "Mettre à jour"}
+                onMoveLeft={editing.id !== null && activeSearch && activeIndex > 0
+                  ? () => moveSearch(activeSearch.id, -1)
+                  : undefined}
+                onMoveRight={editing.id !== null &&
+                activeSearch &&
+                activeIndex < savedSearches.length - 1
+                  ? () => moveSearch(activeSearch.id, 1)
+                  : undefined}
+                onDelete={editing.id === null
+                  ? undefined
+                  : () => deleteFromEditor(editing!.id!)}
+                onSubmit={submitEditor}
+                onClose={() => (editing = null)}
+              />
+            </div>
+          {/if}
+        </div>
 
-      <div class="shrink-0">
-        <button
-          onclick={toggleSettings}
-          class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingSettings ? 'bg-muted' : ''}"
-        >
-          <Settings size={16} />
-        </button>
-        {#if showingSettings}
-          <div class="absolute z-50 top-[calc(var(--bar)+0.5rem)] right-0 max-h-[calc(100%-var(--bar)-1rem)] overflow-y-auto">
-            <SettingsPanel
-              bind:skills
-              bind:radiusKm
-              bind:autoScrapeEnabled
-              bind:autoScrapeIntervalMinutes
-              onClose={() => (showingSettings = false)}
-            />
-          </div>
-        {/if}
+        <div class="relative">
+          <button
+            onclick={toggleSettings}
+            class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingSettings ? 'bg-muted' : ''}"
+          >
+            <Settings size={16} />
+          </button>
+          {#if showingSettings}
+            <div class="fixed z-50 top-[calc(var(--bar)+0.5rem)] right-3 max-h-[calc(100dvh-var(--bar)-1rem)] overflow-y-auto">
+              <SettingsPanel
+                bind:skills
+                bind:radiusKm
+                bind:autoScrapeEnabled
+                bind:autoScrapeIntervalMinutes
+                onClose={() => (showingSettings = false)}
+              />
+            </div>
+          {/if}
+        </div>
       </div>
     </div>
-
-    {#if view.kind === "new"}
-      <div class="flex flex-row items-center gap-1.5 md:gap-2 min-w-0">
-        <input
-          type="text"
-          placeholder="Poste"
-          bind:value={query}
-          class="min-w-0 flex-1 border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-          onkeydown={(e) => e.key === "Enter" && search()}
-        />
-        <input
-          type="text"
-          placeholder="Lieu"
-          bind:value={location}
-          class="min-w-0 flex-1 border rounded-lg px-2 md:px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-          onkeydown={(e) => e.key === "Enter" && search()}
-        />
-        <button
-          onclick={search}
-          aria-label="Rechercher"
-          class="shrink-0 bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <Search size={16} class="md:hidden" />
-          <span class="hidden md:inline">Rechercher</span>
-        </button>
-        <button
-          onclick={() => openEditor()}
-          disabled={!query.trim() && !location.trim()}
-          aria-label="Enregistrer cette recherche"
-          title="Enregistrer cette recherche"
-          class="shrink-0 flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm font-medium
-                 hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Star size={16} />
-          <span class="hidden md:inline">Enregistrer</span>
-        </button>
-        {#if searching}
-          <svg
-            class="animate-spin h-4 w-4 text-primary shrink-0"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            role="status"
-            aria-label="Recherche en cours"
-          >
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-          </svg>
-        {/if}
-      </div>
-    {:else}
-      <div class="flex flex-wrap items-center gap-1.5">
-        {#each statusChips as chip (chip.value)}
-          <button
-            class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors
-              {status === chip.value
-                ? 'bg-primary text-primary-foreground'
-                : 'border hover:bg-muted text-muted-foreground'}"
-            onclick={() => (status = chip.value)}
-          >
-            {chip.label}
-          </button>
-        {/each}
-        <button
-          class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors border
-            {hideViewed ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}"
-          onclick={() => (hideViewed = !hideViewed)}
-        >
-          Non lues uniquement
-        </button>
-        <select
-          bind:value={daysFilter}
-          class="border rounded-full px-2.5 py-1 text-xs bg-background text-muted-foreground outline-none"
-        >
-          {#each dateOptions as opt (opt.label)}
-            <option value={opt.value}>{opt.label}</option>
-          {/each}
-        </select>
-        <select
-          bind:value={source}
-          class="border rounded-full px-2.5 py-1 text-xs bg-background text-muted-foreground outline-none"
-        >
-          <option value={null}>Tous les boards</option>
-          {#each sources as s (s)}
-            <option value={s}>{READABLE_SOURCES[s]}</option>
-          {/each}
-        </select>
-        <input
-          type="text"
-          placeholder="Entreprise"
-          bind:value={company}
-          class="min-w-0 w-28 border rounded-full px-2.5 py-1 text-xs outline-none focus:ring-2 focus:ring-ring"
-        />
-        <select
-          bind:value={sortMode}
-          class="border rounded-full px-2.5 py-1 text-xs bg-background text-muted-foreground outline-none"
-        >
-          <option value="date">Tri : Date</option>
-          <option value="score">Tri : Pertinence</option>
-        </select>
-        {#if hasActiveFilters}
-          <button
-            onclick={clearFilters}
-            class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-          >
-            Effacer les filtres
-          </button>
-        {/if}
-      </div>
-    {/if}
   {/if}
 </div>
