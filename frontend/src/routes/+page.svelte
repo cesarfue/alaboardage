@@ -637,8 +637,10 @@
           return false;
       }
 
+      const tracked = j.interactionStatus !== undefined;
+
       // Radius filter — use geocoded searchCenter when available, else map center
-      if (radiusKm < 500) {
+      if (radiusKm < 500 && !tracked) {
         const refLat = searchCenter ? searchCenter[0] : center[1];
         const refLng = searchCenter ? searchCenter[1] : center[0];
         const dist = haversineKm(
@@ -651,7 +653,7 @@
       }
 
       // Date filter — jobs without a valid datePosted are included
-      if (daysFilter !== null) {
+      if (daysFilter !== null && !tracked) {
         const d = new Date(j.datePosted);
         if (!isNaN(d.getTime())) {
           const cutoff = Date.now() - daysFilter * 24 * 60 * 60 * 1000;
