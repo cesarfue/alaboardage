@@ -5,16 +5,12 @@
   let {
     skills = $bindable(),
     radiusKm = $bindable(),
-    daysFilter = $bindable(),
-    hideViewed = $bindable(false),
     autoScrapeEnabled = $bindable(),
     autoScrapeIntervalMinutes = $bindable(),
     onClose,
   }: {
     skills: Skill[];
     radiusKm: number;
-    daysFilter: number | null;
-    hideViewed?: boolean;
     autoScrapeEnabled: boolean;
     autoScrapeIntervalMinutes: number;
     onClose: () => void;
@@ -41,19 +37,6 @@
 
   const primary = $derived(skills.filter((s) => s.level === "primary"));
   const secondary = $derived(skills.filter((s) => s.level === "secondary"));
-
-  const dateOptions: { label: string; value: number | null }[] = [
-    { label: "7 jours", value: 7 },
-    { label: "14 jours", value: 14 },
-    { label: "30 jours", value: 30 },
-    { label: "3 mois", value: 90 },
-    { label: "Tout", value: null },
-  ];
-
-  const viewedOptions: { label: string; value: boolean }[] = [
-    { label: "Afficher", value: false },
-    { label: "Masquer", value: true },
-  ];
 
   const intervalOptions: { label: string; value: number }[] = [
     { label: "15 min", value: 15 },
@@ -152,44 +135,6 @@
       </p>
     {/if}
   </div>
-
-  <section class="flex flex-col gap-2">
-    <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-      Date de publication
-    </p>
-    <div class="flex flex-wrap gap-2">
-      {#each dateOptions as opt (opt.label)}
-        <button
-          onclick={() => (daysFilter = opt.value)}
-          class="px-3 py-1 rounded-full text-xs border transition-colors
-                 {daysFilter === opt.value
-                   ? 'bg-primary text-primary-foreground border-primary'
-                   : 'bg-background text-foreground hover:bg-muted border-border'}"
-        >
-          {opt.label}
-        </button>
-      {/each}
-    </div>
-  </section>
-
-  <section class="flex flex-col gap-2">
-    <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-      Offres déjà vues
-    </p>
-    <div class="flex flex-wrap gap-2">
-      {#each viewedOptions as opt (opt.label)}
-        <button
-          onclick={() => (hideViewed = opt.value)}
-          class="px-3 py-1 rounded-full text-xs border transition-colors
-                 {hideViewed === opt.value
-                   ? 'bg-primary text-primary-foreground border-primary'
-                   : 'bg-background text-foreground hover:bg-muted border-border'}"
-        >
-          {opt.label}
-        </button>
-      {/each}
-    </div>
-  </section>
 
   <section class="border-t pt-3 flex flex-col gap-2">
     <div class="flex items-center justify-between">

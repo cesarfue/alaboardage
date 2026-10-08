@@ -2,17 +2,21 @@
   import type { InteractionStatus, Job } from "$lib/types";
   import { READABLE_SOURCES } from "$lib/types";
   import { api } from "$lib/api";
-  import { Bookmark, CheckCircle, XCircle } from "@lucide/svelte";
+  import { CheckCircle, Star, XCircle } from "@lucide/svelte";
   import { toast } from "svelte-sonner";
 
   let {
     job,
     onClose,
     applyInteraction,
+    searchId,
+    searchName,
   }: {
     job: Job;
     onClose?: () => void;
     applyInteraction?: (jobId: string, status: InteractionStatus | undefined) => void;
+    searchId?: string;
+    searchName?: string;
   } = $props();
 
   const dateFormatted = $derived(
@@ -24,7 +28,7 @@
   );
 
   const STATUS_LABEL: Record<InteractionStatus, string> = {
-    SAVED: "Sauvegardé",
+    SAVED: "Favori",
     APPLIED: "Postulé",
     REJECTED: "Refusé",
   };
@@ -42,7 +46,7 @@
         await api.deleteInteraction(job.id);
         applyInteraction?.(job.id, undefined);
       } else {
-        await api.setInteraction(job.id, status);
+        await api.setInteraction(job.id, status, searchId, searchName);
         applyInteraction?.(job.id, status);
       }
     } catch {
@@ -101,10 +105,10 @@
         {job.interactionStatus === 'SAVED'
           ? 'bg-foreground text-background'
           : 'border hover:bg-muted'}"
-      aria-label="Sauvegarder"
+      aria-label="Favori"
     >
-      <Bookmark size={15} />
-      Sauvegarder
+      <Star size={15} />
+      Favori
     </button>
     <button
       onclick={() => toggleStatus("APPLIED")}

@@ -4,7 +4,7 @@
   import { matchedSkills } from "$lib/scoring";
 
   const STATUS_LABEL: Record<InteractionStatus, string> = {
-    SAVED: "Sauvegardé",
+    SAVED: "Favori",
     APPLIED: "Postulé",
     REJECTED: "Refusé",
   };
@@ -20,15 +20,19 @@
     skills = [],
     active = false,
     selected = false,
+    checked = false,
     onHover,
     onSelect,
+    onToggleChecked,
   }: {
     job: Job;
     skills?: Skill[];
     active?: boolean;
     selected?: boolean;
+    checked?: boolean;
     onHover?: (job: Job | null) => void;
     onSelect?: (job: Job) => void;
+    onToggleChecked?: (jobId: string) => void;
   } = $props();
 
   let matched = $derived(matchedSkills(job, skills).slice(0, 4));
@@ -50,12 +54,28 @@
   onmouseleave={() => onHover?.(null)}
   onclick={() => onSelect?.(job)}
 >
-  <p class="font-medium truncate {dimmed ? 'font-normal text-foreground/70' : ''}">
-    {job.title}
-  </p>
-  <p class="text-sm text-muted-foreground truncate">
-    {job.company} · {job.establishment?.city ?? job.location}
-  </p>
+  <div class="flex items-start gap-2">
+    {#if onToggleChecked}
+      <input
+        type="checkbox"
+        checked={checked}
+        onclick={(e) => {
+          e.stopPropagation();
+          onToggleChecked?.(job.id);
+        }}
+        aria-label="Sélectionner cette offre"
+        class="mt-1 shrink-0 accent-primary"
+      />
+    {/if}
+    <div class="min-w-0 flex-1">
+      <p class="font-medium truncate {dimmed ? 'font-normal text-foreground/70' : ''}">
+        {job.title}
+      </p>
+      <p class="text-sm text-muted-foreground truncate">
+        {job.company} · {job.establishment?.city ?? job.location}
+      </p>
+    </div>
+  </div>
   {#if (job.alternates ?? []).length > 0}
     <p class="text-xs text-muted-foreground truncate mt-0.5">
       {[job.source, ...job.alternates!.map((a) => a.source)]

@@ -5,10 +5,12 @@
     Filters,
     InteractionStatus,
     Job,
+    JobSource,
     Preferences,
     RefreshState,
     SavedSearch,
     Skill,
+    SortMode,
     View,
   } from "$lib/types";
   import { rankJob } from "$lib/scoring";
@@ -22,7 +24,6 @@
   import type maplibregl from "maplibre-gl";
   import type { FeatureCollection, Feature, Point } from "geojson";
   import JobList from "$lib/components/JobList.svelte";
-  import TopBar from "$lib/components/TopBar.svelte";
   import JobDetail from "$lib/components/JobDetail.svelte";
   import { normalizeText } from "$lib/utils";
 
@@ -46,7 +47,11 @@
   let filtersReady = $state(false);
   let autoScrapeEnabled = $state(true);
   let autoScrapeIntervalMinutes = $state(360);
-  let statusFilter = $state<InteractionStatus | null>(null);
+  let source = $state<JobSource | null>(null);
+  let company = $state("");
+  let status = $state<InteractionStatus | null>(null);
+  let sortMode = $state<SortMode>("date");
+  let selectedJobIds = $state<Set<string>>(new Set());
   let searchCenter = $state<[number, number] | null>(null); // [lat, lng]
 
   const WIDE_SCREEN = "(min-width: 768px)";
@@ -118,7 +123,15 @@
   });
 
   $effect(() => {
-    const filters = { radiusKm, daysFilter, hideViewed };
+    const filters: Filters = {
+      radiusKm,
+      daysFilter,
+      hideViewed,
+      source,
+      company,
+      status,
+      sortMode,
+    };
     if (!filtersReady) return;
     localStorage.setItem("filters", JSON.stringify(filters));
     api.updatePreferences({ filters }).catch(() => {});
@@ -141,7 +154,7 @@
         .catch(() => {});
       if (feedNewCount !== null) {
         api
-          .getFeed(200, currentDaysFilter)
+          .getFeed(200, { daysFilter: currentDaysFilter })
           .then((res) => (feedNewCount = res.newCount))
           .catch(() => {});
       }
@@ -167,7 +180,6 @@
     viewedIds = new Set(viewedIds).add(job.id);
     const seen = (j: Job) => (j.id === job.id ? { ...j, viewed: true } : j);
     jobs = jobs.map(seen);
-    trackedJobs = trackedJobs.map(seen);
     savedJobs = savedJobs.map(seen);
     patchTabCache(seen);
     api.markViewed(job.id).catch(() => {
@@ -176,9 +188,9 @@
   }
 
   const VIEW_KEY = "lastView";
+  const VIEW_KINDS = ["all", "saved", "new"] as const;
 
   let view = $state<View>({ kind: "new" });
-  let trackedJobs = $state<Job[]>([]);
   let savedJobs = $state<Job[]>([]);
   let savedJobsByTab = $state<Map<string, Job[]>>(new Map());
   let savedJobsLoading = $state(false);
@@ -209,6 +221,8 @@
     }
     for (const candidate of [preferred, stored]) {
       if (!candidate) continue;
+      if (!VIEW_KINDS.includes(candidate.kind as (typeof VIEW_KINDS)[number]))
+        continue;
       if (candidate.kind === "saved") {
         if (savedSearches.some((s) => s.id === candidate.id)) {
           view = candidate;
@@ -303,11 +317,16 @@
     try {
       let fresh: Job[];
       if (id === ALL_TAB) {
-        const res = await api.getFeed(200, daysFilter);
+        const res = await api.getFeed(200, { daysFilter, source, company, status });
         feedNewCount = res.newCount;
         fresh = res.items.map(stamp);
       } else {
-        const res = await api.listSavedSearchJobs(id, 200, daysFilter);
+        const res = await api.listSavedSearchJobs(id, 200, {
+          daysFilter,
+          source,
+          company,
+          status,
+        });
         fresh = res.items.map(stamp);
       }
       savedJobsByTab = new Map(savedJobsByTab).set(id, fresh);
@@ -392,21 +411,11 @@
     });
   }
 
-  async function refreshTracked() {
-    try {
-      const res = await api.listJobs({ tracked: "true", limit: 200 });
-      trackedJobs = res.items.map(stamp);
-    } catch {
-      toast.error("Impossible de charger le suivi");
-    }
-  }
-
   $effect(() => {
     const current = view;
     if (current.kind === "new") return;
     untrack(() => {
-      if (current.kind === "suivi") void refreshTracked();
-      else if (current.kind === "all") void loadSavedSearchJobs(ALL_TAB);
+      if (current.kind === "all") void loadSavedSearchJobs(ALL_TAB);
       else void loadSavedSearchJobs(current.id);
     });
   });
@@ -474,6 +483,10 @@
       radiusKm = savedFilters.radiusKm;
       daysFilter = savedFilters.daysFilter;
       hideViewed = savedFilters.hideViewed;
+      source = savedFilters.source ?? null;
+      company = savedFilters.company ?? "";
+      status = savedFilters.status ?? null;
+      sortMode = savedFilters.sortMode ?? "date";
     }
     if (prefs) {
       autoScrapeEnabled = prefs.autoScrapeEnabled;
@@ -511,18 +524,12 @@
   });
 
   let sourceJobs = $derived(
-    view.kind === "suivi"
-      ? trackedJobs
-      : view.kind === "saved" || view.kind === "all"
-        ? savedJobs
-        : jobs,
+    view.kind === "saved" || view.kind === "all" ? savedJobs : jobs,
   );
   let sortedJobs = $derived(
-    view.kind === "suivi"
-      ? [...sourceJobs].sort((a, b) =>
-          (b.interactionAt ?? "").localeCompare(a.interactionAt ?? ""),
-        )
-      : [...sourceJobs].sort((a, b) => rankJob(b, skills) - rankJob(a, skills)),
+    sortMode === "score"
+      ? [...sourceJobs].sort((a, b) => rankJob(b, skills) - rankJob(a, skills))
+      : sourceJobs,
   );
 
   let groupedJobs = $derived.by(() => {
@@ -585,11 +592,17 @@
 
   let filteredJobs = $derived(
     mappedJobs.filter((j) => {
-      if (view.kind === "suivi") {
-        return statusFilter === null || j.interactionStatus === statusFilter;
-      }
-
       if (hideViewed && hiddenIds.has(j.id)) return false;
+
+      if (view.kind !== "new") {
+        if (status !== null && j.interactionStatus !== status) return false;
+        if (source !== null && j.source !== source) return false;
+        if (
+          company.trim() &&
+          !normalizeText(j.company).includes(normalizeText(company.trim()))
+        )
+          return false;
+      }
 
       // Radius filter — use geocoded searchCenter when available, else map center
       if (radiusKm < 500) {
@@ -883,14 +896,14 @@
 
   function applyInteraction(
     jobId: string,
-    status: InteractionStatus | undefined,
+    newStatus: InteractionStatus | undefined,
   ) {
     const at = new Date().toISOString();
     const newMap = new Map(interactionsMap);
-    if (status === undefined) {
+    if (newStatus === undefined) {
       newMap.delete(jobId);
     } else {
-      newMap.set(jobId, { status, at });
+      newMap.set(jobId, { status: newStatus, at });
     }
     interactionsMap = newMap;
 
@@ -898,8 +911,8 @@
       j.id === jobId
         ? {
             ...j,
-            interactionStatus: status,
-            interactionAt: status === undefined ? undefined : at,
+            interactionStatus: newStatus,
+            interactionAt: newStatus === undefined ? undefined : at,
           }
         : j;
 
@@ -907,42 +920,62 @@
     savedJobs = savedJobs.map(patch);
     patchTabCache(patch);
 
-    if (status === undefined) {
-      trackedJobs = trackedJobs.filter((j) => j.id !== jobId);
-      if (view.kind === "suivi") toast("Offre retirée du suivi");
-    } else {
-      trackedJobs = trackedJobs.some((j) => j.id === jobId)
-        ? trackedJobs.map(patch)
-        : trackedJobs;
-    }
-
     if (selectedJob?.id === jobId) {
       selectedJob = patch(selectedJob);
     }
   }
+
+  const activeSearchId = $derived(view.kind === "saved" ? view.id : undefined);
+  const activeSearchName = $derived(
+    view.kind === "saved" ? activeSearch?.name : undefined,
+  );
+
+  async function bulkApplyStatus(next: InteractionStatus | null) {
+    const ids = [...selectedJobIds];
+    if (ids.length === 0) return;
+    try {
+      await api.bulkSetInteractions(ids, next, activeSearchId, activeSearchName);
+      for (const id of ids) applyInteraction(id, next ?? undefined);
+    } catch {
+      toast.error("Impossible d'appliquer cette action groupée");
+    }
+  }
+
+  async function bulkSetViewed(viewed: boolean) {
+    const ids = [...selectedJobIds];
+    if (ids.length === 0) return;
+    try {
+      await api.bulkSetViewed(ids, viewed);
+      if (viewed) {
+        viewedIds = new Set([...viewedIds, ...ids]);
+      } else {
+        const next = new Set(viewedIds);
+        for (const id of ids) next.delete(id);
+        viewedIds = next;
+      }
+      const seen = (j: Job): Job =>
+        ids.includes(j.id) ? { ...j, viewed } : j;
+      jobs = jobs.map(seen);
+      savedJobs = savedJobs.map(seen);
+      patchTabCache(seen);
+    } catch {
+      toast.error("Impossible d'appliquer cette action groupée");
+    }
+  }
+
+  function toggleJobChecked(jobId: string) {
+    const next = new Set(selectedJobIds);
+    if (next.has(jobId)) next.delete(jobId);
+    else next.add(jobId);
+    selectedJobIds = next;
+  }
+
+  function clearJobSelection() {
+    selectedJobIds = new Set();
+  }
 </script>
 
-<main
-  class="relative w-full h-dvh overflow-hidden"
-  style="--bar: {barHeight}px"
->
-  <TopBar
-    bind:query
-    bind:location
-    {view}
-    {feedNewCount}
-    {openView}
-    {search}
-    {searching}
-    bind:skills
-    bind:savedSearches
-    bind:radiusKm
-    bind:daysFilter
-    bind:hideViewed
-    bind:autoScrapeEnabled
-    bind:autoScrapeIntervalMinutes
-    bind:barHeight
-  />
+<main class="relative w-full h-dvh overflow-hidden">
   <MapLibre
     style="https://tiles.openfreemap.org/styles/liberty"
     class="w-full h-full"
@@ -1004,7 +1037,7 @@
     <button
       onclick={searchThisArea}
       disabled={searching}
-      class="absolute top-[calc(var(--bar)+0.5rem)] md:top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-auto
+      class="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-auto
              flex items-center gap-2 bg-background border rounded-full
              px-4 py-2 text-sm font-medium shadow-lg
              hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1015,7 +1048,7 @@
   {/if}
   <div
     class="absolute z-10 flex flex-row gap-4 pointer-events-none
-           inset-x-0 top-[var(--bar)] bottom-0
+           inset-0
            md:inset-x-auto md:left-10 md:top-30 md:bottom-10"
   >
     {#if listVisible}
@@ -1024,19 +1057,40 @@
         lastCheckedAt={bannerLastCheckedAt}
         onShowNewResults={showNewResults}
         refreshState={bannerRefreshState}
-        onRequestRefresh={activeSearch || view.kind === "all"
+        onRequestRefresh={activeSearch && !activeSearch.archived
           ? requestRefresh
           : undefined}
         loading={savedJobsLoading}
         jobs={filteredJobs}
-        {skills}
         {activeJob}
         selectedJobId={selectedJob?.id ?? null}
-        showChips={view.kind === "suivi"}
         anchorKey={currentAnchorKey}
         anchorJobId={currentAnchor}
         onAnchorChange={rememberAnchor}
-        bind:statusFilter
+        bind:query
+        bind:location
+        {view}
+        {feedNewCount}
+        {openView}
+        {search}
+        {searching}
+        bind:skills
+        bind:savedSearches
+        bind:radiusKm
+        bind:daysFilter
+        bind:hideViewed
+        bind:source
+        bind:company
+        bind:status
+        bind:sortMode
+        bind:autoScrapeEnabled
+        bind:autoScrapeIntervalMinutes
+        bind:barHeight
+        {selectedJobIds}
+        onToggleChecked={toggleJobChecked}
+        onBulkStatus={bulkApplyStatus}
+        onBulkViewed={bulkSetViewed}
+        onClearSelection={clearJobSelection}
         onSelect={(job) => {
           selectedJob = job;
           activeJob = job;
@@ -1050,6 +1104,8 @@
       <JobDetail
         job={selectedJob}
         {applyInteraction}
+        searchId={activeSearchId}
+        searchName={activeSearchName}
         onClose={closeJobDetail}
       />
     {/if}

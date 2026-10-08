@@ -1,44 +1,96 @@
 <script lang="ts">
-  import type { InteractionStatus, Job, RefreshState, Skill } from "$lib/types";
+  import type {
+    InteractionStatus,
+    Job,
+    JobSource,
+    RefreshState,
+    SavedSearch,
+    Skill,
+    SortMode,
+    View,
+  } from "$lib/types";
   import { RefreshCw } from "@lucide/svelte";
   import JobCard from "./JobCard.svelte";
+  import TopBar from "./TopBar.svelte";
 
   let {
     jobs,
-    skills = [],
+    skills = $bindable([]),
     activeJob,
     selectedJobId = null,
-    showChips = false,
     newResultsCount = 0,
     lastCheckedAt = null,
     loading = false,
     refreshState = "idle",
     onShowNewResults,
     onRequestRefresh,
-    statusFilter = $bindable(null),
     anchorKey = null,
     anchorJobId = null,
     onAnchorChange,
     onHover,
     onSelect,
+    query = $bindable(""),
+    location = $bindable(""),
+    view,
+    feedNewCount = null,
+    search,
+    searching,
+    savedSearches = $bindable(),
+    radiusKm = $bindable(),
+    daysFilter = $bindable(null),
+    hideViewed = $bindable(false),
+    source = $bindable(null),
+    company = $bindable(""),
+    status = $bindable(null),
+    sortMode = $bindable("date"),
+    autoScrapeEnabled = $bindable(true),
+    autoScrapeIntervalMinutes = $bindable(360),
+    barHeight = $bindable(0),
+    openView,
+    selectedJobIds,
+    onToggleChecked,
+    onBulkStatus,
+    onBulkViewed,
+    onClearSelection,
   }: {
     jobs: Job[];
     skills?: Skill[];
     activeJob?: Job | null;
     selectedJobId?: string | null;
-    showChips?: boolean;
     newResultsCount?: number;
     lastCheckedAt?: string | null;
     loading?: boolean;
     refreshState?: RefreshState;
     onShowNewResults?: () => void;
     onRequestRefresh?: () => void;
-    statusFilter?: InteractionStatus | null;
     anchorKey?: string | null;
     anchorJobId?: string | null;
     onAnchorChange?: (jobId: string) => void;
     onHover?: (job: Job | null) => void;
     onSelect?: (job: Job) => void;
+    query?: string;
+    location?: string;
+    view: View;
+    feedNewCount?: number | null;
+    search: () => void;
+    searching: boolean;
+    savedSearches: SavedSearch[];
+    radiusKm: number;
+    daysFilter: number | null;
+    hideViewed?: boolean;
+    source?: JobSource | null;
+    company?: string;
+    status?: InteractionStatus | null;
+    sortMode?: SortMode;
+    autoScrapeEnabled?: boolean;
+    autoScrapeIntervalMinutes?: number;
+    barHeight?: number;
+    openView: (v: View) => void;
+    selectedJobIds: Set<string>;
+    onToggleChecked?: (jobId: string) => void;
+    onBulkStatus?: (status: InteractionStatus | null) => void;
+    onBulkViewed?: (viewed: boolean) => void;
+    onClearSelection?: () => void;
   } = $props();
 
   let container = $state<HTMLDivElement | null>(null);
@@ -89,13 +141,6 @@
     }
   });
 
-  const chips: { label: string; value: InteractionStatus | null }[] = [
-    { label: "Tout", value: null },
-    { label: "Sauvegardé", value: "SAVED" },
-    { label: "Postulé", value: "APPLIED" },
-    { label: "Refusé", value: "REJECTED" },
-  ];
-
   function formatLastChecked(iso: string): string {
     return new Date(iso).toLocaleString("fr-FR", {
       day: "numeric",
@@ -104,57 +149,42 @@
       minute: "2-digit",
     });
   }
-
-  const refreshLabel = $derived(
-    refreshState === "running"
-      ? "Mise à jour du flux en cours…"
-      : refreshState === "queued"
-        ? "En file d'attente"
-        : "Relancer la mise à jour du flux",
-  );
 </script>
 
 <div
-  class="h-full w-full md:w-[380px] flex flex-col rounded-none md:rounded-xl
+  class="relative h-full w-full md:w-[380px] flex flex-col rounded-none md:rounded-xl
          bg-background shadow-panel pointer-events-auto"
+  style="--bar: {barHeight}px"
 >
-  <div class="px-4 pt-3 pb-2 border-b shrink-0 flex flex-col gap-2">
-    {#if showChips}
-      <div class="flex gap-1.5 flex-wrap">
-        {#each chips as chip (chip.value)}
-          <button
-            class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors
-              {statusFilter === chip.value
-                ? 'bg-primary text-primary-foreground'
-                : 'border hover:bg-muted text-muted-foreground'}"
-            onclick={() => (statusFilter = chip.value)}
-          >
-            {chip.label}
-          </button>
-        {/each}
-      </div>
-    {/if}
-    <div class="flex items-center justify-between gap-2">
-      <span class="text-xs font-medium text-muted-foreground">
-        {loading ? "Chargement…" : `${jobs.length} offre${jobs.length !== 1 ? "s" : ""}`}
-      </span>
-      {#if onRequestRefresh}
-        <button
-          onclick={() => onRequestRefresh?.()}
-          disabled={refreshState !== "idle"}
-          aria-label={refreshLabel}
-          title={refreshLabel}
-          class="flex items-center text-muted-foreground hover:text-foreground
-                 disabled:cursor-not-allowed disabled:opacity-100"
-        >
-          <RefreshCw
-            size={13}
-            class={refreshState === "running" ? "animate-spin" : ""}
-          />
-        </button>
-      {/if}
-    </div>
-  </div>
+  <TopBar
+    bind:query
+    bind:location
+    {view}
+    {feedNewCount}
+    {openView}
+    {search}
+    {searching}
+    jobCount={jobs.length}
+    {loading}
+    {refreshState}
+    {onRequestRefresh}
+    bind:skills
+    bind:savedSearches
+    bind:radiusKm
+    bind:daysFilter
+    bind:hideViewed
+    bind:source
+    bind:company
+    bind:status
+    bind:sortMode
+    bind:autoScrapeEnabled
+    bind:autoScrapeIntervalMinutes
+    bind:barHeight
+    selectedCount={selectedJobIds.size}
+    {onBulkStatus}
+    {onBulkViewed}
+    {onClearSelection}
+  />
   {#if newResultsCount > 0}
     <button
       onclick={() => onShowNewResults?.()}
@@ -178,7 +208,16 @@
     class="flex-1 overflow-y-auto pb-20 md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
   >
     {#each jobs as job (job.id)}
-      <JobCard {job} {skills} active={job.id === activeJob?.id} selected={job.id === selectedJobId} {onHover} {onSelect} />
+      <JobCard
+        {job}
+        {skills}
+        active={job.id === activeJob?.id}
+        selected={job.id === selectedJobId}
+        checked={selectedJobIds.has(job.id)}
+        {onHover}
+        {onSelect}
+        {onToggleChecked}
+      />
     {/each}
   </div>
 </div>

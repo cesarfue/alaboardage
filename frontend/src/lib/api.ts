@@ -1,4 +1,4 @@
-import type { Filters, InteractionStatus, Job, ListJobsResponse, Preferences, RefreshState, SavedSearch, SearchOrListRequest, Skill, View } from "./types";
+import type { Filters, InteractionStatus, Job, JobSource, ListJobsResponse, Preferences, RefreshState, SavedSearch, SearchOrListRequest, Skill, View } from "./types";
 
 const BASE = "/api";
 
@@ -41,6 +41,22 @@ function buildQuery(params: SearchOrListRequest): string {
   }
   const qs = search.toString();
   return qs ? `?${qs}` : "";
+}
+
+export interface JobFilterParams {
+  daysFilter?: number | null;
+  source?: JobSource | null;
+  company?: string;
+  status?: InteractionStatus | null;
+}
+
+function filterQueryParams(params: JobFilterParams): URLSearchParams {
+  const search = new URLSearchParams();
+  if (params.daysFilter != null) search.set("daysFilter", String(params.daysFilter));
+  if (params.source) search.set("source", params.source);
+  if (params.company) search.set("company", params.company);
+  if (params.status) search.set("status", params.status);
+  return search;
 }
 
 export const api = {
@@ -114,16 +130,33 @@ export const api = {
     >("/interactions");
   },
 
-  setInteraction(jobId: string, status: InteractionStatus): Promise<void> {
+  setInteraction(
+    jobId: string,
+    status: InteractionStatus,
+    searchId?: string,
+    searchName?: string,
+  ): Promise<void> {
     return request<void>(`/jobs/${encodeURIComponent(jobId)}/interaction`, {
       method: "PUT",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, searchId, searchName }),
     });
   },
 
   deleteInteraction(jobId: string): Promise<void> {
     return request<void>(`/jobs/${encodeURIComponent(jobId)}/interaction`, {
       method: "DELETE",
+    });
+  },
+
+  bulkSetInteractions(
+    ids: string[],
+    status: InteractionStatus | null,
+    searchId?: string,
+    searchName?: string,
+  ): Promise<void> {
+    return request<void>("/interactions/bulk", {
+      method: "PUT",
+      body: JSON.stringify({ ids, status, searchId, searchName }),
     });
   },
 
@@ -134,6 +167,13 @@ export const api = {
   markViewed(jobId: string): Promise<void> {
     return request<void>(`/jobs/${encodeURIComponent(jobId)}/view`, {
       method: "POST",
+    });
+  },
+
+  bulkSetViewed(ids: string[], viewed: boolean): Promise<void> {
+    return request<void>("/views/bulk", {
+      method: "POST",
+      body: JSON.stringify({ ids, viewed }),
     });
   },
 
@@ -156,11 +196,12 @@ export const api = {
   listSavedSearchJobs(
     id: string,
     limit = 200,
-    daysFilter?: number | null,
+    filters: JobFilterParams = {},
   ): Promise<ListJobsResponse> {
-    const qs = daysFilter != null ? `&daysFilter=${daysFilter}` : "";
+    const search = filterQueryParams(filters);
+    search.set("limit", String(limit));
     return request<ListJobsResponse>(
-      `/searches/${encodeURIComponent(id)}/jobs?limit=${limit}${qs}`,
+      `/searches/${encodeURIComponent(id)}/jobs?${search.toString()}`,
     );
   },
 
@@ -210,11 +251,12 @@ export const api = {
 
   getFeed(
     limit = 200,
-    daysFilter?: number | null,
+    filters: JobFilterParams = {},
   ): Promise<ListJobsResponse & { newCount: number }> {
-    const qs = daysFilter != null ? `&daysFilter=${daysFilter}` : "";
+    const search = filterQueryParams(filters);
+    search.set("limit", String(limit));
     return request<ListJobsResponse & { newCount: number }>(
-      `/feed?limit=${limit}${qs}`,
+      `/feed?${search.toString()}`,
     );
   },
 

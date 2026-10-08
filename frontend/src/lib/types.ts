@@ -35,7 +35,6 @@ export interface SearchOrListRequest {
   company?: string;
   location?: string;
   status?: InteractionStatus;
-  tracked?: "true";
   limit?: number;
   offset?: number;
 }
@@ -58,8 +57,7 @@ export type RefreshState = "idle" | "queued" | "running";
 export type View =
   | { kind: "all" }
   | { kind: "saved"; id: string }
-  | { kind: "new" }
-  | { kind: "suivi" };
+  | { kind: "new" };
 
 export interface SavedSearch {
   id: string;
@@ -73,16 +71,23 @@ export interface SavedSearch {
   lastCheckedAt: string | null;
   lastSeenAt: string | null;
   refreshState?: RefreshState;
+  archived?: boolean;
   // Only present on the list endpoint (GET /searches). CRUD endpoints
   // (create/update/markSeen) return the plain DB row without the count —
   // callers assemble the view field client-side.
   newResultsCount?: number;
 }
 
+export type SortMode = "date" | "score";
+
 export interface Filters {
   radiusKm: number;
   daysFilter: number | null;
   hideViewed: boolean;
+  source: JobSource | null;
+  company: string;
+  status: InteractionStatus | null;
+  sortMode: SortMode;
 }
 
 export interface Preferences {
