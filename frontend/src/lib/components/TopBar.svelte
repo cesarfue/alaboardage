@@ -224,7 +224,10 @@
     { label: "Tout", value: null },
   ];
 
-  const sources: JobSource[] = Object.keys(READABLE_SOURCES) as JobSource[];
+  const EMPTY_BOARDS: JobSource[] = ["JTMS", "GLASSDOOR"];
+  const sources: JobSource[] = (Object.keys(READABLE_SOURCES) as JobSource[]).filter(
+    (s) => !EMPTY_BOARDS.includes(s),
+  );
 
   const hasActiveFilters = $derived(
     hideViewed ||
