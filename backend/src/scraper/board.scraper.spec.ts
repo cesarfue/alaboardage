@@ -395,5 +395,80 @@ describe('BoardScraper', () => {
       // offsetBase=0, offset param starts from 0, not 1
       expect(gotoUrl).toContain('p=0');
     });
+
+    it('advances the offset parameter by offsetStep per page, not by 1', async () => {
+      const config: BoardConfig = {
+        ...TEST_CONFIG,
+        descriptionFromCard: true,
+        offsetBase: 0,
+        offsetStep: 10,
+      };
+      const card = `<div class="card" data-id="x"><h3 class="title">T</h3><span class="company">C</span><span class="location">L</span><time datetime="2026-01-01"></time><div class="description">D</div></div>`;
+      const pageMock: Partial<Page> = {
+        goto: jest.fn().mockResolvedValue(null),
+        waitForSelector: jest.fn().mockResolvedValue(null),
+        content: jest
+          .fn()
+          .mockResolvedValueOnce(card)
+          .mockResolvedValueOnce(card)
+          .mockResolvedValueOnce(''),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      const contextMock: Partial<BrowserContext> = {
+        newPage: jest.fn().mockResolvedValue(pageMock),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      const browserMock = {
+        newContext: jest.fn().mockResolvedValue(contextMock),
+      } as unknown as Browser;
+
+      const scraper = new BoardScraper(
+        browserMock,
+        config,
+        { ...BASE_PARAMS, singlePage: false, limit: 100, offset: 1 },
+        JobSource.HELLOWORK,
+      );
+      scraper.sleep = () => Promise.resolve();
+
+      await collect(scraper);
+
+      const calls = (pageMock.goto as jest.Mock).mock.calls;
+      expect(calls[0][0]).toContain('p=0');
+      expect(calls[1][0]).toContain('p=10');
+      expect(calls[2][0]).toContain('p=20');
+    });
+  });
+
+  describe('browser context isolation', () => {
+    it('opens a dedicated context for detail-page description fetches', async () => {
+      const browser = makeBrowserMock(CARD_HTML, DETAIL_HTML);
+      const scraper = new BoardScraper(
+        browser,
+        TEST_CONFIG,
+        BASE_PARAMS,
+        JobSource.HELLOWORK,
+      );
+
+      await collect(scraper);
+
+      expect((browser.newContext as jest.Mock).mock.calls).toHaveLength(2);
+    });
+
+    it('does not open a description context when descriptionFromCard is true', async () => {
+      const config: BoardConfig = { ...TEST_CONFIG, descriptionFromCard: true };
+      const browser = makeBrowserMock(
+        '<div class="card" data-id="x"><h3 class="title">T</h3><span class="company">C</span><span class="location">L</span><time datetime="2026-01-01"></time><div class="description">D</div></div>',
+      );
+      const scraper = new BoardScraper(
+        browser,
+        config,
+        BASE_PARAMS,
+        JobSource.HELLOWORK,
+      );
+
+      await collect(scraper);
+
+      expect((browser.newContext as jest.Mock).mock.calls).toHaveLength(1);
+    });
   });
 });

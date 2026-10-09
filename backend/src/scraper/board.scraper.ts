@@ -26,6 +26,12 @@ export class BoardScraper {
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     });
+    const descriptionContext = this.config.descriptionFromCard
+      ? null
+      : await this.browser.newContext({
+          userAgent:
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        });
     const page = await context.newPage();
     let offset = this.params.offset;
     let actionsTaken = false;
@@ -101,7 +107,7 @@ export class BoardScraper {
                 return isFresh
                   ? Promise.resolve(existing.description)
                   : this.fetchDescription(
-                      context,
+                      descriptionContext!,
                       this.buildJobUrl(j.externalId),
                     );
               }),
@@ -122,6 +128,7 @@ export class BoardScraper {
       }
     } finally {
       await context.close();
+      await descriptionContext?.close();
     }
   }
 
@@ -238,7 +245,8 @@ export class BoardScraper {
       url.searchParams.set(params.location, this.params.location);
     if (params.offset) {
       const base = this.config.offsetBase ?? this.params.offset;
-      const value = base + (offset - this.params.offset);
+      const step = this.config.offsetStep ?? 1;
+      const value = base + (offset - this.params.offset) * step;
       url.searchParams.set(params.offset, String(value));
     }
     return url.toString();
