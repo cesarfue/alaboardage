@@ -229,10 +229,13 @@ export class JobsService {
 
   upsert(dto: CreateJobDto) {
     const { source, externalId, ...data } = dto;
+    const update = data.description
+      ? data
+      : { ...data, description: undefined };
     return this.prisma.job.upsert({
       where: { source_externalId: { source, externalId } },
       create: { source, externalId, ...data },
-      update: data,
+      update,
     });
   }
 

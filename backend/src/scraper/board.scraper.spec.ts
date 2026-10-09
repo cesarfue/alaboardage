@@ -471,4 +471,62 @@ describe('BoardScraper', () => {
       expect((browser.newContext as jest.Mock).mock.calls).toHaveLength(1);
     });
   });
+
+  describe('description retry', () => {
+    it('retries once when the detail page yields an empty description', async () => {
+      const emptyDetail = '<div class="description"></div>';
+      const context: Partial<BrowserContext> = {
+        newPage: jest
+          .fn()
+          .mockResolvedValueOnce(makePageMock(CARD_HTML))
+          .mockResolvedValueOnce(makePageMock(emptyDetail))
+          .mockResolvedValueOnce(makePageMock(DETAIL_HTML)),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      const browser = {
+        newContext: jest.fn().mockResolvedValue(context),
+      } as unknown as Browser;
+
+      const scraper = new BoardScraper(
+        browser,
+        TEST_CONFIG,
+        BASE_PARAMS,
+        JobSource.HELLOWORK,
+      );
+      scraper.sleep = () => Promise.resolve();
+
+      const jobs = await collect(scraper);
+
+      expect(jobs[0].description).toBe('Full job description goes here.');
+      expect((context.newPage as jest.Mock).mock.calls).toHaveLength(3);
+    });
+
+    it('gives up and returns an empty description after two empty attempts', async () => {
+      const emptyDetail = '<div class="description"></div>';
+      const context: Partial<BrowserContext> = {
+        newPage: jest
+          .fn()
+          .mockResolvedValueOnce(makePageMock(CARD_HTML))
+          .mockResolvedValueOnce(makePageMock(emptyDetail))
+          .mockResolvedValueOnce(makePageMock(emptyDetail)),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      const browser = {
+        newContext: jest.fn().mockResolvedValue(context),
+      } as unknown as Browser;
+
+      const scraper = new BoardScraper(
+        browser,
+        TEST_CONFIG,
+        BASE_PARAMS,
+        JobSource.HELLOWORK,
+      );
+      scraper.sleep = () => Promise.resolve();
+
+      const jobs = await collect(scraper);
+
+      expect(jobs[0].description).toBe('');
+      expect((context.newPage as jest.Mock).mock.calls).toHaveLength(3);
+    });
+  });
 });

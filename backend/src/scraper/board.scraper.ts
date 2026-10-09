@@ -189,16 +189,22 @@ export class BoardScraper {
     context: BrowserContext,
     url: string,
   ): Promise<string> {
-    const page = await context.newPage();
-    try {
-      await page.goto(url, { waitUntil: 'domcontentloaded' });
-      const $job = load(await page.content());
-      return this.extract($job, this.config.selectors.description);
-    } catch {
-      return '';
-    } finally {
-      await page.close();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const page = await context.newPage();
+      let description = '';
+      try {
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        const $job = load(await page.content());
+        description = this.extract($job, this.config.selectors.description);
+      } catch {
+        description = '';
+      } finally {
+        await page.close();
+      }
+      if (description) return description;
+      if (attempt === 0) await this.sleep(500);
     }
+    return '';
   }
 
   private extract($: CheerioAPI, rule: Rule): string {

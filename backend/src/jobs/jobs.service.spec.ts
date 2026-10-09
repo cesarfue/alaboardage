@@ -3,6 +3,7 @@ jest.mock('../prisma/prisma.service');
 
 import { JobsService } from './jobs.service';
 import { JobSource } from '../../generated/prisma/enums';
+import type { CreateJobDto } from './dto/create-job.dto';
 
 describe('JobsService.buildCriteriaWhere', () => {
   let service: JobsService;
@@ -213,5 +214,57 @@ describe('JobsService.findKnownByExternalIds', () => {
       },
       select: { externalId: true, description: true, scrapedAt: true },
     });
+  });
+});
+
+describe('JobsService.upsert', () => {
+  function baseDto(overrides: Partial<CreateJobDto> = {}): CreateJobDto {
+    return {
+      externalId: 'ext-1',
+      source: JobSource.HELLOWORK,
+      title: 'Data Engineer',
+      company: 'Acme',
+      location: 'Lyon',
+      description: '',
+      url: 'https://example.com/job/1',
+      datePosted: new Date('2026-01-01'),
+      ...overrides,
+    };
+  }
+
+  it('includes a non-empty description in the update payload', async () => {
+    const prismaMock: any = {
+      job: { upsert: jest.fn().mockResolvedValue({}) },
+    };
+    const service = new JobsService(prismaMock);
+
+    await service.upsert(baseDto({ description: 'Full text.' }));
+
+    const call = prismaMock.job.upsert.mock.calls[0][0];
+    expect(call.update.description).toBe('Full text.');
+  });
+
+  it('omits description from the update payload when the scrape returned an empty one', async () => {
+    const prismaMock: any = {
+      job: { upsert: jest.fn().mockResolvedValue({}) },
+    };
+    const service = new JobsService(prismaMock);
+
+    await service.upsert(baseDto({ description: '' }));
+
+    const call = prismaMock.job.upsert.mock.calls[0][0];
+    expect(call.update.description).toBeUndefined();
+  });
+
+  it('still sets description on create, even when empty', async () => {
+    const prismaMock: any = {
+      job: { upsert: jest.fn().mockResolvedValue({}) },
+    };
+    const service = new JobsService(prismaMock);
+
+    await service.upsert(baseDto({ description: '' }));
+
+    const call = prismaMock.job.upsert.mock.calls[0][0];
+    expect(call.create.description).toBe('');
   });
 });
