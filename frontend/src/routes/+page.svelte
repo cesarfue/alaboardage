@@ -18,7 +18,7 @@
   import { goto } from "$app/navigation";
   import { onDestroy, onMount, untrack } from "svelte";
   import { MapLibre, GeoJSON, CircleLayer, SymbolLayer } from "svelte-maplibre";
-  import { Info, List, Map as MapIcon, Search } from "@lucide/svelte";
+  import { Search } from "@lucide/svelte";
   import type { LayerClickInfo } from "svelte-maplibre";
   import type { GeoJSONSource } from "maplibre-gl";
   import type maplibregl from "maplibre-gl";
@@ -57,7 +57,6 @@
 
   const WIDE_SCREEN = "(min-width: 768px)";
   let wideScreen = $state(true);
-  let mobileView = $state<"map" | "list" | "detail">("map");
 
   onMount(() => {
     const mql = window.matchMedia(WIDE_SCREEN);
@@ -673,10 +672,8 @@
 
   let activeJob = $state<Job | null>(null);
   let selectedJob = $state<Job | null>(null);
-  const listVisible = $derived(wideScreen || mobileView === "list");
-  const detailVisible = $derived(
-    selectedJob !== null && (wideScreen || mobileView === "detail"),
-  );
+  const listVisible = $derived(wideScreen || selectedJob === null);
+  const detailVisible = $derived(selectedJob !== null);
   let map = $state<maplibregl.Map | undefined>(undefined);
 
   // svelte-maplibre's bind:zoom only updates on zoomend; hook MapLibre's raw
@@ -834,11 +831,6 @@
 
   function closeJobDetail() {
     selectedJob = null;
-    if (!wideScreen) mobileView = "list";
-  }
-
-  function toggleMobileView() {
-    mobileView = mobileView === "map" ? (selectedJob ? "detail" : "list") : "map";
   }
 
   function onPointClick(e: LayerClickInfo) {
@@ -1109,7 +1101,7 @@
       />
     </GeoJSON>
   </MapLibre>
-  {#if isOutsideSearchZone && (wideScreen || mobileView === "map")}
+  {#if isOutsideSearchZone && wideScreen}
     <button
       onclick={searchThisArea}
       disabled={searching}
@@ -1145,7 +1137,6 @@
         onSelect={(job) => {
           selectedJob = job;
           activeJob = job;
-          if (!wideScreen) mobileView = "detail";
           markViewed(job);
           focusJob(job);
         }}
@@ -1162,23 +1153,4 @@
       />
     {/if}
   </div>
-  <button
-    onclick={toggleMobileView}
-    class="md:hidden absolute bottom-6 left-1/2 -translate-x-1/2 z-20
-           flex items-center gap-2 bg-background border rounded-full
-           px-5 py-2.5 text-sm font-medium shadow-lg"
-  >
-    {#if mobileView === "map"}
-      {#if selectedJob}
-        <Info size={16} />
-        Détail
-      {:else}
-        <List size={16} />
-        Liste
-      {/if}
-    {:else}
-      <MapIcon size={16} />
-      Carte
-    {/if}
-  </button>
 </main>

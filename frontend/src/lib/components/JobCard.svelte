@@ -37,6 +37,12 @@
 
   let matched = $derived(matchedSkills(job, skills).slice(0, 4));
   let dimmed = $derived(!!job.viewed || !!job.interactionStatus);
+  let dateFormatted = $derived(
+    new Date(job.datePosted).toLocaleDateString("fr-FR", {
+      day: "numeric",
+      month: "short",
+    }),
+  );
 </script>
 
 <article
@@ -80,6 +86,7 @@
     {[job.source, ...(job.alternates ?? []).map((a) => a.source)]
       .map((s) => READABLE_SOURCES[s])
       .join(" · ")}
+    · {dateFormatted}
   </p>
   {#if job.interactionStatus}
     <p class="text-xs mt-1">

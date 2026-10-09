@@ -4,6 +4,7 @@
   import { api } from "$lib/api";
   import { CheckCircle, Star, XCircle } from "@lucide/svelte";
   import { toast } from "svelte-sonner";
+  import { MapLibre, DefaultMarker } from "svelte-maplibre";
 
   let {
     job,
@@ -91,6 +92,19 @@
     >
     <span>{dateFormatted}</span>
   </div>
+
+  {#if job.establishment}
+    <div class="md:hidden h-40 border-b shrink-0">
+      <MapLibre
+        style="https://tiles.openfreemap.org/styles/liberty"
+        class="w-full h-full"
+        center={[job.establishment.lng, job.establishment.lat]}
+        zoom={13}
+      >
+        <DefaultMarker lngLat={[job.establishment.lng, job.establishment.lat]} />
+      </MapLibre>
+    </div>
+  {/if}
 
   <div
     class="flex-1 overflow-y-auto p-4 text-sm leading-relaxed whitespace-pre-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
