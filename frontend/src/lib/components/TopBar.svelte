@@ -265,6 +265,70 @@
   ></div>
 {/if}
 
+{#snippet scopeDropdown()}
+  <div class="relative shrink-0">
+    <button
+      onclick={toggleScope}
+      class="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted {showingScope ? 'bg-muted' : ''}"
+    >
+      <span class="max-w-[12rem] truncate">{currentViewLabel}</span>
+      {#if totalNew > 0}
+        <span
+          class="rounded-full bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 leading-none"
+        >
+          {formatBadge(totalNew)}
+        </span>
+      {/if}
+      <ChevronDown size={14} class="text-muted-foreground" />
+    </button>
+    {#if showingScope}
+      <div
+        class="fixed z-50 top-[calc(var(--bar)+0.5rem)] left-3 w-[min(320px,calc(100vw-1.5rem))]
+               max-h-[calc(100dvh-var(--bar)-1rem)] overflow-y-auto
+               pointer-events-auto flex flex-col gap-1 rounded-xl bg-background shadow-panel p-2"
+      >
+        {#if savedSearches.length > 0}
+          <button
+            onclick={() => goTo({ kind: "all" })}
+            class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors
+              {view.kind === 'all' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
+          >
+            <span>Tout</span>
+            {#if totalNew > 0}
+              <span class="shrink-0 rounded-full bg-background/25 text-[10px] font-semibold px-1.5 py-0.5 leading-none">
+                {formatBadge(totalNew)}
+              </span>
+            {/if}
+          </button>
+        {/if}
+        {#each savedSearches as s (s.id)}
+          <button
+            onclick={() => goTo({ kind: "saved", id: s.id })}
+            class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors
+              {view.kind === 'saved' && view.id === s.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
+          >
+            <span class="truncate {s.archived ? 'text-muted-foreground italic' : ''}">
+              {s.name}{s.archived ? " (supprimée)" : ""}
+            </span>
+            {#if (s.newResultsCount ?? 0) > 0}
+              <span class="shrink-0 rounded-full bg-background/25 text-[10px] font-semibold px-1.5 py-0.5 leading-none">
+                {formatBadge(s.newResultsCount ?? 0)}
+              </span>
+            {/if}
+          </button>
+        {/each}
+        <button
+          onclick={() => goTo({ kind: "new" })}
+          class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors hover:bg-muted"
+        >
+          <Search size={15} />
+          Nouvelle recherche
+        </button>
+      </div>
+    {/if}
+  </div>
+{/snippet}
+
 <div
   bind:clientHeight={barHeight}
   class="absolute w-full z-50 pointer-events-auto flex flex-col gap-2 p-3 bg-background"
@@ -333,6 +397,7 @@
     </div>
   {:else if view.kind === "new"}
     <div class="flex flex-row items-center gap-1.5 md:gap-2 min-w-0">
+      {@render scopeDropdown()}
       <input
         type="text"
         placeholder="Poste"
@@ -414,67 +479,7 @@
     </div>
   {:else}
     <div class="flex flex-row flex-wrap items-center gap-1.5 md:gap-2 min-w-0">
-      <div class="relative shrink-0">
-        <button
-          onclick={toggleScope}
-          class="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted {showingScope ? 'bg-muted' : ''}"
-        >
-          <span class="max-w-[12rem] truncate">{currentViewLabel}</span>
-          {#if totalNew > 0}
-            <span
-              class="rounded-full bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 leading-none"
-            >
-              {formatBadge(totalNew)}
-            </span>
-          {/if}
-          <ChevronDown size={14} class="text-muted-foreground" />
-        </button>
-        {#if showingScope}
-          <div
-            class="fixed z-50 top-[calc(var(--bar)+0.5rem)] left-3 w-[min(320px,calc(100vw-1.5rem))]
-                   max-h-[calc(100dvh-var(--bar)-1rem)] overflow-y-auto
-                   pointer-events-auto flex flex-col gap-1 rounded-xl bg-background shadow-panel p-2"
-          >
-            {#if savedSearches.length > 0}
-              <button
-                onclick={() => goTo({ kind: "all" })}
-                class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors
-                  {view.kind === 'all' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
-              >
-                <span>Tout</span>
-                {#if totalNew > 0}
-                  <span class="shrink-0 rounded-full bg-background/25 text-[10px] font-semibold px-1.5 py-0.5 leading-none">
-                    {formatBadge(totalNew)}
-                  </span>
-                {/if}
-              </button>
-            {/if}
-            {#each savedSearches as s (s.id)}
-              <button
-                onclick={() => goTo({ kind: "saved", id: s.id })}
-                class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors
-                  {view.kind === 'saved' && view.id === s.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
-              >
-                <span class="truncate {s.archived ? 'text-muted-foreground italic' : ''}">
-                  {s.name}{s.archived ? " (supprimée)" : ""}
-                </span>
-                {#if (s.newResultsCount ?? 0) > 0}
-                  <span class="shrink-0 rounded-full bg-background/25 text-[10px] font-semibold px-1.5 py-0.5 leading-none">
-                    {formatBadge(s.newResultsCount ?? 0)}
-                  </span>
-                {/if}
-              </button>
-            {/each}
-            <button
-              onclick={() => goTo({ kind: "new" })}
-              class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors hover:bg-muted"
-            >
-              <Search size={15} />
-              Nouvelle recherche
-            </button>
-          </div>
-        {/if}
-      </div>
+      {@render scopeDropdown()}
 
       <span class="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
         {loading ? "Chargement…" : `${jobCount} offre${jobCount !== 1 ? "s" : ""}`}
