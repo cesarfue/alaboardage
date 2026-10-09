@@ -3,6 +3,7 @@ jest.mock('../prisma/prisma.service');
 
 import { JobsService } from './jobs.service';
 import { JobSource } from '../../generated/prisma/enums';
+import type { InteractionStatus } from '../../generated/prisma/enums';
 import type { CreateJobDto } from './dto/create-job.dto';
 
 describe('JobsService.buildCriteriaWhere', () => {
@@ -70,6 +71,7 @@ describe('JobsService.findByCriteria', () => {
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
       },
+      $queryRawUnsafe: jest.fn().mockResolvedValue([]),
     } as any;
   }
 
@@ -119,6 +121,20 @@ describe('JobsService.findByCriteria', () => {
     expect(prismaMock.job.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { datePosted: { gte: postedSince } } }),
     );
+  });
+
+  it('bypasses the date cutoff on the criteria branch when filtering by status, even without foundSearchId', async () => {
+    const prismaMock = mockPrisma();
+    const service = new JobsService(prismaMock);
+    const postedSince = new Date('2026-01-01');
+
+    await service.findByCriteria(['DevOps'], ['Lyon'], 50, 0, postedSince, {
+      status: 'APPLIED' as InteractionStatus,
+    });
+
+    const where = prismaMock.job.findMany.mock.calls[0][0].where;
+    expect(where.datePosted).toBeUndefined();
+    expect(where.interactions).toEqual({ some: { status: 'APPLIED' } });
   });
 });
 
