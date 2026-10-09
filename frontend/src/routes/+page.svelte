@@ -820,20 +820,21 @@
     }
   }
 
+  const FOCUS_PADDING_LEFT = 1016;
+
   function focusJob(job: Job) {
     if (!job.establishment) return;
     const currentZoom = map?.getZoom() ?? zoom;
     map?.easeTo({
       center: [job.establishment.lng, job.establishment.lat],
       zoom: Math.max(currentZoom, 13),
-      padding: { left: wideScreen ? 760 : 0, top: 0, right: 0, bottom: 0 },
+      padding: { left: wideScreen ? FOCUS_PADDING_LEFT : 0, top: 0, right: 0, bottom: 0 },
     });
   }
 
   function closeJobDetail() {
     selectedJob = null;
     if (!wideScreen) mobileView = "list";
-    map?.easeTo({ padding: { left: 0, top: 0, right: 0, bottom: 0 } });
   }
 
   function toggleMobileView() {
