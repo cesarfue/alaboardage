@@ -83,7 +83,7 @@ export class JobsService {
     opts: CriteriaFilterOptions,
     postedSince: Date | null,
   ): void {
-    if (postedSince) where.datePosted = { gte: postedSince };
+    if (postedSince && !opts.status) where.datePosted = { gte: postedSince };
     if (opts.source) where.source = opts.source;
     if (opts.company)
       where.company = { contains: opts.company, mode: 'insensitive' };

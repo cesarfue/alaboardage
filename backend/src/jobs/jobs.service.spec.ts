@@ -121,6 +121,56 @@ describe('JobsService.findByCriteria', () => {
   });
 });
 
+describe('JobsService.findByAnyCriteria', () => {
+  function mockPrisma() {
+    return {
+      job: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      $queryRawUnsafe: jest.fn().mockResolvedValue([]),
+    } as any;
+  }
+
+  it('does not apply the date cutoff when filtering by status', async () => {
+    const prismaMock = mockPrisma();
+    const service = new JobsService(prismaMock);
+    const postedSince = new Date('2026-01-01');
+
+    await service.findByAnyCriteria(
+      [{ queries: [], locations: [] }],
+      50,
+      0,
+      postedSince,
+      { status: 'APPLIED' as never },
+    );
+
+    const where = prismaMock.job.findMany.mock.calls[0][0].where;
+    expect(where.datePosted).toBeUndefined();
+    expect(where.interactions).toEqual({ some: { status: 'APPLIED' } });
+  });
+
+  it('applies the date cutoff normally when there is no status filter', async () => {
+    const prismaMock = mockPrisma();
+    const service = new JobsService(prismaMock);
+    const postedSince = new Date('2026-01-01');
+
+    await service.findByAnyCriteria(
+      [{ queries: [], locations: [] }],
+      50,
+      0,
+      postedSince,
+      {},
+    );
+
+    expect(prismaMock.job.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ datePosted: { gte: postedSince } }),
+      }),
+    );
+  });
+});
+
 describe('JobsService.findKnownByExternalIds', () => {
   it('returns an empty map without querying when given no ids', async () => {
     const prismaMock: any = { job: { findMany: jest.fn() } };
