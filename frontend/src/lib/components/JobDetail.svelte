@@ -2,7 +2,7 @@
   import type { InteractionStatus, Job } from "$lib/types";
   import { READABLE_SOURCES } from "$lib/types";
   import { api } from "$lib/api";
-  import { CheckCircle, Star, XCircle } from "@lucide/svelte";
+  import { CheckCircle, ChevronDown, Star, XCircle } from "@lucide/svelte";
   import { toast } from "svelte-sonner";
   import { MapLibre, DefaultMarker } from "svelte-maplibre";
 
@@ -54,6 +54,9 @@
       toast.error("Impossible d'enregistrer cette action");
     }
   }
+
+  let mapExpanded = $state(true);
+  let actionsExpanded = $state(false);
 </script>
 
 <div
@@ -94,15 +97,29 @@
   </div>
 
   {#if job.establishment}
-    <div class="md:hidden h-40 border-b shrink-0">
-      <MapLibre
-        style="https://tiles.openfreemap.org/styles/liberty"
-        class="w-full h-full"
-        center={[job.establishment.lng, job.establishment.lat]}
-        zoom={13}
+    <div class="md:hidden border-b shrink-0">
+      <button
+        class="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+        onclick={() => (mapExpanded = !mapExpanded)}
       >
-        <DefaultMarker lngLat={[job.establishment.lng, job.establishment.lat]} />
-      </MapLibre>
+        {mapExpanded ? "Masquer la carte" : "Afficher la carte"}
+        <ChevronDown
+          size={12}
+          class="transition-transform {mapExpanded ? 'rotate-180' : ''}"
+        />
+      </button>
+      {#if mapExpanded}
+        <div class="h-40">
+          <MapLibre
+            style="https://tiles.openfreemap.org/styles/liberty"
+            class="w-full h-full"
+            center={[job.establishment.lng, job.establishment.lat]}
+            zoom={13}
+          >
+            <DefaultMarker lngLat={[job.establishment.lng, job.establishment.lat]} />
+          </MapLibre>
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -112,65 +129,84 @@
     {job.description}
   </div>
 
-  <div class="flex gap-2 p-4 border-t">
+  <div class="md:hidden border-t">
     <button
-      onclick={() => toggleStatus("SAVED")}
-      class="flex items-center gap-1.5 flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors
-        {job.interactionStatus === 'SAVED'
-          ? 'bg-foreground text-background'
-          : 'border hover:bg-muted'}"
-      aria-label="Favori"
+      class="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground hover:bg-muted transition-colors"
+      onclick={() => (actionsExpanded = !actionsExpanded)}
     >
-      <Star size={15} />
-      Favori
-    </button>
-    <button
-      onclick={() => toggleStatus("APPLIED")}
-      class="flex items-center gap-1.5 flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors
-        {job.interactionStatus === 'APPLIED'
-          ? 'bg-primary text-primary-foreground'
-          : 'border hover:bg-muted'}"
-      aria-label="Postulé"
-    >
-      <CheckCircle size={15} />
-      Postulé
-    </button>
-    <button
-      onclick={() => toggleStatus("REJECTED")}
-      class="flex items-center gap-1.5 flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors
-        {job.interactionStatus === 'REJECTED'
-          ? 'bg-destructive text-destructive-foreground'
-          : 'border hover:bg-muted'}"
-      aria-label="Refusé"
-    >
-      <XCircle size={15} />
-      Refusé
+      {#if job.interactionStatus}
+        <span class="font-medium">{STATUS_LABEL[job.interactionStatus]}</span>
+      {:else}
+        <span>Favori · Postulé · Refusé</span>
+      {/if}
+      <ChevronDown
+        size={12}
+        class="transition-transform {actionsExpanded ? 'rotate-180' : ''}"
+      />
     </button>
   </div>
 
-  {#if interactionFormatted}
-    <p class="px-4 pb-2 -mt-1 text-xs text-muted-foreground text-center">
-      {interactionFormatted}
-    </p>
-  {/if}
-  <div class="px-4 pb-4 flex flex-col gap-2">
-    <a
-      href={job.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      class="block w-full text-center bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
-    >
-      Voir l'offre ({READABLE_SOURCES[job.source]}) →
-    </a>
-    {#each job.alternates ?? [] as alt (alt.url)}
+  <div class="{actionsExpanded ? 'block' : 'hidden'} md:block">
+    <div class="flex gap-2 p-4 md:border-t">
+      <button
+        onclick={() => toggleStatus("SAVED")}
+        class="flex items-center gap-1.5 flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors
+          {job.interactionStatus === 'SAVED'
+            ? 'bg-foreground text-background'
+            : 'border hover:bg-muted'}"
+        aria-label="Favori"
+      >
+        <Star size={15} />
+        Favori
+      </button>
+      <button
+        onclick={() => toggleStatus("APPLIED")}
+        class="flex items-center gap-1.5 flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors
+          {job.interactionStatus === 'APPLIED'
+            ? 'bg-primary text-primary-foreground'
+            : 'border hover:bg-muted'}"
+        aria-label="Postulé"
+      >
+        <CheckCircle size={15} />
+        Postulé
+      </button>
+      <button
+        onclick={() => toggleStatus("REJECTED")}
+        class="flex items-center gap-1.5 flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors
+          {job.interactionStatus === 'REJECTED'
+            ? 'bg-destructive text-destructive-foreground'
+            : 'border hover:bg-muted'}"
+        aria-label="Refusé"
+      >
+        <XCircle size={15} />
+        Refusé
+      </button>
+    </div>
+
+    {#if interactionFormatted}
+      <p class="px-4 pb-2 -mt-1 text-xs text-muted-foreground text-center">
+        {interactionFormatted}
+      </p>
+    {/if}
+    <div class="px-4 pb-4 flex flex-col gap-2">
       <a
-        href={alt.url}
+        href={job.url}
         target="_blank"
         rel="noopener noreferrer"
-        class="block w-full text-center border rounded-lg px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
+        class="block w-full text-center bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
       >
-        Voir sur {READABLE_SOURCES[alt.source]} →
+        Voir l'offre ({READABLE_SOURCES[job.source]}) →
       </a>
-    {/each}
+      {#each job.alternates ?? [] as alt (alt.url)}
+        <a
+          href={alt.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="block w-full text-center border rounded-lg px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
+        >
+          Voir sur {READABLE_SOURCES[alt.source]} →
+        </a>
+      {/each}
+    </div>
   </div>
 </div>

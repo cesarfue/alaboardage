@@ -93,6 +93,7 @@
 
   let showingSettings = $state(false);
   let showingScope = $state(false);
+  let mobileFiltersExpanded = $state(false);
 
   const activeSearch = $derived.by(() => {
     const current = view;
@@ -485,62 +486,75 @@
         {loading ? "Chargement…" : `${jobCount} offre${jobCount !== 1 ? "s" : ""}`}
       </span>
 
-      {#each statusChips as chip (chip.value)}
-        <button
-          class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors shrink-0
-            {status === chip.value
-              ? 'bg-primary text-primary-foreground'
-              : 'border hover:bg-muted text-muted-foreground'}"
-          onclick={() => (status = chip.value)}
-        >
-          {chip.label}
-        </button>
-      {/each}
       <button
-        class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors border shrink-0
-          {hideViewed ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}"
-        onclick={() => (hideViewed = !hideViewed)}
+        class="md:hidden shrink-0 border rounded-lg p-1.5 text-muted-foreground hover:bg-muted transition-colors"
+        onclick={() => (mobileFiltersExpanded = !mobileFiltersExpanded)}
+        aria-label={mobileFiltersExpanded ? "Masquer les filtres" : "Afficher les filtres"}
       >
-        Non lues uniquement
+        <ChevronDown
+          size={14}
+          class="transition-transform {mobileFiltersExpanded ? 'rotate-180' : ''}"
+        />
       </button>
-      <select
-        bind:value={daysFilter}
-        class="border rounded-full px-2.5 py-1 text-xs bg-background text-muted-foreground outline-none shrink-0"
-      >
-        {#each dateOptions as opt (opt.label)}
-          <option value={opt.value}>{opt.label}</option>
+
+      <div class="{mobileFiltersExpanded ? 'contents' : 'hidden'} md:contents">
+        {#each statusChips as chip (chip.value)}
+          <button
+            class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors shrink-0
+              {status === chip.value
+                ? 'bg-primary text-primary-foreground'
+                : 'border hover:bg-muted text-muted-foreground'}"
+            onclick={() => (status = chip.value)}
+          >
+            {chip.label}
+          </button>
         {/each}
-      </select>
-      <select
-        bind:value={source}
-        class="border rounded-full px-2.5 py-1 text-xs bg-background text-muted-foreground outline-none shrink-0"
-      >
-        <option value={null}>Tous les boards</option>
-        {#each sources as s (s)}
-          <option value={s}>{READABLE_SOURCES[s]}</option>
-        {/each}
-      </select>
-      <input
-        type="text"
-        placeholder="Entreprise"
-        bind:value={company}
-        class="min-w-0 w-28 border rounded-full px-2.5 py-1 text-xs outline-none focus:ring-2 focus:ring-ring shrink-0"
-      />
-      <select
-        bind:value={sortMode}
-        class="border rounded-full px-2.5 py-1 text-xs bg-background text-muted-foreground outline-none shrink-0"
-      >
-        <option value="date">Tri : Date</option>
-        <option value="score">Tri : Pertinence</option>
-      </select>
-      {#if hasActiveFilters}
         <button
-          onclick={clearFilters}
-          class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0"
+          class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors border shrink-0
+            {hideViewed ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}"
+          onclick={() => (hideViewed = !hideViewed)}
         >
-          Effacer les filtres
+          Non lues uniquement
         </button>
-      {/if}
+        <select
+          bind:value={daysFilter}
+          class="border rounded-full px-2.5 py-1 text-xs bg-background text-muted-foreground outline-none shrink-0"
+        >
+          {#each dateOptions as opt (opt.label)}
+            <option value={opt.value}>{opt.label}</option>
+          {/each}
+        </select>
+        <select
+          bind:value={source}
+          class="border rounded-full px-2.5 py-1 text-xs bg-background text-muted-foreground outline-none shrink-0"
+        >
+          <option value={null}>Tous les boards</option>
+          {#each sources as s (s)}
+            <option value={s}>{READABLE_SOURCES[s]}</option>
+          {/each}
+        </select>
+        <input
+          type="text"
+          placeholder="Entreprise"
+          bind:value={company}
+          class="min-w-0 w-28 border rounded-full px-2.5 py-1 text-xs outline-none focus:ring-2 focus:ring-ring shrink-0"
+        />
+        <select
+          bind:value={sortMode}
+          class="border rounded-full px-2.5 py-1 text-xs bg-background text-muted-foreground outline-none shrink-0"
+        >
+          <option value="date">Tri : Date</option>
+          <option value="score">Tri : Pertinence</option>
+        </select>
+        {#if hasActiveFilters}
+          <button
+            onclick={clearFilters}
+            class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0"
+          >
+            Effacer les filtres
+          </button>
+        {/if}
+      </div>
 
       <div class="flex items-center gap-1.5 shrink-0 ml-auto">
         {#if onRequestRefresh}
