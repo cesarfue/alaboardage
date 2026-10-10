@@ -272,7 +272,7 @@
       onclick={toggleScope}
       class="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted {showingScope ? 'bg-muted' : ''}"
     >
-      <span class="max-w-[12rem] truncate">{currentViewLabel}</span>
+      <span class="max-w-[6rem] md:max-w-[12rem] truncate">{currentViewLabel}</span>
       {#if totalNew > 0}
         <span
           class="rounded-full bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 leading-none"
@@ -479,10 +479,10 @@
       {/if}
     </div>
   {:else}
-    <div class="flex flex-row flex-wrap items-center gap-1.5 md:gap-2 min-w-0">
+    <div class="flex flex-row flex-nowrap md:flex-wrap items-center gap-1.5 md:gap-2 min-w-0 overflow-x-auto md:overflow-x-visible">
       {@render scopeDropdown()}
 
-      <span class="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
+      <span class="hidden md:inline text-xs text-muted-foreground shrink-0 whitespace-nowrap">
         {loading ? "Chargement…" : `${jobCount} offre${jobCount !== 1 ? "s" : ""}`}
       </span>
 
@@ -563,7 +563,7 @@
             disabled={refreshState !== "idle"}
             aria-label={refreshLabel}
             title={refreshLabel}
-            class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted
+            class="border rounded-lg px-2 py-1.5 md:px-3 md:py-2 transition-colors hover:bg-muted
                    disabled:cursor-not-allowed disabled:opacity-100"
           >
             <RefreshCw size={16} class={refreshState === "running" ? "animate-spin" : ""} />
@@ -573,7 +573,7 @@
           {#if activeSearch && !activeSearch.archived}
             <button
               onclick={() => (editing ? (editing = null) : openEditor(activeSearch))}
-              class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {editing ? 'bg-muted' : ''}"
+              class="border rounded-lg px-2 py-1.5 md:px-3 md:py-2 transition-colors hover:bg-muted {editing ? 'bg-muted' : ''}"
               title="Modifier cette recherche"
               aria-label="Modifier cette recherche"
             >
@@ -611,7 +611,7 @@
         <div class="relative">
           <button
             onclick={toggleSettings}
-            class="border rounded-lg px-3 py-2 transition-colors hover:bg-muted {showingSettings ? 'bg-muted' : ''}"
+            class="border rounded-lg px-2 py-1.5 md:px-3 md:py-2 transition-colors hover:bg-muted {showingSettings ? 'bg-muted' : ''}"
           >
             <Settings size={16} />
           </button>
