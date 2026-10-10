@@ -418,6 +418,10 @@
 
   $effect(() => {
     const current = view;
+    void daysFilter;
+    void source;
+    void company;
+    void status;
     if (current.kind === "new") return;
     untrack(() => {
       if (current.kind === "all") void loadSavedSearchJobs(ALL_TAB);
