@@ -83,7 +83,7 @@ export class JobsService {
     opts: CriteriaFilterOptions,
     postedSince: Date | null,
   ): void {
-    if (postedSince && !opts.status) where.datePosted = { gte: postedSince };
+    if (postedSince) where.datePosted = { gte: postedSince };
     if (opts.source) where.source = opts.source;
     if (opts.company)
       where.company = { contains: opts.company, mode: 'insensitive' };
@@ -95,10 +95,9 @@ export class JobsService {
     locations: string[],
     foundSearchId: string | undefined,
     postedSince: Date | null,
-    status: InteractionStatus | undefined,
   ): Promise<Prisma.JobWhereInput> {
     const criteriaWhere = await this.buildCriteriaWhere(queries, locations);
-    if (postedSince && !status) criteriaWhere.datePosted = { gte: postedSince };
+    if (postedSince) criteriaWhere.datePosted = { gte: postedSince };
     if (!foundSearchId) return criteriaWhere;
     const searchLink: Prisma.JobWhereInput = {
       interactions: { some: { foundSearchId } },
@@ -147,7 +146,6 @@ export class JobsService {
       locations,
       opts.foundSearchId,
       postedSince,
-      opts.status,
     );
     this.applyFilterOptions(where, opts, null);
     return this.page(where, limit, offset);

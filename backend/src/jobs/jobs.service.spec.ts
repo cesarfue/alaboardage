@@ -123,7 +123,7 @@ describe('JobsService.findByCriteria', () => {
     );
   });
 
-  it('bypasses the date cutoff on the criteria branch when filtering by status, even without foundSearchId', async () => {
+  it('applies the date cutoff on the criteria branch even when filtering by status', async () => {
     const prismaMock = mockPrisma();
     const service = new JobsService(prismaMock);
     const postedSince = new Date('2026-01-01');
@@ -133,7 +133,7 @@ describe('JobsService.findByCriteria', () => {
     });
 
     const where = prismaMock.job.findMany.mock.calls[0][0].where;
-    expect(where.datePosted).toBeUndefined();
+    expect(where.datePosted).toEqual({ gte: postedSince });
     expect(where.interactions).toEqual({ some: { status: 'APPLIED' } });
   });
 });
@@ -149,7 +149,7 @@ describe('JobsService.findByAnyCriteria', () => {
     } as any;
   }
 
-  it('does not apply the date cutoff when filtering by status', async () => {
+  it('applies the date cutoff even when filtering by status', async () => {
     const prismaMock = mockPrisma();
     const service = new JobsService(prismaMock);
     const postedSince = new Date('2026-01-01');
@@ -163,7 +163,7 @@ describe('JobsService.findByAnyCriteria', () => {
     );
 
     const where = prismaMock.job.findMany.mock.calls[0][0].where;
-    expect(where.datePosted).toBeUndefined();
+    expect(where.datePosted).toEqual({ gte: postedSince });
     expect(where.interactions).toEqual({ some: { status: 'APPLIED' } });
   });
 
