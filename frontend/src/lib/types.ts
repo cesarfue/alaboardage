@@ -18,7 +18,7 @@ export interface Job {
   location: string;
   description: string;
   url: string;
-  datePosted: string;
+  datePosted: string | null;
   scrapedAt: string;
   updatedAt: string;
   establishment: Establishment | null;

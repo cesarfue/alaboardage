@@ -21,11 +21,13 @@
   } = $props();
 
   const dateFormatted = $derived(
-    new Date(job.datePosted).toLocaleDateString("fr-FR", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    })
+    job.datePosted
+      ? new Date(job.datePosted).toLocaleDateString("fr-FR", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : "Date inconnue"
   );
 
   const STATUS_LABEL: Record<InteractionStatus, string> = {

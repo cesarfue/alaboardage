@@ -656,7 +656,7 @@
       }
 
       // Date filter — jobs without a valid datePosted are included
-      if (daysFilter !== null) {
+      if (daysFilter !== null && j.datePosted) {
         const d = new Date(j.datePosted);
         if (!isNaN(d.getTime())) {
           const cutoff = Date.now() - daysFilter * 24 * 60 * 60 * 1000;
