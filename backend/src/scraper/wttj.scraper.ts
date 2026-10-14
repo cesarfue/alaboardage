@@ -14,7 +14,7 @@
 import type { ScrapeRequestDto } from './dto/scrape-request.dto';
 import type { CreateJobDto } from '../jobs/dto/create-job.dto';
 import { JobSource } from '../../generated/prisma/enums';
-import { htmlToText } from './transforms';
+import { htmlToText, parseDate } from './transforms';
 
 const ALGOLIA_APP_ID = 'CSEKHVMS53';
 const ALGOLIA_API_KEY = '4bd8f6215d0cc52b26430765769e65a0';
@@ -162,7 +162,7 @@ export class WTTJScraper {
       location,
       description: descParts.join('\n\n'),
       url,
-      datePosted: hit.published_at ? new Date(hit.published_at) : new Date(),
+      datePosted: hit.published_at ? parseDate(hit.published_at) : null,
     };
   }
 

@@ -163,7 +163,7 @@ export class BoardScraper {
     if (!externalId) return null;
     const url = this.buildDisplayUrl(externalId);
     const datePostedRaw = this.extract($card, selectors.datePosted);
-    const datePosted = datePostedRaw ? parseDate(datePostedRaw) : new Date();
+    const datePosted = datePostedRaw ? parseDate(datePostedRaw) : null;
 
     const base = {
       externalId,

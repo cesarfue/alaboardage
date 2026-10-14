@@ -75,28 +75,34 @@ export function jeunesdavenirsId(href: string): string {
 
 export function glassdoorAge(text: string): string {
   const normalized = text.trim().toLowerCase().replace('+', '');
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
   const days = parseInt(normalized, 10);
-  if (!Number.isNaN(days)) today.setUTCDate(today.getUTCDate() - days);
-  return today.toISOString().slice(0, 10);
+  if (Number.isNaN(days)) return '';
+  return daysAgo(days);
 }
 
 export function handleSpelledDate(text: string): string {
   const normalized = text.trim().toLowerCase();
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  if (normalized.includes("aujourd'hui") || normalized.includes('today'))
+    return daysAgo(0);
+  if (normalized.includes('hier') || normalized.includes('yesterday'))
+    return daysAgo(1);
 
   const n = extractNumber(normalized);
-  if (normalized.includes('semaine') || normalized.includes('week')) {
-    today.setUTCDate(today.getUTCDate() - n * 7);
-  } else if (normalized.includes('jour') || normalized.includes('day')) {
-    today.setUTCDate(today.getUTCDate() - n);
-  } else if (normalized.includes('mois') || normalized.includes('month')) {
-    today.setUTCDate(today.getUTCDate() - n * 30);
-  }
+  if (normalized.includes('semaine') || normalized.includes('week'))
+    return daysAgo(n * 7);
+  if (normalized.includes('jour') || normalized.includes('day'))
+    return daysAgo(n);
+  if (normalized.includes('mois') || normalized.includes('month'))
+    return daysAgo(n * 30);
 
-  return today.toISOString().slice(0, 10);
+  return '';
+}
+
+function daysAgo(days: number): string {
+  const day = new Date();
+  day.setUTCHours(0, 0, 0, 0);
+  day.setUTCDate(day.getUTCDate() - days);
+  return day.toISOString().slice(0, 10);
 }
 
 function extractNumber(text: string): number {
@@ -112,9 +118,9 @@ export function linkedinId(text: string): string {
   return parts[parts.length - 1] ?? '';
 }
 
-export function parseDate(text: string): Date {
+export function parseDate(text: string): Date | null {
   const trimmed = text.trim();
+  if (!trimmed) return null;
   const parsed = new Date(trimmed);
-  if (!Number.isNaN(parsed.getTime())) return parsed;
-  return new Date();
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }

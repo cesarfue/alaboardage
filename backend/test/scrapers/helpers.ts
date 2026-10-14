@@ -230,9 +230,12 @@ export function assertValidJob(job: CreateJobDto, expectedSource: JobSource) {
   expect(job.company).toBeTruthy();
   expect(job.url).toMatch(/^https?:\/\//);
 
-  const posted = new Date(job.datePosted);
-  expect(Number.isNaN(posted.getTime())).toBe(false);
-  expect(posted.getTime()).toBeLessThan(Date.now() + 24 * 60 * 60 * 1000);
+  if (job.datePosted) {
+    expect(Number.isNaN(job.datePosted.getTime())).toBe(false);
+    expect(job.datePosted.getTime()).toBeLessThan(
+      Date.now() + 24 * 60 * 60 * 1000,
+    );
+  }
 }
 
 export function printJobs(label: string, jobs: CreateJobDto[]) {

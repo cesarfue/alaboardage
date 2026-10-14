@@ -78,12 +78,26 @@ export class JobsService {
     return where;
   }
 
+  private applyPostedSince(
+    where: Prisma.JobWhereInput,
+    postedSince: Date | null,
+  ): void {
+    if (!postedSince) return;
+    const clause: Prisma.JobWhereInput = {
+      OR: [{ datePosted: { gte: postedSince } }, { datePosted: null }],
+    };
+    const existing = where.AND;
+    where.AND = existing
+      ? [...(Array.isArray(existing) ? existing : [existing]), clause]
+      : [clause];
+  }
+
   private applyFilterOptions(
     where: Prisma.JobWhereInput,
     opts: CriteriaFilterOptions,
     postedSince: Date | null,
   ): void {
-    if (postedSince) where.datePosted = { gte: postedSince };
+    this.applyPostedSince(where, postedSince);
     if (opts.source) where.source = opts.source;
     if (opts.company)
       where.company = { contains: opts.company, mode: 'insensitive' };
@@ -97,7 +111,7 @@ export class JobsService {
     postedSince: Date | null,
   ): Promise<Prisma.JobWhereInput> {
     const criteriaWhere = await this.buildCriteriaWhere(queries, locations);
-    if (postedSince) criteriaWhere.datePosted = { gte: postedSince };
+    this.applyPostedSince(criteriaWhere, postedSince);
     if (!foundSearchId) return criteriaWhere;
     const searchLink: Prisma.JobWhereInput = {
       interactions: { some: { foundSearchId } },
@@ -114,7 +128,7 @@ export class JobsService {
   ): Promise<number> {
     const where = await this.buildCriteriaWhere(queries, locations);
     if (since) where.scrapedAt = { gt: since };
-    if (postedSince) where.datePosted = { gte: postedSince };
+    this.applyPostedSince(where, postedSince);
     return this.prisma.job.count({ where });
   }
 
@@ -175,7 +189,7 @@ export class JobsService {
   ): Promise<string[]> {
     const where = await this.buildCriteriaWhere(queries, locations);
     if (since) where.scrapedAt = { gt: since };
-    if (postedSince) where.datePosted = { gte: postedSince };
+    this.applyPostedSince(where, postedSince);
     const rows = await this.prisma.job.findMany({
       where,
       select: { id: true },
@@ -191,7 +205,10 @@ export class JobsService {
     const [rawItems, total] = await Promise.all([
       this.prisma.job.findMany({
         where,
-        orderBy: { datePosted: 'desc' },
+        orderBy: [
+          { datePosted: { sort: 'desc', nulls: 'last' } },
+          { scrapedAt: 'desc' },
+        ],
         take: limit,
         skip: offset,
         include: {
@@ -229,12 +246,13 @@ export class JobsService {
 
   upsert(dto: CreateJobDto) {
     const { source, externalId, ...data } = dto;
-    const update = data.description
-      ? data
-      : { ...data, description: undefined };
+    const { datePosted, ...refreshable } = data;
+    const update = refreshable.description
+      ? refreshable
+      : { ...refreshable, description: undefined };
     return this.prisma.job.upsert({
       where: { source_externalId: { source, externalId } },
-      create: { source, externalId, ...data },
+      create: { source, externalId, datePosted, ...refreshable },
       update,
     });
   }

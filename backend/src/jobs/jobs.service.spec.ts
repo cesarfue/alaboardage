@@ -64,6 +64,12 @@ describe('JobsService.buildCriteriaWhere', () => {
   });
 });
 
+function cutoffClause(postedSince: Date) {
+  return {
+    OR: [{ datePosted: { gte: postedSince } }, { datePosted: null }],
+  };
+}
+
 describe('JobsService.findByCriteria', () => {
   function mockPrisma() {
     return {
@@ -104,11 +110,11 @@ describe('JobsService.findByCriteria', () => {
     expect(where.OR).toEqual([
       {
         OR: [{ location: { contains: 'Paris', mode: 'insensitive' } }],
-        datePosted: { gte: postedSince },
+        AND: [cutoffClause(postedSince)],
       },
       { interactions: { some: { foundSearchId: 'search-1' } } },
     ]);
-    expect(where.datePosted).toBeUndefined();
+    expect(where.AND).toBeUndefined();
   });
 
   it('applies the date cutoff normally when there is no foundSearchId', async () => {
@@ -119,8 +125,19 @@ describe('JobsService.findByCriteria', () => {
     await service.findByCriteria([], [], 50, 0, postedSince, {});
 
     expect(prismaMock.job.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { datePosted: { gte: postedSince } } }),
+      expect.objectContaining({ where: { AND: [cutoffClause(postedSince)] } }),
     );
+  });
+
+  it('keeps jobs without a known publication date inside the cutoff', async () => {
+    const prismaMock = mockPrisma();
+    const service = new JobsService(prismaMock);
+    const postedSince = new Date('2026-01-01');
+
+    await service.findByCriteria([], [], 50, 0, postedSince, {});
+
+    const where = prismaMock.job.findMany.mock.calls[0][0].where;
+    expect(where.AND[0].OR).toContainEqual({ datePosted: null });
   });
 
   it('applies the date cutoff on the criteria branch even when filtering by status', async () => {
@@ -133,7 +150,7 @@ describe('JobsService.findByCriteria', () => {
     });
 
     const where = prismaMock.job.findMany.mock.calls[0][0].where;
-    expect(where.datePosted).toEqual({ gte: postedSince });
+    expect(where.AND).toEqual([cutoffClause(postedSince)]);
     expect(where.interactions).toEqual({ some: { status: 'APPLIED' } });
   });
 });
@@ -163,7 +180,7 @@ describe('JobsService.findByAnyCriteria', () => {
     );
 
     const where = prismaMock.job.findMany.mock.calls[0][0].where;
-    expect(where.datePosted).toEqual({ gte: postedSince });
+    expect(where.AND).toEqual([cutoffClause(postedSince)]);
     expect(where.interactions).toEqual({ some: { status: 'APPLIED' } });
   });
 
@@ -182,7 +199,7 @@ describe('JobsService.findByAnyCriteria', () => {
 
     expect(prismaMock.job.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ datePosted: { gte: postedSince } }),
+        where: expect.objectContaining({ AND: [cutoffClause(postedSince)] }),
       }),
     );
   });
@@ -282,5 +299,30 @@ describe('JobsService.upsert', () => {
 
     const call = prismaMock.job.upsert.mock.calls[0][0];
     expect(call.create.description).toBe('');
+  });
+
+  it('never rewrites datePosted on a job that is already known', async () => {
+    const prismaMock: any = {
+      job: { upsert: jest.fn().mockResolvedValue({}) },
+    };
+    const service = new JobsService(prismaMock);
+
+    await service.upsert(baseDto({ datePosted: new Date('2026-06-01') }));
+
+    const call = prismaMock.job.upsert.mock.calls[0][0];
+    expect(call.update).not.toHaveProperty('datePosted');
+    expect(call.create.datePosted).toEqual(new Date('2026-06-01'));
+  });
+
+  it('creates a job with a null datePosted when the scrape found no date', async () => {
+    const prismaMock: any = {
+      job: { upsert: jest.fn().mockResolvedValue({}) },
+    };
+    const service = new JobsService(prismaMock);
+
+    await service.upsert(baseDto({ datePosted: null }));
+
+    const call = prismaMock.job.upsert.mock.calls[0][0];
+    expect(call.create.datePosted).toBeNull();
   });
 });

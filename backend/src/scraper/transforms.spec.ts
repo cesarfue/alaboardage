@@ -13,15 +13,17 @@ describe('transforms', () => {
     it('parses an ISO date string', () => {
       const d = parseDate('2024-03-15');
       expect(d).toBeInstanceOf(Date);
-      expect(d.getUTCFullYear()).toBe(2024);
-      expect(d.getUTCMonth()).toBe(2); // 0-indexed
-      expect(d.getUTCDate()).toBe(15);
+      expect(d!.getUTCFullYear()).toBe(2024);
+      expect(d!.getUTCMonth()).toBe(2); // 0-indexed
+      expect(d!.getUTCDate()).toBe(15);
     });
 
-    it('falls back to today for an invalid string', () => {
-      const before = Date.now();
-      const d = parseDate('not-a-date');
-      expect(d.getTime()).toBeGreaterThanOrEqual(before - 1000);
+    it('returns null for an invalid string', () => {
+      expect(parseDate('not-a-date')).toBeNull();
+    });
+
+    it('returns null for an empty string', () => {
+      expect(parseDate('   ')).toBeNull();
     });
   });
 
@@ -48,6 +50,10 @@ describe('transforms', () => {
       today.setUTCHours(0, 0, 0, 0);
       today.setUTCDate(today.getUTCDate() - 30);
       expect(glassdoorAge('30j+')).toBe(today.toISOString().slice(0, 10));
+    });
+
+    it('returns an empty string when no number can be read', () => {
+      expect(glassdoorAge('récemment')).toBe('');
     });
   });
 
@@ -79,12 +85,25 @@ describe('transforms', () => {
       );
     });
 
-    it('returns today for an unrecognised format', () => {
+    it('handles "Aujourd\'hui"', () => {
       const today = new Date();
       today.setUTCHours(0, 0, 0, 0);
-      expect(handleSpelledDate('unknown format')).toBe(
+      expect(handleSpelledDate("Aujourd'hui")).toBe(
         today.toISOString().slice(0, 10),
       );
+    });
+
+    it('handles "Hier"', () => {
+      const yesterday = new Date();
+      yesterday.setUTCHours(0, 0, 0, 0);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      expect(handleSpelledDate('Hier')).toBe(
+        yesterday.toISOString().slice(0, 10),
+      );
+    });
+
+    it('returns an empty string for an unrecognised format', () => {
+      expect(handleSpelledDate('unknown format')).toBe('');
     });
   });
 

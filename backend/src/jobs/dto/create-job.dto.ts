@@ -1,5 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsDate, IsEnum, IsNotEmpty, IsString, IsUrl } from 'class-validator';
+import {
+  IsDate,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+} from 'class-validator';
 import { JobSource } from '../../../generated/prisma/enums';
 
 export class CreateJobDto {
@@ -26,7 +33,8 @@ export class CreateJobDto {
   @IsUrl()
   url!: string;
 
+  @IsOptional()
   @Type(() => Date)
   @IsDate()
-  datePosted!: Date;
+  datePosted?: Date | null;
 }

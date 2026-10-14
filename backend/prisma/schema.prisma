@@ -31,7 +31,7 @@ model Job {
   location        String
   description     String
   url             String
-  datePosted      DateTime
+  datePosted      DateTime?
   scrapedAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   establishment   Establishment?   @relation(fields: [establishmentId], references: [siret])
