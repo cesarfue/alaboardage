@@ -23,5 +23,8 @@ describe('Hellowork scraper (live)', () => {
     printJobs('Hellowork', jobs);
     expect(jobs.length).toBeGreaterThan(0);
     for (const job of jobs) assertValidJob(job, JobSource.HELLOWORK);
+
+    const withDate = jobs.filter((j) => j.datePosted).length;
+    expect(withDate).toBeGreaterThan(jobs.length / 2);
   });
 });

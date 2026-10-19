@@ -37,7 +37,7 @@ export const HELLOWORK: BoardConfig = {
       transforms: helloworkDescription,
     },
     datePosted: {
-      selects: "div[class='tw-typo-s tw-text-grey-500 tw-pl-1 tw-pt-1']",
+      selects: 'div.typo-s.text-grey-500.pl-1.pt-1',
       returns: { kind: 'text' },
       transforms: handleSpelledDate,
     },
