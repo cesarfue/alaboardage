@@ -22,5 +22,8 @@ describe('LinkedIn scraper (live)', () => {
     printJobs('LinkedIn', jobs);
     expect(jobs.length).toBeGreaterThan(0);
     for (const job of jobs) assertValidJob(job, JobSource.LINKEDIN);
+
+    const withDate = jobs.filter((j) => j.datePosted).length;
+    expect(withDate).toBeGreaterThan(jobs.length / 2);
   });
 });

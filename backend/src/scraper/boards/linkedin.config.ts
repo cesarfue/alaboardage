@@ -35,7 +35,8 @@ export const LINKEDIN: BoardConfig = {
       transforms: htmlToText,
     },
     datePosted: {
-      selects: 'time.job-search-card__listdate',
+      selects:
+        'time.job-search-card__listdate, time.job-search-card__listdate--new',
       returns: { kind: 'attribute', name: 'datetime' },
     },
   },
