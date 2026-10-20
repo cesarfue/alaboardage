@@ -48,8 +48,10 @@ export const JEUNESDAVENIR: BoardConfig = {
     },
     // Description is fetched from the job detail page.
     description: {
-      selects: 'div.wysiwyg',
+      selects:
+        'div.wysiwyg:has(h3:contains("Les missions")), div.wysiwyg:has(h3:contains("Le profil"))',
       returns: { kind: 'html' },
+      n: [0, 2],
       transforms: htmlToText,
     },
   },
