@@ -26,7 +26,7 @@
   import JobList from "$lib/components/JobList.svelte";
   import TopBar from "$lib/components/TopBar.svelte";
   import JobDetail from "$lib/components/JobDetail.svelte";
-  import { normalizeText } from "$lib/utils";
+  import { alphanumericKey, normalizeText } from "$lib/utils";
 
   let query = $state(page.url.searchParams.get("query") ?? "");
   let location = $state(page.url.searchParams.get("location") ?? "");
@@ -545,7 +545,7 @@
     const byKey = new Map<string, Job>();
     const order: Job[] = [];
     for (const j of sortedJobs) {
-      const key = normalizeText(j.company) + "|" + normalizeText(j.title);
+      const key = alphanumericKey(j.company) + "|" + alphanumericKey(j.title);
       const rep = byKey.get(key);
       if (!rep) {
         const copy: Job = { ...j, alternates: [] };
