@@ -146,6 +146,47 @@ describe('BoardScraper', () => {
       expect(jobs[0].description).toBe('Full job description goes here.');
     });
 
+    it('falls back to the detail page date when the card has none', async () => {
+      const cardNoDate = `
+<div class="card" data-id="job-77">
+  <h3 class="title">Dev</h3>
+  <span class="company">Corp</span>
+  <span class="location">Lyon</span>
+</div>`;
+      const detailWithDate = `
+<div class="description">Full description.</div>
+<time datetime="2026-03-10"></time>`;
+      const browser = makeBrowserMock(cardNoDate, detailWithDate);
+      const scraper = new BoardScraper(
+        browser,
+        TEST_CONFIG,
+        BASE_PARAMS,
+        JobSource.HELLOWORK,
+      );
+
+      const jobs = await collect(scraper);
+
+      expect(jobs[0].datePosted).toBeInstanceOf(Date);
+      expect(jobs[0].datePosted?.toISOString().slice(0, 10)).toBe('2026-03-10');
+    });
+
+    it('keeps the card date when the card has one, ignoring the detail page', async () => {
+      const detailWithOtherDate = `
+<div class="description">Full description.</div>
+<time datetime="2099-12-31"></time>`;
+      const browser = makeBrowserMock(CARD_HTML, detailWithOtherDate);
+      const scraper = new BoardScraper(
+        browser,
+        TEST_CONFIG,
+        BASE_PARAMS,
+        JobSource.HELLOWORK,
+      );
+
+      const jobs = await collect(scraper);
+
+      expect(jobs[0].datePosted?.toISOString().slice(0, 10)).toBe('2026-01-15');
+    });
+
     it('uses card description when descriptionFromCard is true', async () => {
       const cardWithDesc = `
 <div class="card" data-id="job-99">

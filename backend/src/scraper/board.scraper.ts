@@ -97,7 +97,7 @@ export class BoardScraper {
               await this.sleep(300 + Math.random() * 500);
             }
             const batch = partialJobs.slice(i, i + batchSize);
-            const descriptions = await Promise.all(
+            const details = await Promise.all(
               batch.map((j) => {
                 const existing = known.get(j.externalId);
                 const isFresh =
@@ -105,7 +105,10 @@ export class BoardScraper {
                   existing.description &&
                   Date.now() - existing.scrapedAt.getTime() < FRESHNESS_MS;
                 return isFresh
-                  ? Promise.resolve(existing.description)
+                  ? Promise.resolve({
+                      description: existing.description,
+                      datePosted: null,
+                    })
                   : this.fetchDescription(
                       descriptionContext!,
                       this.buildJobUrl(j.externalId),
@@ -116,7 +119,11 @@ export class BoardScraper {
             // others in the batch. onJob is awaited so the caller can throttle.
             await Promise.all(
               batch.map((j, idx) =>
-                onJob({ ...j, description: descriptions[idx] }),
+                onJob({
+                  ...j,
+                  description: details[idx].description,
+                  datePosted: j.datePosted ?? details[idx].datePosted,
+                }),
               ),
             );
             emitted += batch.length;
@@ -188,23 +195,26 @@ export class BoardScraper {
   private async fetchDescription(
     context: BrowserContext,
     url: string,
-  ): Promise<string> {
+  ): Promise<{ description: string; datePosted: Date | null }> {
     for (let attempt = 0; attempt < 2; attempt++) {
       const page = await context.newPage();
       let description = '';
+      let datePosted: Date | null = null;
       try {
         await page.goto(url, { waitUntil: 'domcontentloaded' });
         const $job = load(await page.content());
         description = this.extract($job, this.config.selectors.description);
+        const raw = this.extract($job, this.config.selectors.datePosted);
+        datePosted = raw ? parseDate(raw) : null;
       } catch {
         description = '';
       } finally {
         await page.close();
       }
-      if (description) return description;
+      if (description) return { description, datePosted };
       if (attempt === 0) await this.sleep(500);
     }
-    return '';
+    return { description: '', datePosted: null };
   }
 
   private extract($: CheerioAPI, rule: Rule): string {
