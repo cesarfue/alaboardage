@@ -16,11 +16,11 @@ export const HELLOWORK: BoardConfig = {
       returns: { kind: 'attribute', name: 'data-id-storage-item-id' },
     },
     title: {
-      selects: 'h3.inline p:first-of-type',
+      selects: 'h3.inline span.block',
       returns: { kind: 'text' },
     },
     company: {
-      selects: 'h3.inline p:last-of-type',
+      selects: 'h3.inline span.typo-s',
       returns: { kind: 'text' },
     },
     location: {
