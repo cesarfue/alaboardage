@@ -25,7 +25,7 @@ export class SearchRefreshService {
   private lastRunAt: number | null = null;
 
   private static readonly TICK_MS = 60 * 1000; // poll cadence
-  private static readonly PER_SEARCH_TIMEOUT_MS = 2 * 60 * 1000; // 2 min
+  private static readonly PER_SEARCH_TIMEOUT_MS = 8 * 60 * 1000; // 8 min
   private static readonly MAX_SEARCHES_PER_RUN = 40;
 
   constructor(
